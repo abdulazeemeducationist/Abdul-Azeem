@@ -6,6 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface HealthStatus {
-  status: string;
+export interface CreateCourseRequest {
+  name: string;
+  code: string;
+  description?: string;
+  icon?: string;
+  color?: string;
 }

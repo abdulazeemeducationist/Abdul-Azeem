@@ -1,0 +1,175 @@
+Build a fully functional mobile application for students to practice MCQs for professional accounting qualifications.
+
+The app should support courses like ACCA, PIPFA, B.Com, and MBA.
+
+The application must include the following modules:
+
+1. USER AUTHENTICATION
+Create a login system with:
+- Sign Up screen
+- Sign In screen
+- Email and password authentication
+- Google Sign-In
+- Apple Sign-In
+- Password reset option
+- Store user data securely
+
+2. HOME SCREEN
+After login, display a welcome message:
+“Welcome, [Student Name]”
+
+Show available courses in a list:
+- ACCA
+- PIPFA
+- B.Com
+- MBA
+
+Each course should be clickable.
+
+3. COURSE NAVIGATION STRUCTURE
+Implement hierarchical navigation:
+
+Home
+→ Course
+→ Subject
+→ Chapter
+→ Topic
+→ MCQs
+
+Example:
+
+ACCA
+→ MA1
+→ Chapter 1: Cost Classification
+→ Topic 1: Fixed vs Variable Costs
+→ MCQ Questions
+
+4. MCQ PRACTICE SCREEN
+The MCQ screen must include:
+
+- Question text
+- Four options (A, B, C, D)
+
+Support two types of questions:
+• Single correct answer (radio buttons)
+• Two correct answers (checkboxes)
+
+Add functionality:
+
+- Submit button
+- Immediate feedback: Correct / Incorrect
+- Explanation display after submission
+- Next Question button
+- Progress indicator (Question 3 of 20)
+- Score tracking for the topic
+
+5. RESULT SCREEN
+After finishing a topic:
+
+Display:
+- Total questions
+- Correct answers
+- Score percentage
+- Option to review answers
+- Button to restart topic
+
+6. DATA STORAGE AND BACKEND
+Implement a scalable database structure.
+
+Tables/Collections:
+
+Users
+Courses
+Subjects
+Chapters
+Topics
+Questions
+UserProgress
+
+Each question must store:
+- Question text
+- Option A
+- Option B
+- Option C
+- Option D
+- Correct answer(s)
+- Explanation
+- Topic ID
+
+Use a backend database such as Firebase or Supabase.
+
+7. ADMIN PANEL
+Create an admin interface where the admin can:
+
+- Add courses
+- Add subjects
+- Add chapters
+- Add topics
+- Upload MCQs
+- Edit or delete questions
+
+Admin should also view student statistics.
+
+8. SAMPLE DATA
+Add sample data including:
+
+Courses:
+ACCA, PIPFA
+
+Subject:
+MA1 – Management Information
+
+Chapter:
+Cost Classification
+
+Topic:
+Fixed vs Variable Costs
+
+Sample MCQ:
+Question: Which cost remains constant?
+Options:
+A Fixed Cost
+B Variable Cost
+C Semi-variable Cost
+D None
+
+Correct Answer: A
+Explanation: Fixed cost does not change with level of activity.
+
+9. DESIGN
+Use a clean educational UI with:
+
+- Blue and white color theme
+- Mobile-friendly layout
+- Clear navigation
+- Professional design suitable for education apps
+
+10. APP FLOW SUMMARY
+
+Sign Up / Sign In
+→ Home (Courses)
+→ Subject
+→ Chapter
+→ Topic
+→ MCQs
+→ Topic Result / Progress
+
+11. FUTURE SCALABILITY
+Ensure the app supports:
+
+- thousands of MCQs
+- adding new courses
+- adding new subjects
+- analytics dashboard
+- mock exams
+- leaderboard
+
+Generate the complete application structure including:
+
+- Frontend screens
+- Backend logic
+- Database schema
+- API connections
+- Sample data
+
+Ensure everything is connected and functional.

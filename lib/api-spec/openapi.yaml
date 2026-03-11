@@ -1,22 +1,36 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: MCQ Practice App API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication
+  - name: courses
+    description: Courses management
+  - name: subjects
+    description: Subjects management
+  - name: chapters
+    description: Chapters management
+  - name: topics
+    description: Topics management
+  - name: questions
+    description: Questions management
+  - name: progress
+    description: User progress
+  - name: admin
+    description: Admin operations
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +38,390 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /auth/signup:
+    post:
+      operationId: signUp
+      tags: [auth]
+      summary: Create a new user account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignUpRequest"
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Email already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/signin:
+    post:
+      operationId: signIn
+      tags: [auth]
+      summary: Sign in to an existing account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignInRequest"
+      responses:
+        "200":
+          description: Signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/reset-password:
+    post:
+      operationId: resetPassword
+      tags: [auth]
+      summary: Request password reset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResetPasswordRequest"
+      responses:
+        "200":
+          description: Reset email sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /courses:
+    get:
+      operationId: getCourses
+      tags: [courses]
+      summary: Get all courses
+      responses:
+        "200":
+          description: List of courses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Course"
+
+  /courses/{courseId}:
+    get:
+      operationId: getCourse
+      tags: [courses]
+      summary: Get a specific course
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Course details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Course"
+
+  /courses/{courseId}/subjects:
+    get:
+      operationId: getSubjectsByCourse
+      tags: [subjects]
+      summary: Get subjects for a course
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of subjects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Subject"
+
+  /subjects/{subjectId}/chapters:
+    get:
+      operationId: getChaptersBySubject
+      tags: [chapters]
+      summary: Get chapters for a subject
+      parameters:
+        - name: subjectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of chapters
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Chapter"
+
+  /chapters/{chapterId}/topics:
+    get:
+      operationId: getTopicsByChapter
+      tags: [topics]
+      summary: Get topics for a chapter
+      parameters:
+        - name: chapterId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of topics
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Topic"
+
+  /topics/{topicId}/questions:
+    get:
+      operationId: getQuestionsByTopic
+      tags: [questions]
+      summary: Get questions for a topic
+      parameters:
+        - name: topicId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of questions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Question"
+
+  /progress:
+    get:
+      operationId: getUserProgress
+      tags: [progress]
+      summary: Get user progress for all topics
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: User progress list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserProgress"
+
+  /progress/save:
+    post:
+      operationId: saveProgress
+      tags: [progress]
+      summary: Save or update user progress for a topic
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveProgressRequest"
+      responses:
+        "200":
+          description: Progress saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProgress"
+
+  /admin/courses:
+    post:
+      operationId: createCourse
+      tags: [admin]
+      summary: Create a new course
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCourseRequest"
+      responses:
+        "201":
+          description: Course created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Course"
+
+  /admin/subjects:
+    post:
+      operationId: createSubject
+      tags: [admin]
+      summary: Create a new subject
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSubjectRequest"
+      responses:
+        "201":
+          description: Subject created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subject"
+
+  /admin/chapters:
+    post:
+      operationId: createChapter
+      tags: [admin]
+      summary: Create a new chapter
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateChapterRequest"
+      responses:
+        "201":
+          description: Chapter created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Chapter"
+
+  /admin/topics:
+    post:
+      operationId: createTopic
+      tags: [admin]
+      summary: Create a new topic
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTopicRequest"
+      responses:
+        "201":
+          description: Topic created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Topic"
+
+  /admin/questions:
+    post:
+      operationId: createQuestion
+      tags: [admin]
+      summary: Create a new question
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateQuestionRequest"
+      responses:
+        "201":
+          description: Question created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Question"
+
+  /admin/questions/{questionId}:
+    put:
+      operationId: updateQuestion
+      tags: [admin]
+      summary: Update a question
+      parameters:
+        - name: questionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateQuestionRequest"
+      responses:
+        "200":
+          description: Question updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Question"
+    delete:
+      operationId: deleteQuestion
+      tags: [admin]
+      summary: Delete a question
+      parameters:
+        - name: questionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Question deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /admin/stats:
+    get:
+      operationId: getAdminStats
+      tags: [admin]
+      summary: Get admin statistics
+      responses:
+        "200":
+          description: Admin stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStats"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +432,415 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+      required:
+        - error
+        - message
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required:
+        - message
+
+    SignUpRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 6
+      required:
+        - name
+        - email
+        - password
+
+    SignInRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+      required:
+        - email
+        - password
+
+    ResetPasswordRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+      required:
+        - email
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+          enum: [student, admin]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - email
+        - role
+        - createdAt
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        user:
+          $ref: "#/components/schemas/User"
+      required:
+        - token
+        - user
+
+    Course:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        code:
+          type: string
+        description:
+          type: string
+        icon:
+          type: string
+        color:
+          type: string
+        subjectCount:
+          type: integer
+        questionCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - code
+        - createdAt
+
+    Subject:
+      type: object
+      properties:
+        id:
+          type: integer
+        courseId:
+          type: integer
+        name:
+          type: string
+        code:
+          type: string
+        description:
+          type: string
+        chapterCount:
+          type: integer
+        questionCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - courseId
+        - name
+        - code
+        - createdAt
+
+    Chapter:
+      type: object
+      properties:
+        id:
+          type: integer
+        subjectId:
+          type: integer
+        name:
+          type: string
+        orderNumber:
+          type: integer
+        topicCount:
+          type: integer
+        questionCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - subjectId
+        - name
+        - orderNumber
+        - createdAt
+
+    Topic:
+      type: object
+      properties:
+        id:
+          type: integer
+        chapterId:
+          type: integer
+        name:
+          type: string
+        orderNumber:
+          type: integer
+        questionCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - chapterId
+        - name
+        - orderNumber
+        - createdAt
+
+    Question:
+      type: object
+      properties:
+        id:
+          type: integer
+        topicId:
+          type: integer
+        questionText:
+          type: string
+        optionA:
+          type: string
+        optionB:
+          type: string
+        optionC:
+          type: string
+        optionD:
+          type: string
+        correctAnswers:
+          type: array
+          items:
+            type: string
+        explanation:
+          type: string
+        questionType:
+          type: string
+          enum: [single, multiple]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - topicId
+        - questionText
+        - optionA
+        - optionB
+        - optionC
+        - optionD
+        - correctAnswers
+        - explanation
+        - questionType
+        - createdAt
+
+    UserProgress:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        topicId:
+          type: integer
+        topicName:
+          type: string
+        totalQuestions:
+          type: integer
+        correctAnswers:
+          type: integer
+        scorePercentage:
+          type: number
+        completed:
+          type: boolean
+        lastAttemptAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - userId
+        - topicId
+        - totalQuestions
+        - correctAnswers
+        - scorePercentage
+        - completed
+
+    SaveProgressRequest:
+      type: object
+      properties:
+        userId:
+          type: integer
+        topicId:
+          type: integer
+        totalQuestions:
+          type: integer
+        correctAnswers:
+          type: integer
+        scorePercentage:
+          type: number
+        completed:
+          type: boolean
+      required:
+        - userId
+        - topicId
+        - totalQuestions
+        - correctAnswers
+        - scorePercentage
+        - completed
+
+    CreateCourseRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        code:
+          type: string
+        description:
+          type: string
+        icon:
+          type: string
+        color:
+          type: string
+      required:
+        - name
+        - code
+
+    CreateSubjectRequest:
+      type: object
+      properties:
+        courseId:
+          type: integer
+        name:
+          type: string
+        code:
+          type: string
+        description:
+          type: string
+      required:
+        - courseId
+        - name
+        - code
+
+    CreateChapterRequest:
+      type: object
+      properties:
+        subjectId:
+          type: integer
+        name:
+          type: string
+        orderNumber:
+          type: integer
+      required:
+        - subjectId
+        - name
+        - orderNumber
+
+    CreateTopicRequest:
+      type: object
+      properties:
+        chapterId:
+          type: integer
+        name:
+          type: string
+        orderNumber:
+          type: integer
+      required:
+        - chapterId
+        - name
+        - orderNumber
+
+    CreateQuestionRequest:
+      type: object
+      properties:
+        topicId:
+          type: integer
+        questionText:
+          type: string
+        optionA:
+          type: string
+        optionB:
+          type: string
+        optionC:
+          type: string
+        optionD:
+          type: string
+        correctAnswers:
+          type: array
+          items:
+            type: string
+        explanation:
+          type: string
+        questionType:
+          type: string
+          enum: [single, multiple]
+      required:
+        - topicId
+        - questionText
+        - optionA
+        - optionB
+        - optionC
+        - optionD
+        - correctAnswers
+        - explanation
+        - questionType
+
+    AdminStats:
+      type: object
+      properties:
+        totalUsers:
+          type: integer
+        totalCourses:
+          type: integer
+        totalSubjects:
+          type: integer
+        totalChapters:
+          type: integer
+        totalTopics:
+          type: integer
+        totalQuestions:
+          type: integer
+        totalAttempts:
+          type: integer
+        averageScore:
+          type: number
+      required:
+        - totalUsers
+        - totalCourses
+        - totalSubjects
+        - totalChapters
+        - totalTopics
+        - totalQuestions
+        - totalAttempts
+        - averageScore

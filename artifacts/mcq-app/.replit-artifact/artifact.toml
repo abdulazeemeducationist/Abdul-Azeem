@@ -1,0 +1,27 @@
+kind = "mobile"
+previewPath = "/"
+title = "MCQ Practice App"
+version = "1.0.0"
+id = "artifacts/mcq-app"
+router = "expo-domain"
+
+[[integratedSkills]]
+name = "expo"
+version = "1.0.0"
+
+[[services]]
+ensurePreviewReachable = "/status"
+localPort = 25735
+name = "expo"
+paths = ["/"]
+
+[services.development]
+run = "pnpm --filter @workspace/mcq-app run dev"
+
+[services.env]
+PORT = "25735"
+BASE_PATH = "/"
+
+[services.production]
+build = ["pnpm", "--filter", "@workspace/mcq-app", "run", "build"]
+run = ["pnpm", "--filter", "@workspace/mcq-app", "run", "serve"]
