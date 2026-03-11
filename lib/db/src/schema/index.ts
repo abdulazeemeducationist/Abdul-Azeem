@@ -60,6 +60,14 @@ export const questionsTable = pgTable("questions", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const userCoursesTable = pgTable("user_courses", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+  courseId: integer("course_id").notNull().references(() => coursesTable.id, { onDelete: "cascade" }),
+  assignedAt: timestamp("assigned_at").notNull().defaultNow(),
+  assignedBy: integer("assigned_by").references(() => usersTable.id),
+});
+
 export const userProgressTable = pgTable("user_progress", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => usersTable.id),
@@ -78,8 +86,10 @@ export const insertChapterSchema = createInsertSchema(chaptersTable).omit({ id: 
 export const insertTopicSchema = createInsertSchema(topicsTable).omit({ id: true, createdAt: true });
 export const insertQuestionSchema = createInsertSchema(questionsTable).omit({ id: true, createdAt: true });
 export const insertProgressSchema = createInsertSchema(userProgressTable).omit({ id: true, lastAttemptAt: true });
+export const insertUserCourseSchema = createInsertSchema(userCoursesTable).omit({ id: true, assignedAt: true });
 
 export type User = typeof usersTable.$inferSelect;
+export type UserCourse = typeof userCoursesTable.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type Course = typeof coursesTable.$inferSelect;
 export type InsertCourse = z.infer<typeof insertCourseSchema>;

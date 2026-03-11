@@ -1,15 +1,26 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import {
-  coursesTable, subjectsTable, chaptersTable, topicsTable, questionsTable
+  coursesTable, subjectsTable, chaptersTable, topicsTable, questionsTable, userCoursesTable
 } from "@workspace/db";
 import { eq, count, sql } from "drizzle-orm";
 
 const router: IRouter = Router();
 
-router.get("/", async (_req, res) => {
+router.get("/", async (req, res) => {
   try {
+    const userId = req.query.userId ? parseInt(req.query.userId as string) : null;
+
     const courses = await db.select().from(coursesTable);
+
+    let purchasedIds = new Set<number>();
+    if (userId) {
+      const enrollments = await db.select({ courseId: userCoursesTable.courseId })
+        .from(userCoursesTable)
+        .where(eq(userCoursesTable.userId, userId));
+      purchasedIds = new Set(enrollments.map(e => e.courseId));
+    }
+
     const result = await Promise.all(courses.map(async (c) => {
       const subjects = await db.select({ id: subjectsTable.id }).from(subjectsTable).where(eq(subjectsTable.courseId, c.id));
       const subjectIds = subjects.map(s => s.id);
@@ -32,7 +43,12 @@ router.get("/", async (_req, res) => {
           }
         }
       }
-      return { ...c, subjectCount: subjectIds.length, questionCount };
+      return {
+        ...c,
+        subjectCount: subjectIds.length,
+        questionCount,
+        purchased: userId ? purchasedIds.has(c.id) : true,
+      };
     }));
     res.json(result);
   } catch (err) {
@@ -46,7 +62,7 @@ router.get("/:courseId", async (req, res) => {
     const id = parseInt(req.params.courseId);
     const [course] = await db.select().from(coursesTable).where(eq(coursesTable.id, id)).limit(1);
     if (!course) { res.status(404).json({ error: "Not Found", message: "Course not found" }); return; }
-    res.json({ ...course, subjectCount: 0, questionCount: 0 });
+    res.json({ ...course, subjectCount: 0, questionCount: 0, purchased: true });
   } catch (err) {
     res.status(500).json({ error: "Internal Server Error", message: "Failed to get course" });
   }

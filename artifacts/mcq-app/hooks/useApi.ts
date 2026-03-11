@@ -11,6 +11,7 @@ export interface Course {
   color?: string;
   subjectCount: number;
   questionCount: number;
+  purchased: boolean;
 }
 
 export interface Subject {
@@ -65,9 +66,25 @@ export interface UserProgress {
   lastAttemptAt?: string;
 }
 
+export interface StudentEnrolledCourse {
+  courseId: number;
+  courseName: string;
+  courseCode: string;
+  assignedAt: string;
+}
+
+export interface Student {
+  id: number;
+  name: string;
+  email: string;
+  createdAt: string;
+  enrolledCourses: StudentEnrolledCourse[];
+}
+
 export const api = {
-  getCourses: async (): Promise<Course[]> => {
-    const res = await fetch(`${API_BASE}/courses`);
+  getCourses: async (userId?: number): Promise<Course[]> => {
+    const url = userId ? `${API_BASE}/courses?userId=${userId}` : `${API_BASE}/courses`;
+    const res = await fetch(url);
     if (!res.ok) throw new Error("Failed to fetch courses");
     return res.json();
   },
@@ -116,6 +133,28 @@ export const api = {
     const res = await fetch(`${API_BASE}/admin/stats`);
     if (!res.ok) throw new Error("Failed to fetch stats");
     return res.json();
+  },
+  getStudents: async (): Promise<Student[]> => {
+    const res = await fetch(`${API_BASE}/admin/students`);
+    if (!res.ok) throw new Error("Failed to fetch students");
+    return res.json();
+  },
+  assignCourse: async (userId: number, courseId: number, assignedBy?: number): Promise<void> => {
+    const res = await fetch(`${API_BASE}/admin/students/${userId}/courses`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ courseId, assignedBy }),
+    });
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.message || "Failed to assign course");
+    }
+  },
+  revokeCourse: async (userId: number, courseId: number): Promise<void> => {
+    const res = await fetch(`${API_BASE}/admin/students/${userId}/courses/${courseId}`, {
+      method: "DELETE",
+    });
+    if (!res.ok) throw new Error("Failed to revoke course");
   },
   createCourse: async (data: { name: string; code: string; description?: string; icon?: string; color?: string }) => {
     const res = await fetch(`${API_BASE}/admin/courses`, {
