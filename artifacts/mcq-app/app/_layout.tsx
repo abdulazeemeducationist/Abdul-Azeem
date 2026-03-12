@@ -39,6 +39,8 @@ function RootLayoutNav() {
       <Stack.Screen name="auth/signup" options={{ headerShown: false }} />
       <Stack.Screen name="auth/reset" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="levels/[courseId]" options={{ headerShown: false }} />
+      <Stack.Screen name="papers/[levelId]" options={{ headerShown: false }} />
       <Stack.Screen name="subjects/[courseId]" options={{ headerShown: false }} />
       <Stack.Screen name="chapters/[subjectId]" options={{ headerShown: false }} />
       <Stack.Screen name="topics/[chapterId]" options={{ headerShown: false }} />

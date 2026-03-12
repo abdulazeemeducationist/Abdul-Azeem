@@ -21,9 +21,18 @@ export const coursesTable = pgTable("courses", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const levelsTable = pgTable("levels", {
+  id: serial("id").primaryKey(),
+  courseId: integer("course_id").notNull().references(() => coursesTable.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  orderNumber: integer("order_number").notNull().default(1),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const subjectsTable = pgTable("subjects", {
   id: serial("id").primaryKey(),
   courseId: integer("course_id").notNull().references(() => coursesTable.id),
+  levelId: integer("level_id").references(() => levelsTable.id),
   name: text("name").notNull(),
   code: varchar("code", { length: 50 }).notNull(),
   description: text("description"),
@@ -68,6 +77,14 @@ export const userCoursesTable = pgTable("user_courses", {
   assignedBy: integer("assigned_by").references(() => usersTable.id),
 });
 
+export const userSubjectPurchasesTable = pgTable("user_subject_purchases", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+  subjectId: integer("subject_id").notNull().references(() => subjectsTable.id, { onDelete: "cascade" }),
+  assignedAt: timestamp("assigned_at").notNull().defaultNow(),
+  assignedBy: integer("assigned_by").references(() => usersTable.id),
+});
+
 export const userProgressTable = pgTable("user_progress", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => usersTable.id),
@@ -76,23 +93,29 @@ export const userProgressTable = pgTable("user_progress", {
   correctAnswers: integer("correct_answers").notNull().default(0),
   scorePercentage: numeric("score_percentage", { precision: 5, scale: 2 }).notNull().default("0"),
   completed: boolean("completed").notNull().default(false),
+  lastQuestionIndex: integer("last_question_index").notNull().default(0),
+  savedAnswers: text("saved_answers").notNull().default("[]"),
   lastAttemptAt: timestamp("last_attempt_at").notNull().defaultNow(),
 });
 
 export const insertUserSchema = createInsertSchema(usersTable).omit({ id: true, createdAt: true });
 export const insertCourseSchema = createInsertSchema(coursesTable).omit({ id: true, createdAt: true });
+export const insertLevelSchema = createInsertSchema(levelsTable).omit({ id: true, createdAt: true });
 export const insertSubjectSchema = createInsertSchema(subjectsTable).omit({ id: true, createdAt: true });
 export const insertChapterSchema = createInsertSchema(chaptersTable).omit({ id: true, createdAt: true });
 export const insertTopicSchema = createInsertSchema(topicsTable).omit({ id: true, createdAt: true });
 export const insertQuestionSchema = createInsertSchema(questionsTable).omit({ id: true, createdAt: true });
 export const insertProgressSchema = createInsertSchema(userProgressTable).omit({ id: true, lastAttemptAt: true });
 export const insertUserCourseSchema = createInsertSchema(userCoursesTable).omit({ id: true, assignedAt: true });
+export const insertUserSubjectPurchaseSchema = createInsertSchema(userSubjectPurchasesTable).omit({ id: true, assignedAt: true });
 
 export type User = typeof usersTable.$inferSelect;
 export type UserCourse = typeof userCoursesTable.$inferSelect;
+export type UserSubjectPurchase = typeof userSubjectPurchasesTable.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type Course = typeof coursesTable.$inferSelect;
 export type InsertCourse = z.infer<typeof insertCourseSchema>;
+export type Level = typeof levelsTable.$inferSelect;
 export type Subject = typeof subjectsTable.$inferSelect;
 export type Chapter = typeof chaptersTable.$inferSelect;
 export type Topic = typeof topicsTable.$inferSelect;

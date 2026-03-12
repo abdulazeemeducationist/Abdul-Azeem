@@ -4,7 +4,6 @@ import { router } from "expo-router";
 import React from "react";
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Platform,
   Pressable,
@@ -18,79 +17,69 @@ import Colors from "@/constants/colors";
 import { useAuth } from "@/context/AuthContext";
 import { api, Course } from "@/hooks/useApi";
 
-const COURSE_META: Record<string, {
+const PROGRAM_META: Record<string, {
   icon: keyof typeof Ionicons.glyphMap;
   bg: string;
   accent: string;
-  abbr: string;
-  fullName: string;
+  hasLevels: boolean;
 }> = {
-  ACCA:  { icon: "school-outline",     bg: "#1E3A5F", accent: "#60A5FA", abbr: "ACCA",  fullName: "Association of Chartered\nCertified Accountants" },
-  PIPFA: { icon: "briefcase-outline",  bg: "#065F46", accent: "#34D399", abbr: "PIPFA", fullName: "Pakistan Institute of\nPublic Finance Accountants" },
-  BCOM:  { icon: "library-outline",    bg: "#4C1D95", accent: "#C084FC", abbr: "B.Com", fullName: "Bachelor of Commerce" },
-  MBA:   { icon: "trending-up-outline",bg: "#78350F", accent: "#FCD34D", abbr: "MBA",   fullName: "Master of Business\nAdministration" },
+  ACCA:  { icon: "school-outline",      bg: "#1E3A5F", accent: "#60A5FA", hasLevels: true },
+  CA:    { icon: "ribbon-outline",       bg: "#0C4A6E", accent: "#38BDF8", hasLevels: false },
+  PIPFA: { icon: "briefcase-outline",   bg: "#065F46", accent: "#34D399", hasLevels: false },
+  BCOM:  { icon: "library-outline",     bg: "#4C1D95", accent: "#C084FC", hasLevels: false },
+  MBA:   { icon: "trending-up-outline", bg: "#78350F", accent: "#FCD34D", hasLevels: false },
 };
 
-function CourseCard({ course, onLockedPress }: { course: Course; onLockedPress: () => void }) {
-  const meta = COURSE_META[course.code] ?? {
+function ProgramCard({ course }: { course: Course }) {
+  const meta = PROGRAM_META[course.code] ?? {
     icon: "book-outline" as keyof typeof Ionicons.glyphMap,
     bg: Colors.light.primary,
     accent: "#60A5FA",
-    abbr: course.code,
-    fullName: course.name,
+    hasLevels: false,
   };
 
   const handlePress = () => {
-    if (!course.purchased) { onLockedPress(); return; }
-    router.push({ pathname: "/subjects/[courseId]", params: { courseId: course.id, courseName: course.name } });
+    if (meta.hasLevels) {
+      router.push({ pathname: "/levels/[courseId]", params: { courseId: course.id, courseName: course.name, courseCode: course.code } });
+    } else {
+      router.push({ pathname: "/subjects/[courseId]", params: { courseId: course.id, courseName: course.name, courseCode: course.code } });
+    }
   };
 
   return (
     <Pressable
-      style={({ pressed }) => [styles.card, { opacity: pressed ? 0.94 : 1, transform: [{ scale: pressed ? 0.985 : 1 }] }]}
+      style={({ pressed }) => [styles.card, { opacity: pressed ? 0.93 : 1, transform: [{ scale: pressed ? 0.985 : 1 }] }]}
       onPress={handlePress}
     >
       <View style={[styles.cardHeader, { backgroundColor: meta.bg }]}>
-        <View style={styles.logoWrapper}>
-          <View style={[styles.logoBadge, { backgroundColor: "rgba(255,255,255,0.15)" }]}>
-            <Ionicons name={meta.icon} size={36} color="#FFFFFF" />
-          </View>
-          <View style={styles.abbrBlock}>
-            <Text style={styles.abbrText}>{meta.abbr}</Text>
-            <Text style={styles.fullNameText} numberOfLines={2}>{meta.fullName}</Text>
-          </View>
+        <View style={[styles.iconCircle, { backgroundColor: "rgba(255,255,255,0.15)" }]}>
+          <Ionicons name={meta.icon} size={38} color="#FFFFFF" />
         </View>
-
-        <View style={styles.headerRight}>
-          <View style={[styles.statusBadge, course.purchased ? styles.purchasedBadge : styles.lockedBadge]}>
-            <Ionicons
-              name={course.purchased ? "checkmark-circle" : "lock-closed"}
-              size={12}
-              color={course.purchased ? "#059669" : "#9CA3AF"}
-            />
-            <Text style={[styles.statusText, course.purchased ? styles.purchasedText : styles.lockedText]}>
-              {course.purchased ? "Purchased" : "Locked"}
-            </Text>
-          </View>
-          <View style={styles.statsRow}>
-            <Text style={styles.statChip}>{course.subjectCount} Subjects</Text>
-            <Text style={styles.statChip}>{course.questionCount} MCQs</Text>
-          </View>
+        <View style={styles.cardHeaderRight}>
+          <Text style={styles.programCode}>{course.code}</Text>
+          <Text style={styles.programName} numberOfLines={2}>{course.name}</Text>
+          {meta.hasLevels && (
+            <View style={styles.levelsChip}>
+              <Ionicons name="layers-outline" size={10} color={meta.accent} />
+              <Text style={[styles.levelsChipText, { color: meta.accent }]}>Multi-level</Text>
+            </View>
+          )}
         </View>
       </View>
-
       <View style={styles.cardFooter}>
-        {course.purchased ? (
-          <View style={styles.ctaRow}>
-            <Text style={[styles.ctaText, { color: meta.bg }]}>Start Practicing</Text>
-            <Ionicons name="arrow-forward-circle" size={20} color={meta.bg} />
-          </View>
-        ) : (
-          <View style={styles.ctaRow}>
-            <Ionicons name="lock-closed-outline" size={16} color={Colors.light.textMuted} />
-            <Text style={[styles.ctaText, { color: Colors.light.textMuted }]}>Contact admin to purchase</Text>
-          </View>
-        )}
+        <View style={styles.footerStats}>
+          <Ionicons name="book-outline" size={13} color={Colors.light.textMuted} />
+          <Text style={styles.footerStatsText}>{course.subjectCount} {course.code === "ACCA" ? "Papers" : "Subjects"}</Text>
+          <Text style={styles.footerDot}>·</Text>
+          <Ionicons name="help-circle-outline" size={13} color={Colors.light.textMuted} />
+          <Text style={styles.footerStatsText}>{course.questionCount} MCQs</Text>
+        </View>
+        <View style={styles.goRow}>
+          <Text style={[styles.goText, { color: meta.bg }]}>
+            {meta.hasLevels ? "View Levels" : "View Papers"}
+          </Text>
+          <Ionicons name="arrow-forward" size={15} color={meta.bg} />
+        </View>
       </View>
     </Pressable>
   );
@@ -100,25 +89,26 @@ export default function HomeScreen() {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
+  const topPad = isWeb ? Math.max(insets.top, 67) : insets.top;
 
   const { data: courses, isLoading, error, refetch } = useQuery({
-    queryKey: ["courses", user?.id],
-    queryFn: () => api.getCourses(user?.role === "admin" ? undefined : user?.id),
+    queryKey: ["courses"],
+    queryFn: api.getCourses,
     enabled: !!user,
   });
 
-  const topPad = isWeb ? Math.max(insets.top, 67) : insets.top;
+  const initial = user?.name?.charAt(0)?.toUpperCase() ?? "?";
   const firstName = user?.name?.split(" ")[0] ?? "Student";
-
-  const purchasedCount = courses?.filter(c => c.purchased).length ?? 0;
-  const totalCount = courses?.length ?? 0;
 
   return (
     <View style={[styles.container, { paddingTop: topPad }]}>
       <View style={styles.header}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.greeting}>Welcome back,</Text>
-          <Text style={styles.name}>{firstName}</Text>
+        <View style={styles.avatarCircle}>
+          <Text style={styles.avatarText}>{initial}</Text>
+        </View>
+        <View style={styles.headerText}>
+          <Text style={styles.welcomeLabel}>Welcome back,</Text>
+          <Text style={styles.fullName}>{user?.name ?? firstName}</Text>
         </View>
         {user?.role === "admin" && (
           <Pressable style={styles.adminBtn} onPress={() => router.push("/admin")}>
@@ -127,38 +117,17 @@ export default function HomeScreen() {
         )}
       </View>
 
-      {user?.role !== "admin" && courses && courses.length > 0 && (
-        <View style={styles.summaryCard}>
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryValue}>{purchasedCount}</Text>
-            <Text style={styles.summaryLabel}>Purchased</Text>
-          </View>
-          <View style={styles.summaryDivider} />
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryValue}>{totalCount - purchasedCount}</Text>
-            <Text style={styles.summaryLabel}>Locked</Text>
-          </View>
-          <View style={styles.summaryDivider} />
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryValue}>{totalCount}</Text>
-            <Text style={styles.summaryLabel}>Total</Text>
-          </View>
-        </View>
-      )}
-
-      <Text style={styles.sectionTitle}>
-        {user?.role === "admin" ? "All Courses" : "Your Courses"}
-      </Text>
+      <Text style={styles.sectionTitle}>Programs</Text>
 
       {isLoading ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color={Colors.light.primary} />
-          <Text style={styles.loadingText}>Loading courses...</Text>
+          <Text style={styles.loadingText}>Loading programs...</Text>
         </View>
       ) : error ? (
         <View style={styles.center}>
           <Ionicons name="alert-circle-outline" size={48} color={Colors.light.error} />
-          <Text style={styles.errorText}>Failed to load courses</Text>
+          <Text style={styles.errorText}>Failed to load programs</Text>
           <Pressable style={styles.retryBtn} onPress={() => refetch()}>
             <Text style={styles.retryText}>Retry</Text>
           </Pressable>
@@ -167,23 +136,14 @@ export default function HomeScreen() {
         <FlatList
           data={courses ?? []}
           keyExtractor={(item) => String(item.id)}
-          renderItem={({ item }) => (
-            <CourseCard
-              course={item}
-              onLockedPress={() =>
-                Alert.alert("Course Locked", "Please contact your admin to get access to this course.", [{ text: "OK" }])
-              }
-            />
-          )}
+          renderItem={({ item }) => <ProgramCard course={item} />}
           contentContainerStyle={[styles.list, { paddingBottom: isWeb ? 34 + 84 : 100 }]}
           showsVerticalScrollIndicator={false}
-          scrollEnabled={!!courses?.length}
           refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={Colors.light.primary} />}
           ListEmptyComponent={
             <View style={styles.center}>
               <Ionicons name="book-outline" size={64} color={Colors.light.textMuted} />
-              <Text style={styles.emptyText}>No courses available</Text>
-              <Text style={styles.emptySubText}>Contact your admin to get course access</Text>
+              <Text style={styles.emptyText}>No programs available</Text>
             </View>
           }
         />
@@ -197,39 +157,31 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
     paddingHorizontal: 20,
-    paddingBottom: 12,
+    paddingBottom: 16,
     paddingTop: 12,
+    gap: 12,
   },
-  greeting: { fontSize: 14, fontFamily: "Inter_400Regular", color: Colors.light.textSecondary },
-  name: { fontSize: 26, fontFamily: "Inter_700Bold", color: Colors.light.text },
+  avatarCircle: {
+    width: 48, height: 48, borderRadius: 24,
+    backgroundColor: Colors.light.primary,
+    alignItems: "center", justifyContent: "center",
+    shadowColor: Colors.light.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3, shadowRadius: 6, elevation: 4,
+  },
+  avatarText: { fontSize: 20, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
+  headerText: { flex: 1 },
+  welcomeLabel: { fontSize: 12, fontFamily: "Inter_400Regular", color: Colors.light.textSecondary },
+  fullName: { fontSize: 18, fontFamily: "Inter_700Bold", color: Colors.light.text },
   adminBtn: {
     width: 40, height: 40, borderRadius: 20,
     backgroundColor: Colors.light.backgroundSecondary,
     alignItems: "center", justifyContent: "center",
   },
-  summaryCard: {
-    flexDirection: "row",
-    marginHorizontal: 16,
-    marginBottom: 16,
-    backgroundColor: Colors.light.card,
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  summaryItem: { flex: 1, alignItems: "center", gap: 2 },
-  summaryDivider: { width: 1, backgroundColor: Colors.light.border },
-  summaryValue: { fontSize: 22, fontFamily: "Inter_700Bold", color: Colors.light.text },
-  summaryLabel: { fontSize: 12, fontFamily: "Inter_400Regular", color: Colors.light.textMuted },
   sectionTitle: {
     fontSize: 13, fontFamily: "Inter_600SemiBold", color: Colors.light.textMuted,
-    textTransform: "uppercase", letterSpacing: 1,
+    textTransform: "uppercase", letterSpacing: 1.2,
     marginHorizontal: 20, marginBottom: 12, marginTop: 4,
   },
   list: { paddingHorizontal: 16, gap: 14 },
@@ -245,48 +197,39 @@ const styles = StyleSheet.create({
   },
   cardHeader: {
     flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
+    alignItems: "center",
     padding: 18,
-    paddingBottom: 16,
-    gap: 12,
+    gap: 14,
   },
-  logoWrapper: { flexDirection: "row", alignItems: "center", gap: 12, flex: 1 },
-  logoBadge: {
-    width: 64, height: 64, borderRadius: 16,
+  iconCircle: {
+    width: 70, height: 70, borderRadius: 18,
     alignItems: "center", justifyContent: "center",
     flexShrink: 0,
   },
-  abbrBlock: { flex: 1, gap: 3 },
-  abbrText: { fontSize: 20, fontFamily: "Inter_700Bold", color: "#FFFFFF", letterSpacing: 0.5 },
-  fullNameText: { fontSize: 11, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.75)", lineHeight: 15 },
-  headerRight: { alignItems: "flex-end", gap: 8, flexShrink: 0 },
-  statusBadge: {
+  cardHeaderRight: { flex: 1, gap: 5 },
+  programCode: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "rgba(255,255,255,0.7)", letterSpacing: 1, textTransform: "uppercase" },
+  programName: { fontSize: 18, fontFamily: "Inter_700Bold", color: "#FFFFFF", lineHeight: 24 },
+  levelsChip: {
     flexDirection: "row", alignItems: "center", gap: 4,
-    paddingHorizontal: 8, paddingVertical: 4, borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20,
+    alignSelf: "flex-start", marginTop: 2,
   },
-  purchasedBadge: { backgroundColor: "#DCFCE7" },
-  lockedBadge: { backgroundColor: "#F3F4F6" },
-  statusText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
-  purchasedText: { color: "#059669" },
-  lockedText: { color: "#6B7280" },
-  statsRow: { gap: 4, alignItems: "flex-end" },
-  statChip: { fontSize: 11, fontFamily: "Inter_500Medium", color: "rgba(255,255,255,0.8)" },
+  levelsChipText: { fontSize: 10, fontFamily: "Inter_600SemiBold" },
   cardFooter: {
     paddingHorizontal: 18, paddingVertical: 12,
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     borderTopWidth: 1, borderTopColor: Colors.light.border,
-    backgroundColor: Colors.light.card,
   },
-  ctaRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  ctaText: { fontSize: 14, fontFamily: "Inter_600SemiBold", flex: 1 },
+  footerStats: { flexDirection: "row", alignItems: "center", gap: 5 },
+  footerStatsText: { fontSize: 12, fontFamily: "Inter_500Medium", color: Colors.light.textMuted },
+  footerDot: { color: Colors.light.textMuted, fontSize: 12 },
+  goRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  goText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
   center: { flex: 1, alignItems: "center", justifyContent: "center", paddingTop: 60, gap: 10 },
   loadingText: { fontSize: 14, fontFamily: "Inter_400Regular", color: Colors.light.textSecondary },
   errorText: { fontSize: 16, fontFamily: "Inter_500Medium", color: Colors.light.error },
-  retryBtn: {
-    paddingHorizontal: 20, paddingVertical: 10,
-    backgroundColor: Colors.light.primary, borderRadius: 10, marginTop: 4,
-  },
+  retryBtn: { paddingHorizontal: 20, paddingVertical: 10, backgroundColor: Colors.light.primary, borderRadius: 10, marginTop: 4 },
   retryText: { color: "#FFF", fontFamily: "Inter_600SemiBold", fontSize: 14 },
   emptyText: { fontSize: 16, fontFamily: "Inter_500Medium", color: Colors.light.textMuted },
-  emptySubText: { fontSize: 13, fontFamily: "Inter_400Regular", color: Colors.light.textMuted, textAlign: "center", paddingHorizontal: 20 },
 });

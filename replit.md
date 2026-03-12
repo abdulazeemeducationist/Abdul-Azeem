@@ -94,3 +94,25 @@ Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHea
 ### `scripts` (`@workspace/scripts`)
 
 Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.
+
+## MCQ Practice App — Feature Summary
+
+### Mobile App (`artifacts/mcq-app`)
+- Expo Router (file-based), React Native, React Query, Inter fonts
+- Auth: SHA-256 + salt "mcq-salt-2024"; admin: admin@mcqapp.com / admin123
+- **Home Screen**: Program cards with avatar header; admin settings icon for admin role
+- **Navigation Hierarchy**:
+  - Non-ACCA: Programs → Subjects (lock badge) → Chapters → Topics → Practice
+  - ACCA: Programs → Levels (Foundation/Knowledge/Skills/Professional) → Papers (lock badge) → Chapters → Topics → Practice
+- **Access Control**: All programs are free; paper/subject access via `user_subject_purchases` table
+- **Quiz**: Exit saves state (question index + answers), Resume on re-entry
+- **Results**: Score screen after quiz completion; progress saved to DB
+- **Admin Panel** (3 tabs): Overview stats, Students (assign/revoke papers per student), Content (add MCQs)
+
+### API (`artifacts/api-server`)
+- Routes: `/courses`, `/courses/:id/levels`, `/levels/:id/subjects`, `/subjects/:id/chapters`, `/chapters/:id/topics`, `/topics/:id/questions`, `/progress`, `/progress/quiz-state`, `/progress/save`, `/progress/save-quiz-state`, `/admin/...`
+- Auth via POST `/auth/login`, `/auth/register`
+
+### DB Schema Tables
+- `courses`, `levels` (ACCA only), `subjects` (has `level_id` nullable), `chapters`, `topics`, `questions`
+- `users`, `user_subject_purchases` (paper access), `user_progress` (with `lastQuestionIndex`, `savedAnswers`)

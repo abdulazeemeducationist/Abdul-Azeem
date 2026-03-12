@@ -11,17 +11,26 @@ export interface Course {
   color?: string;
   subjectCount: number;
   questionCount: number;
-  purchased: boolean;
+}
+
+export interface Level {
+  id: number;
+  courseId: number;
+  name: string;
+  orderNumber: number;
+  subjectCount: number;
 }
 
 export interface Subject {
   id: number;
   courseId: number;
+  levelId?: number;
   name: string;
   code: string;
   description?: string;
   chapterCount: number;
   questionCount: number;
+  purchased: boolean;
 }
 
 export interface Chapter {
@@ -63,13 +72,32 @@ export interface UserProgress {
   correctAnswers: number;
   scorePercentage: number;
   completed: boolean;
+  lastQuestionIndex: number;
+  savedAnswers: string;
   lastAttemptAt?: string;
 }
 
-export interface StudentEnrolledCourse {
+export interface QuizState {
+  lastQuestionIndex: number;
+  savedAnswers: string[][];
+  correctAnswers: number;
+  totalQuestions: number;
+}
+
+export interface AdminSubject {
+  id: number;
+  name: string;
+  code: string;
   courseId: number;
+  levelId?: number;
   courseName: string;
   courseCode: string;
+}
+
+export interface StudentPurchasedSubject {
+  subjectId: number;
+  subjectName: string;
+  subjectCode: string;
   assignedAt: string;
 }
 
@@ -78,18 +106,29 @@ export interface Student {
   name: string;
   email: string;
   createdAt: string;
-  enrolledCourses: StudentEnrolledCourse[];
+  purchasedSubjects: StudentPurchasedSubject[];
 }
 
 export const api = {
-  getCourses: async (userId?: number): Promise<Course[]> => {
-    const url = userId ? `${API_BASE}/courses?userId=${userId}` : `${API_BASE}/courses`;
-    const res = await fetch(url);
+  getCourses: async (): Promise<Course[]> => {
+    const res = await fetch(`${API_BASE}/courses`);
     if (!res.ok) throw new Error("Failed to fetch courses");
     return res.json();
   },
-  getSubjects: async (courseId: number): Promise<Subject[]> => {
-    const res = await fetch(`${API_BASE}/courses/${courseId}/subjects`);
+  getLevels: async (courseId: number): Promise<Level[]> => {
+    const res = await fetch(`${API_BASE}/courses/${courseId}/levels`);
+    if (!res.ok) throw new Error("Failed to fetch levels");
+    return res.json();
+  },
+  getSubjectsByLevel: async (levelId: number, userId?: number): Promise<Subject[]> => {
+    const url = userId ? `${API_BASE}/levels/${levelId}/subjects?userId=${userId}` : `${API_BASE}/levels/${levelId}/subjects`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("Failed to fetch subjects for level");
+    return res.json();
+  },
+  getSubjects: async (courseId: number, userId?: number): Promise<Subject[]> => {
+    const url = userId ? `${API_BASE}/courses/${courseId}/subjects?userId=${userId}` : `${API_BASE}/courses/${courseId}/subjects`;
+    const res = await fetch(url);
     if (!res.ok) throw new Error("Failed to fetch subjects");
     return res.json();
   },
@@ -113,6 +152,11 @@ export const api = {
     if (!res.ok) throw new Error("Failed to fetch progress");
     return res.json();
   },
+  getQuizState: async (userId: number, topicId: number): Promise<QuizState | null> => {
+    const res = await fetch(`${API_BASE}/progress/quiz-state?userId=${userId}&topicId=${topicId}`);
+    if (!res.ok) throw new Error("Failed to fetch quiz state");
+    return res.json();
+  },
   saveProgress: async (data: {
     userId: number;
     topicId: number;
@@ -129,6 +173,21 @@ export const api = {
     if (!res.ok) throw new Error("Failed to save progress");
     return res.json();
   },
+  saveQuizState: async (data: {
+    userId: number;
+    topicId: number;
+    lastQuestionIndex: number;
+    savedAnswers: string[][];
+    correctAnswers: number;
+    totalQuestions: number;
+  }): Promise<void> => {
+    const res = await fetch(`${API_BASE}/progress/save-quiz-state`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error("Failed to save quiz state");
+  },
   getAdminStats: async () => {
     const res = await fetch(`${API_BASE}/admin/stats`);
     if (!res.ok) throw new Error("Failed to fetch stats");
@@ -139,24 +198,29 @@ export const api = {
     if (!res.ok) throw new Error("Failed to fetch students");
     return res.json();
   },
-  assignCourse: async (userId: number, courseId: number, assignedBy?: number): Promise<void> => {
-    const res = await fetch(`${API_BASE}/admin/students/${userId}/courses`, {
+  getAllSubjects: async (): Promise<AdminSubject[]> => {
+    const res = await fetch(`${API_BASE}/admin/subjects`);
+    if (!res.ok) throw new Error("Failed to fetch subjects");
+    return res.json();
+  },
+  assignSubject: async (userId: number, subjectId: number, assignedBy?: number): Promise<void> => {
+    const res = await fetch(`${API_BASE}/admin/students/${userId}/subjects`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ courseId, assignedBy }),
+      body: JSON.stringify({ subjectId, assignedBy }),
     });
     if (!res.ok) {
       const data = await res.json();
-      throw new Error(data.message || "Failed to assign course");
+      throw new Error(data.message || "Failed to assign paper");
     }
   },
-  revokeCourse: async (userId: number, courseId: number): Promise<void> => {
-    const res = await fetch(`${API_BASE}/admin/students/${userId}/courses/${courseId}`, {
+  revokeSubject: async (userId: number, subjectId: number): Promise<void> => {
+    const res = await fetch(`${API_BASE}/admin/students/${userId}/subjects/${subjectId}`, {
       method: "DELETE",
     });
-    if (!res.ok) throw new Error("Failed to revoke course");
+    if (!res.ok) throw new Error("Failed to revoke paper");
   },
-  createCourse: async (data: { name: string; code: string; description?: string; icon?: string; color?: string }) => {
+  createCourse: async (data: { name: string; code: string; description?: string }) => {
     const res = await fetch(`${API_BASE}/admin/courses`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -165,7 +229,7 @@ export const api = {
     if (!res.ok) throw new Error("Failed to create course");
     return res.json();
   },
-  createSubject: async (data: { courseId: number; name: string; code: string; description?: string }) => {
+  createSubject: async (data: { courseId: number; levelId?: number; name: string; code: string; description?: string }) => {
     const res = await fetch(`${API_BASE}/admin/subjects`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

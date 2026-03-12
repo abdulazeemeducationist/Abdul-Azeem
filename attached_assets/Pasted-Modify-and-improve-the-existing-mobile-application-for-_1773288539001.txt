@@ -1,0 +1,152 @@
+Modify and improve the existing mobile application for MCQ practice for professional accounting qualifications. Implement the following changes and ensure the frontend UI, backend logic, and database connections remain consistent and fully functional.
+
+1. HOME PAGE TERMINOLOGY
+Currently the home page displays "Your Courses". Change this label to "Programs".
+
+The home page should display available programs such as:
+- ACCA
+- CA
+- PIPFA
+- B.Com
+- MBA
+
+Each program should appear as a card with a logo and program name.
+
+2. LOCK / PURCHASE STRUCTURE
+Currently entire programs are locked or purchased. This should be changed.
+
+Programs (ACCA, CA, etc.) should always be visible to the student.
+
+However, the locking/purchase logic should apply to SUBJECTS/PAPERS instead of programs.
+
+Example:
+Program: ACCA
+Papers:
+- MA1
+- FA1
+- MA2
+- FA2
+
+Each paper should show one of the following statuses:
+• Purchased (accessible)
+• Locked (not purchased)
+
+Locked papers should display a lock icon and optionally a "Purchase" button.
+
+3. USER PROFILE DISPLAY
+The home page should show the user's full name and profile picture.
+
+Display format:
+
+Profile Picture (circular avatar)
+Welcome, [Full Name]
+
+User profile data should come from the authenticated user database.
+
+4. REMOVE COURSE STATISTICS
+Remove the following statistics from the home page:
+- Number of purchased courses
+- Number of locked courses
+- Number of total courses
+
+These metrics should no longer be displayed anywhere on the home page.
+
+5. TERMINOLOGY CHANGE FOR ACCA
+When a user clicks ACCA, the screen title currently says:
+
+"ACCA Subjects"
+
+Change this title to:
+
+"ACCA Papers"
+
+6. ACCA LEVEL STRUCTURE
+ACCA papers must be organized according to ACCA levels.
+
+When the user clicks ACCA, the next screen should show:
+
+Foundation Level
+Knowledge Level
+Skills Level
+Professional Level
+
+When a level is selected, show the papers belonging to that level.
+
+Example:
+
+Knowledge Level
+- MA1
+- FA1
+- BT
+
+Skills Level
+- PM
+- FR
+- AA
+- FM
+
+Each paper must still support lock/purchase status.
+
+7. QUIZ EXIT AND PROGRESS SAVING
+While attempting chapter-wise MCQs, the user should be able to exit the quiz at any time.
+
+Required behavior:
+• Add an "Exit Quiz" button
+• When exiting, save the current progress
+
+The following data must be stored:
+- current question number
+- selected answers
+- score so far
+- timestamp
+
+When the user returns to the same chapter/topic later, the app should offer:
+
+"Resume Quiz"
+or
+"Restart Quiz"
+
+If the user chooses Resume, the quiz should continue from the saved question.
+
+8. DATABASE STRUCTURE REQUIREMENT
+Ensure database supports:
+
+Users
+Programs
+Levels
+Papers
+Chapters
+Topics
+Questions
+UserPurchases
+UserProgress
+
+UserProgress should store:
+- user ID
+- paper ID
+- chapter/topic
+- last attempted question
+- selected answers
+- score
+
+9. USER INTERFACE REQUIREMENTS
+Maintain a clean educational UI with:
+- blue and white theme
+- program logos clearly visible
+- paper cards showing lock/purchased status
+- smooth navigation between levels, papers, chapters, topics, and MCQs
+
+10. TESTING REQUIREMENT
+Ensure the entire flow works correctly:
+
+Login
+→ Home (Programs)
+→ Program (ACCA)
+→ Level
+→ Paper
+→ Chapter
+→ Topic
+→ MCQs
+→ Exit / Resume Quiz
+
+All screens must remain connected to the backend and database.

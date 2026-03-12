@@ -16,7 +16,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
-import { api, Student, Course } from "@/hooks/useApi";
+import { api, Student, AdminSubject } from "@/hooks/useApi";
 import { useAuth } from "@/context/AuthContext";
 
 interface StatCardProps { label: string; value: number; icon: keyof typeof Ionicons.glyphMap; color: string }
@@ -62,9 +62,9 @@ export default function AdminScreen() {
     enabled: activeTab === "students",
   });
 
-  const { data: allCourses } = useQuery({
-    queryKey: ["courses"],
-    queryFn: () => api.getCourses(),
+  const { data: allSubjects } = useQuery({
+    queryKey: ["adminSubjects"],
+    queryFn: api.getAllSubjects,
     enabled: showEnrollModal,
   });
 
@@ -111,45 +111,39 @@ export default function AdminScreen() {
     }
   };
 
-  const handleAssignCourse = async (courseId: number) => {
+  const handleAssignPaper = async (subjectId: number) => {
     if (!selectedStudent) return;
     setSaving(true);
     try {
-      await api.assignCourse(selectedStudent.id, courseId, user.id);
-      Alert.alert("Success", "Course assigned successfully!");
+      await api.assignSubject(selectedStudent.id, subjectId, user.id);
+      Alert.alert("Success", "Paper access granted!");
       queryClient.invalidateQueries({ queryKey: ["adminStudents"] });
-      queryClient.invalidateQueries({ queryKey: ["courses"] });
       refetchStudents();
       setShowEnrollModal(false);
       setSelectedStudent(null);
     } catch (e: any) {
-      Alert.alert("Error", e.message || "Failed to assign course");
+      Alert.alert("Already Assigned", e.message || "Failed to assign paper");
     } finally {
       setSaving(false);
     }
   };
 
-  const handleRevokeCourse = (student: Student, courseId: number, courseName: string) => {
-    Alert.alert(
-      "Revoke Access",
-      `Remove ${student.name}'s access to ${courseName}?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Revoke", style: "destructive",
-          onPress: async () => {
-            try {
-              await api.revokeCourse(student.id, courseId);
-              queryClient.invalidateQueries({ queryKey: ["adminStudents"] });
-              queryClient.invalidateQueries({ queryKey: ["courses"] });
-              refetchStudents();
-            } catch (e: any) {
-              Alert.alert("Error", e.message || "Failed to revoke course");
-            }
-          },
+  const handleRevokePaper = (student: Student, subjectId: number, subjectName: string) => {
+    Alert.alert("Revoke Access", `Remove ${student.name}'s access to ${subjectName}?`, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Revoke", style: "destructive",
+        onPress: async () => {
+          try {
+            await api.revokeSubject(student.id, subjectId);
+            queryClient.invalidateQueries({ queryKey: ["adminStudents"] });
+            refetchStudents();
+          } catch (e: any) {
+            Alert.alert("Error", e.message || "Failed to revoke");
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const tabs: { key: TabType; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
@@ -157,6 +151,13 @@ export default function AdminScreen() {
     { key: "students", label: "Students", icon: "people-outline" },
     { key: "content", label: "Content", icon: "document-text-outline" },
   ];
+
+  const groupedSubjects = (allSubjects ?? []).reduce<Record<string, AdminSubject[]>>((acc, s) => {
+    const key = `${s.courseCode} — ${s.courseName}`;
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(s);
+    return acc;
+  }, {});
 
   return (
     <View style={[styles.container, { paddingTop: topPad }]}>
@@ -170,11 +171,7 @@ export default function AdminScreen() {
 
       <View style={styles.tabBar}>
         {tabs.map(tab => (
-          <Pressable
-            key={tab.key}
-            style={[styles.tab, activeTab === tab.key && styles.tabActive]}
-            onPress={() => setActiveTab(tab.key)}
-          >
+          <Pressable key={tab.key} style={[styles.tab, activeTab === tab.key && styles.tabActive]} onPress={() => setActiveTab(tab.key)}>
             <Ionicons name={tab.icon} size={16} color={activeTab === tab.key ? Colors.light.primary : Colors.light.textMuted} />
             <Text style={[styles.tabLabel, activeTab === tab.key && styles.tabLabelActive]}>{tab.label}</Text>
           </Pressable>
@@ -189,8 +186,8 @@ export default function AdminScreen() {
             {statsLoading ? <ActivityIndicator color={Colors.light.primary} /> : (
               <View style={styles.statsGrid}>
                 <StatCard label="Users" value={stats?.totalUsers ?? 0} icon="people" color="#3B82F6" />
-                <StatCard label="Courses" value={stats?.totalCourses ?? 0} icon="school" color="#059669" />
-                <StatCard label="Subjects" value={stats?.totalSubjects ?? 0} icon="book" color="#7C3AED" />
+                <StatCard label="Programs" value={stats?.totalCourses ?? 0} icon="school" color="#059669" />
+                <StatCard label="Papers" value={stats?.totalSubjects ?? 0} icon="book" color="#7C3AED" />
                 <StatCard label="Chapters" value={stats?.totalChapters ?? 0} icon="layers" color="#D97706" />
                 <StatCard label="Topics" value={stats?.totalTopics ?? 0} icon="bookmark" color="#DC2626" />
                 <StatCard label="MCQs" value={stats?.totalQuestions ?? 0} icon="help-circle" color="#0891B2" />
@@ -207,8 +204,8 @@ export default function AdminScreen() {
 
         {activeTab === "students" && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Student Enrollment</Text>
-            <Text style={styles.sectionSubtitle}>Assign or revoke course access for students</Text>
+            <Text style={styles.sectionTitle}>Student Paper Access</Text>
+            <Text style={styles.sectionSubtitle}>Assign or revoke paper access for each student</Text>
             {studentsLoading ? (
               <View style={{ paddingTop: 40, alignItems: "center" }}>
                 <ActivityIndicator color={Colors.light.primary} />
@@ -229,27 +226,21 @@ export default function AdminScreen() {
                       <Text style={styles.studentName}>{student.name}</Text>
                       <Text style={styles.studentEmail}>{student.email}</Text>
                     </View>
-                    <Pressable
-                      style={styles.assignBtn}
-                      onPress={() => { setSelectedStudent(student); setShowEnrollModal(true); }}
-                    >
+                    <Pressable style={styles.assignBtn} onPress={() => { setSelectedStudent(student); setShowEnrollModal(true); }}>
                       <Ionicons name="add" size={16} color="#FFF" />
-                      <Text style={styles.assignBtnText}>Assign</Text>
+                      <Text style={styles.assignBtnText}>Add Paper</Text>
                     </Pressable>
                   </View>
 
-                  {student.enrolledCourses.length === 0 ? (
-                    <Text style={styles.noCourses}>No courses assigned</Text>
+                  {student.purchasedSubjects.length === 0 ? (
+                    <Text style={styles.noPapers}>No papers assigned</Text>
                   ) : (
-                    <View style={styles.enrolledList}>
-                      {student.enrolledCourses.map(ec => (
-                        <View key={ec.courseId} style={styles.enrolledChip}>
-                          <Text style={styles.enrolledChipText}>{ec.courseCode}</Text>
-                          <Pressable
-                            onPress={() => handleRevokeCourse(student, ec.courseId, ec.courseName)}
-                            hitSlop={8}
-                          >
-                            <Ionicons name="close-circle" size={16} color="#EF4444" />
+                    <View style={styles.chipsWrap}>
+                      {student.purchasedSubjects.map(p => (
+                        <View key={p.subjectId} style={styles.paperChip}>
+                          <Text style={styles.paperChipText}>{p.subjectCode}</Text>
+                          <Pressable onPress={() => handleRevokePaper(student, p.subjectId, p.subjectName)} hitSlop={8}>
+                            <Ionicons name="close-circle" size={15} color="#EF4444" />
                           </Pressable>
                         </View>
                       ))}
@@ -265,47 +256,36 @@ export default function AdminScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Content Management</Text>
             <View style={styles.actionGrid}>
-              <Pressable
-                style={({ pressed }) => [styles.actionCard, { opacity: pressed ? 0.85 : 1 }]}
-                onPress={() => setShowAddQuestion(true)}
-              >
+              <Pressable style={({ pressed }) => [styles.actionCard, { opacity: pressed ? 0.85 : 1 }]} onPress={() => setShowAddQuestion(true)}>
                 <View style={[styles.actionIcon, { backgroundColor: Colors.light.primary + "14" }]}>
                   <Ionicons name="add-circle" size={28} color={Colors.light.primary} />
                 </View>
                 <Text style={styles.actionLabel}>Add Question</Text>
               </Pressable>
-              <Pressable
-                style={({ pressed }) => [styles.actionCard, { opacity: pressed ? 0.85 : 1 }]}
-                onPress={() => Alert.alert("Coming Soon", "Course management coming soon.")}
-              >
-                <View style={[styles.actionIcon, { backgroundColor: Colors.light.success + "14" }]}>
-                  <Ionicons name="school" size={28} color={Colors.light.success} />
-                </View>
-                <Text style={styles.actionLabel}>Manage Courses</Text>
-              </Pressable>
-              <Pressable
-                style={({ pressed }) => [styles.actionCard, { opacity: pressed ? 0.85 : 1 }]}
-                onPress={() => Alert.alert("Coming Soon", "Analytics coming soon.")}
-              >
+              <Pressable style={({ pressed }) => [styles.actionCard, { opacity: pressed ? 0.85 : 1 }]} onPress={() => Alert.alert("Coming Soon", "Analytics coming soon.")}>
                 <View style={[styles.actionIcon, { backgroundColor: Colors.light.warning + "14" }]}>
                   <Ionicons name="analytics" size={28} color={Colors.light.warning} />
                 </View>
                 <Text style={styles.actionLabel}>Analytics</Text>
               </Pressable>
-              <Pressable
-                style={({ pressed }) => [styles.actionCard, { opacity: pressed ? 0.85 : 1 }]}
-                onPress={() => Alert.alert("Coming Soon", "Bulk import coming soon.")}
-              >
+              <Pressable style={({ pressed }) => [styles.actionCard, { opacity: pressed ? 0.85 : 1 }]} onPress={() => Alert.alert("Coming Soon", "Bulk import coming soon.")}>
                 <View style={[styles.actionIcon, { backgroundColor: "#7C3AED14" }]}>
                   <Ionicons name="cloud-upload" size={28} color="#7C3AED" />
                 </View>
                 <Text style={styles.actionLabel}>Import MCQs</Text>
+              </Pressable>
+              <Pressable style={({ pressed }) => [styles.actionCard, { opacity: pressed ? 0.85 : 1 }]} onPress={() => Alert.alert("Coming Soon", "Manage programs coming soon.")}>
+                <View style={[styles.actionIcon, { backgroundColor: Colors.light.success + "14" }]}>
+                  <Ionicons name="school" size={28} color={Colors.light.success} />
+                </View>
+                <Text style={styles.actionLabel}>Programs</Text>
               </Pressable>
             </View>
           </View>
         )}
       </ScrollView>
 
+      {/* Add Question Modal */}
       <Modal visible={showAddQuestion} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowAddQuestion(false)}>
         <View style={[styles.modalContainer, { paddingTop: Math.max(insets.top + 8, 20) }]}>
           <View style={styles.modalHeader}>
@@ -338,21 +318,18 @@ export default function AdminScreen() {
                 />
               </View>
             ))}
-            <Pressable
-              style={({ pressed }) => [styles.saveBtn, { opacity: pressed || saving ? 0.85 : 1 }]}
-              onPress={handleSaveQuestion}
-              disabled={saving}
-            >
+            <Pressable style={({ pressed }) => [styles.saveBtn, { opacity: pressed || saving ? 0.85 : 1 }]} onPress={handleSaveQuestion} disabled={saving}>
               {saving ? <ActivityIndicator color="#FFF" /> : <Text style={styles.saveBtnText}>Save Question</Text>}
             </Pressable>
           </ScrollView>
         </View>
       </Modal>
 
+      {/* Assign Paper Modal */}
       <Modal visible={showEnrollModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => { setShowEnrollModal(false); setSelectedStudent(null); }}>
         <View style={[styles.modalContainer, { paddingTop: Math.max(insets.top + 8, 20) }]}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Assign Course</Text>
+            <Text style={styles.modalTitle}>Assign Paper Access</Text>
             <Pressable onPress={() => { setShowEnrollModal(false); setSelectedStudent(null); }}>
               <Ionicons name="close" size={24} color={Colors.light.text} />
             </Pressable>
@@ -368,38 +345,42 @@ export default function AdminScreen() {
               </View>
             </View>
           )}
-          <ScrollView style={styles.modalScroll} contentContainerStyle={{ gap: 10, paddingBottom: Math.max(insets.bottom + 20, 40) }}>
-            <Text style={styles.formLabel}>Select a course to assign:</Text>
-            {!allCourses ? (
+          <ScrollView style={styles.modalScroll} contentContainerStyle={{ gap: 8, paddingBottom: Math.max(insets.bottom + 20, 40) }}>
+            {!allSubjects ? (
               <ActivityIndicator color={Colors.light.primary} style={{ marginTop: 20 }} />
             ) : (
-              allCourses.map(course => {
-                const alreadyEnrolled = selectedStudent?.enrolledCourses.some(ec => ec.courseId === course.id);
-                return (
-                  <Pressable
-                    key={course.id}
-                    style={[styles.coursePickItem, alreadyEnrolled && styles.coursePickItemDisabled]}
-                    onPress={() => !alreadyEnrolled && handleAssignCourse(course.id)}
-                    disabled={alreadyEnrolled || saving}
-                  >
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.coursePickCode, alreadyEnrolled && { color: Colors.light.textMuted }]}>{course.code}</Text>
-                      <Text style={[styles.coursePickName, alreadyEnrolled && { color: Colors.light.textMuted }]}>{course.name}</Text>
-                    </View>
-                    {alreadyEnrolled ? (
-                      <View style={styles.alreadyChip}>
-                        <Ionicons name="checkmark-circle" size={14} color="#059669" />
-                        <Text style={styles.alreadyText}>Enrolled</Text>
-                      </View>
-                    ) : (
-                      <View style={styles.addChip}>
-                        <Ionicons name="add" size={14} color={Colors.light.primary} />
-                        <Text style={styles.addText}>Assign</Text>
-                      </View>
-                    )}
-                  </Pressable>
-                );
-              })
+              Object.entries(groupedSubjects).map(([group, subjects]) => (
+                <View key={group}>
+                  <Text style={styles.groupLabel}>{group}</Text>
+                  {subjects.map(subject => {
+                    const alreadyAssigned = selectedStudent?.purchasedSubjects.some(p => p.subjectId === subject.id);
+                    return (
+                      <Pressable
+                        key={subject.id}
+                        style={[styles.subjectPickItem, alreadyAssigned && styles.subjectPickItemDisabled]}
+                        onPress={() => !alreadyAssigned && handleAssignPaper(subject.id)}
+                        disabled={alreadyAssigned || saving}
+                      >
+                        <View style={[styles.pickCodeTag, { backgroundColor: alreadyAssigned ? "#F3F4F6" : Colors.light.primary + "14" }]}>
+                          <Text style={[styles.pickCodeText, { color: alreadyAssigned ? Colors.light.textMuted : Colors.light.primary }]}>{subject.code}</Text>
+                        </View>
+                        <Text style={[styles.pickSubjectName, alreadyAssigned && { color: Colors.light.textMuted }]} numberOfLines={1}>{subject.name}</Text>
+                        {alreadyAssigned ? (
+                          <View style={styles.alreadyChip}>
+                            <Ionicons name="checkmark-circle" size={13} color="#059669" />
+                            <Text style={styles.alreadyText}>Assigned</Text>
+                          </View>
+                        ) : (
+                          <View style={styles.addChip}>
+                            <Ionicons name="add" size={13} color={Colors.light.primary} />
+                            <Text style={styles.addText}>Assign</Text>
+                          </View>
+                        )}
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ))
             )}
           </ScrollView>
         </View>
@@ -430,23 +411,14 @@ const styles = StyleSheet.create({
   statIcon: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center", marginBottom: 4 },
   statValue: { fontSize: 24, fontFamily: "Inter_700Bold", color: Colors.light.text },
   statLabel: { fontSize: 12, fontFamily: "Inter_500Medium", color: Colors.light.textMuted },
-  avgCard: {
-    backgroundColor: Colors.light.primary, borderRadius: 14, padding: 16,
-    flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 10,
-  },
+  avgCard: { backgroundColor: Colors.light.primary, borderRadius: 14, padding: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 10 },
   avgLabel: { fontSize: 14, fontFamily: "Inter_500Medium", color: "rgba(255,255,255,0.85)", flex: 1, lineHeight: 18 },
   avgValue: { fontSize: 28, fontFamily: "Inter_700Bold", color: "#FFF" },
   actionGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginTop: 8 },
-  actionCard: {
-    width: "47%", backgroundColor: Colors.light.card, borderRadius: 14, padding: 16, alignItems: "center", gap: 8,
-    shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2,
-  },
+  actionCard: { width: "47%", backgroundColor: Colors.light.card, borderRadius: 14, padding: 16, alignItems: "center", gap: 8, shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
   actionIcon: { width: 52, height: 52, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   actionLabel: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: Colors.light.text, textAlign: "center" },
-  studentCard: {
-    backgroundColor: Colors.light.card, borderRadius: 14, padding: 14, marginBottom: 10,
-    shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
-  },
+  studentCard: { backgroundColor: Colors.light.card, borderRadius: 14, padding: 14, marginBottom: 10, shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
   studentHeader: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8 },
   avatarCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.light.primary, alignItems: "center", justifyContent: "center" },
   avatarText: { fontSize: 16, fontFamily: "Inter_700Bold", color: "#FFF" },
@@ -454,37 +426,32 @@ const styles = StyleSheet.create({
   studentEmail: { fontSize: 12, fontFamily: "Inter_400Regular", color: Colors.light.textMuted },
   assignBtn: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: Colors.light.primary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
   assignBtnText: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: "#FFF" },
-  noCourses: { fontSize: 12, fontFamily: "Inter_400Regular", color: Colors.light.textMuted, fontStyle: "italic" },
-  enrolledList: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-  enrolledChip: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "#DBEAFE", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20 },
-  enrolledChipText: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: "#1D4ED8" },
+  noPapers: { fontSize: 12, fontFamily: "Inter_400Regular", color: Colors.light.textMuted, fontStyle: "italic" },
+  chipsWrap: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  paperChip: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "#DBEAFE", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20 },
+  paperChipText: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: "#1D4ED8" },
   emptyState: { paddingTop: 40, alignItems: "center", gap: 8 },
   emptyText: { fontSize: 15, fontFamily: "Inter_500Medium", color: Colors.light.textMuted },
   modalContainer: { flex: 1, backgroundColor: Colors.light.background },
-  modalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingBottom: 16 },
+  modalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingBottom: 12 },
   modalTitle: { fontSize: 20, fontFamily: "Inter_700Bold", color: Colors.light.text },
   modalScroll: { flex: 1, paddingHorizontal: 20 },
   selectedStudentBanner: { flexDirection: "row", alignItems: "center", gap: 10, marginHorizontal: 20, marginBottom: 16, backgroundColor: Colors.light.backgroundSecondary, padding: 12, borderRadius: 12 },
   formField: { gap: 6 },
   formLabel: { fontSize: 13, fontFamily: "Inter_500Medium", color: Colors.light.text, marginBottom: 4 },
-  formInput: {
-    backgroundColor: Colors.light.backgroundSecondary, borderRadius: 10, padding: 12,
-    fontSize: 14, fontFamily: "Inter_400Regular", color: Colors.light.text,
-    borderWidth: 1, borderColor: Colors.light.border,
-  },
+  formInput: { backgroundColor: Colors.light.backgroundSecondary, borderRadius: 10, padding: 12, fontSize: 14, fontFamily: "Inter_400Regular", color: Colors.light.text, borderWidth: 1, borderColor: Colors.light.border },
   formInputMultiline: { height: 100, textAlignVertical: "top" },
   saveBtn: { backgroundColor: Colors.light.primary, borderRadius: 14, height: 52, alignItems: "center", justifyContent: "center", marginTop: 8 },
   saveBtnText: { fontSize: 16, fontFamily: "Inter_600SemiBold", color: "#FFF" },
-  coursePickItem: {
-    flexDirection: "row", alignItems: "center", backgroundColor: Colors.light.card, borderRadius: 12,
-    padding: 14, borderWidth: 1, borderColor: Colors.light.border,
-  },
-  coursePickItemDisabled: { opacity: 0.7 },
-  coursePickCode: { fontSize: 15, fontFamily: "Inter_700Bold", color: Colors.light.text },
-  coursePickName: { fontSize: 12, fontFamily: "Inter_400Regular", color: Colors.light.textSecondary, marginTop: 2 },
-  alreadyChip: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "#DCFCE7", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 20 },
+  groupLabel: { fontSize: 11, fontFamily: "Inter_600SemiBold", color: Colors.light.textMuted, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6, marginTop: 8 },
+  subjectPickItem: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: Colors.light.card, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: Colors.light.border, marginBottom: 4 },
+  subjectPickItemDisabled: { opacity: 0.7 },
+  pickCodeTag: { width: 42, height: 36, borderRadius: 8, alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  pickCodeText: { fontSize: 10, fontFamily: "Inter_700Bold" },
+  pickSubjectName: { flex: 1, fontSize: 13, fontFamily: "Inter_500Medium", color: Colors.light.text },
+  alreadyChip: { flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: "#DCFCE7", paddingHorizontal: 7, paddingVertical: 3, borderRadius: 20 },
   alreadyText: { fontSize: 11, fontFamily: "Inter_600SemiBold", color: "#059669" },
-  addChip: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "#EFF6FF", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 20 },
+  addChip: { flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: "#EFF6FF", paddingHorizontal: 7, paddingVertical: 3, borderRadius: 20 },
   addText: { fontSize: 11, fontFamily: "Inter_600SemiBold", color: Colors.light.primary },
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12, backgroundColor: Colors.light.background },
   noAccessText: { fontSize: 18, fontFamily: "Inter_600SemiBold", color: Colors.light.text },

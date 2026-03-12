@@ -2,9 +2,9 @@ import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import {
   coursesTable, subjectsTable, chaptersTable, topicsTable, questionsTable,
-  usersTable, userProgressTable, userCoursesTable
+  usersTable, userProgressTable, userSubjectPurchasesTable, levelsTable
 } from "@workspace/db";
-import { eq, count, avg, sql, and } from "drizzle-orm";
+import { eq, count, avg, and } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -42,12 +42,17 @@ router.get("/students", async (_req, res) => {
       .where(eq(usersTable.role, "student"));
 
     const result = await Promise.all(students.map(async (s) => {
-      const enrollments = await db
-        .select({ courseId: userCoursesTable.courseId, courseName: coursesTable.name, courseCode: coursesTable.code, assignedAt: userCoursesTable.assignedAt })
-        .from(userCoursesTable)
-        .innerJoin(coursesTable, eq(userCoursesTable.courseId, coursesTable.id))
-        .where(eq(userCoursesTable.userId, s.id));
-      return { ...s, enrolledCourses: enrollments };
+      const purchases = await db
+        .select({
+          subjectId: userSubjectPurchasesTable.subjectId,
+          subjectName: subjectsTable.name,
+          subjectCode: subjectsTable.code,
+          assignedAt: userSubjectPurchasesTable.assignedAt,
+        })
+        .from(userSubjectPurchasesTable)
+        .innerJoin(subjectsTable, eq(userSubjectPurchasesTable.subjectId, subjectsTable.id))
+        .where(eq(userSubjectPurchasesTable.userId, s.id));
+      return { ...s, purchasedSubjects: purchases };
     }));
 
     res.json(result);
@@ -57,40 +62,61 @@ router.get("/students", async (_req, res) => {
   }
 });
 
-router.post("/students/:userId/courses", async (req, res) => {
+router.post("/students/:userId/subjects", async (req, res) => {
   try {
     const userId = parseInt(req.params.userId);
-    const { courseId, assignedBy } = req.body;
-    if (!courseId) { res.status(400).json({ error: "courseId is required" }); return; }
+    const { subjectId, assignedBy } = req.body;
+    if (!subjectId) { res.status(400).json({ error: "subjectId is required" }); return; }
 
-    const existing = await db.select().from(userCoursesTable)
-      .where(and(eq(userCoursesTable.userId, userId), eq(userCoursesTable.courseId, courseId)))
+    const existing = await db.select().from(userSubjectPurchasesTable)
+      .where(and(eq(userSubjectPurchasesTable.userId, userId), eq(userSubjectPurchasesTable.subjectId, subjectId)))
       .limit(1);
     if (existing.length > 0) {
-      res.status(409).json({ error: "Already enrolled", message: "Student already has access to this course" });
+      res.status(409).json({ error: "Already enrolled", message: "Student already has access to this paper" });
       return;
     }
 
-    const [enrollment] = await db.insert(userCoursesTable)
-      .values({ userId, courseId, assignedBy: assignedBy ?? null })
+    const [purchase] = await db.insert(userSubjectPurchasesTable)
+      .values({ userId, subjectId, assignedBy: assignedBy ?? null })
       .returning();
-    res.status(201).json(enrollment);
+    res.status(201).json(purchase);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Internal Server Error", message: "Failed to assign course" });
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to assign paper" });
   }
 });
 
-router.delete("/students/:userId/courses/:courseId", async (req, res) => {
+router.delete("/students/:userId/subjects/:subjectId", async (req, res) => {
   try {
     const userId = parseInt(req.params.userId);
-    const courseId = parseInt(req.params.courseId);
-    await db.delete(userCoursesTable)
-      .where(and(eq(userCoursesTable.userId, userId), eq(userCoursesTable.courseId, courseId)));
-    res.json({ message: "Course access revoked" });
+    const subjectId = parseInt(req.params.subjectId);
+    await db.delete(userSubjectPurchasesTable)
+      .where(and(eq(userSubjectPurchasesTable.userId, userId), eq(userSubjectPurchasesTable.subjectId, subjectId)));
+    res.json({ message: "Paper access revoked" });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Internal Server Error", message: "Failed to revoke course" });
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to revoke paper" });
+  }
+});
+
+router.get("/subjects", async (_req, res) => {
+  try {
+    const subjects = await db
+      .select({
+        id: subjectsTable.id,
+        name: subjectsTable.name,
+        code: subjectsTable.code,
+        courseId: subjectsTable.courseId,
+        levelId: subjectsTable.levelId,
+        courseName: coursesTable.name,
+        courseCode: coursesTable.code,
+      })
+      .from(subjectsTable)
+      .innerJoin(coursesTable, eq(subjectsTable.courseId, coursesTable.id));
+    res.json(subjects);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to get subjects" });
   }
 });
 
@@ -107,8 +133,8 @@ router.post("/courses", async (req, res) => {
 
 router.post("/subjects", async (req, res) => {
   try {
-    const { courseId, name, code, description } = req.body;
-    const [subject] = await db.insert(subjectsTable).values({ courseId, name, code, description }).returning();
+    const { courseId, levelId, name, code, description } = req.body;
+    const [subject] = await db.insert(subjectsTable).values({ courseId, levelId: levelId ?? null, name, code, description }).returning();
     res.status(201).json({ ...subject, chapterCount: 0, questionCount: 0 });
   } catch (err) {
     console.error(err);

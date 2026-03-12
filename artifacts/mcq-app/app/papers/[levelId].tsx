@@ -41,8 +41,12 @@ function PaperCard({ subject, onLockedPress }: { subject: Subject; onLockedPress
         </Text>
       </View>
       <View style={styles.cardCenter}>
-        <Text style={[styles.paperName, !subject.purchased && styles.textMuted]} numberOfLines={2}>{subject.name}</Text>
-        {subject.description ? <Text style={styles.desc} numberOfLines={1}>{subject.description}</Text> : null}
+        <Text style={[styles.paperName, !subject.purchased && styles.textMuted]} numberOfLines={2}>
+          {subject.name}
+        </Text>
+        {subject.description ? (
+          <Text style={styles.desc} numberOfLines={1}>{subject.description}</Text>
+        ) : null}
         <View style={styles.statsRow}>
           {subject.purchased ? (
             <>
@@ -72,20 +76,19 @@ function PaperCard({ subject, onLockedPress }: { subject: Subject; onLockedPress
   );
 }
 
-export default function SubjectsScreen() {
-  const { courseId, courseName, courseCode } = useLocalSearchParams<{ courseId: string; courseName: string; courseCode: string }>();
+export default function PapersScreen() {
+  const { levelId, levelName, courseId, courseName, courseCode } =
+    useLocalSearchParams<{ levelId: string; levelName: string; courseId: string; courseName: string; courseCode: string }>();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
   const topPad = isWeb ? Math.max(insets.top, 67) : insets.top;
 
   const { data: subjects, isLoading, error, refetch } = useQuery({
-    queryKey: ["subjects", courseId, user?.id],
-    queryFn: () => api.getSubjects(Number(courseId), user?.role === "admin" ? undefined : user?.id),
-    enabled: !!courseId,
+    queryKey: ["subjects-by-level", levelId, user?.id],
+    queryFn: () => api.getSubjectsByLevel(Number(levelId), user?.role === "admin" ? undefined : user?.id),
+    enabled: !!levelId,
   });
-
-  const label = courseCode === "ACCA" ? "Papers" : "Papers";
 
   return (
     <View style={[styles.container, { paddingTop: topPad }]}>
@@ -94,8 +97,8 @@ export default function SubjectsScreen() {
           <Ionicons name="arrow-back" size={22} color={Colors.light.text} />
         </Pressable>
         <View style={styles.headerTitles}>
-          <Text style={styles.courseLabel}>{courseCode ?? courseName}</Text>
-          <Text style={styles.screenTitle}>{label}</Text>
+          <Text style={styles.breadcrumb}>{courseCode} · {levelName}</Text>
+          <Text style={styles.screenTitle}>Papers</Text>
         </View>
       </View>
 
@@ -127,7 +130,7 @@ export default function SubjectsScreen() {
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.center}>
-              <Ionicons name="library-outline" size={64} color={Colors.light.textMuted} />
+              <Ionicons name="document-outline" size={64} color={Colors.light.textMuted} />
               <Text style={styles.emptyText}>No papers found</Text>
             </View>
           }
@@ -142,7 +145,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingBottom: 16, paddingTop: 8, gap: 12 },
   backBtn: { width: 38, height: 38, borderRadius: 12, backgroundColor: Colors.light.card, alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
   headerTitles: { flex: 1 },
-  courseLabel: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: Colors.light.primary, textTransform: "uppercase", letterSpacing: 1 },
+  breadcrumb: { fontSize: 12, fontFamily: "Inter_500Medium", color: Colors.light.primary, textTransform: "uppercase", letterSpacing: 0.5 },
   screenTitle: { fontSize: 22, fontFamily: "Inter_700Bold", color: Colors.light.text },
   list: { paddingHorizontal: 16, gap: 10, paddingTop: 4 },
   card: {
