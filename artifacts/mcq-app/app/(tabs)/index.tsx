@@ -23,7 +23,7 @@ const PROGRAM_META: Record<string, {
   accent: string;
   hasLevels: boolean;
 }> = {
-  ACCA:  { icon: "school-outline",      bg: "#1E3A5F", accent: "#60A5FA", hasLevels: true },
+  ACCA:  { icon: "school-outline",      bg: "#1E3A5F", accent: "#60A5FA", hasLevels: false },
   CA:    { icon: "ribbon-outline",       bg: "#0C4A6E", accent: "#38BDF8", hasLevels: false },
   PIPFA: { icon: "briefcase-outline",   bg: "#065F46", accent: "#34D399", hasLevels: false },
   BCOM:  { icon: "library-outline",     bg: "#4C1D95", accent: "#C084FC", hasLevels: false },
