@@ -1,8 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React from "react";
+import React, { useState } from "react";
 import {
-  Alert,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -44,19 +44,18 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
   const topPad = isWeb ? Math.max(insets.top, 67) : insets.top;
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
 
-  const handleSignOut = () => {
-    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Sign Out",
-        style: "destructive",
-        onPress: async () => {
-          await signOut();
-          router.replace("/auth/signin");
-        },
-      },
-    ]);
+  const handleSignOut = async () => {
+    setSigningOut(true);
+    try {
+      await signOut();
+      router.replace("/auth/signin");
+    } catch {
+      setSigningOut(false);
+      setShowConfirm(false);
+    }
   };
 
   const initials = user?.name
@@ -64,65 +63,100 @@ export default function ProfileScreen() {
     : "U";
 
   return (
-    <ScrollView style={[styles.container, { paddingTop: topPad }]} contentContainerStyle={{ paddingBottom: isWeb ? 34 + 84 : 100 }} showsVerticalScrollIndicator={false}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Profile</Text>
-      </View>
-
-      <View style={styles.avatarSection}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{initials}</Text>
+    <>
+      <ScrollView
+        style={[styles.container, { paddingTop: topPad }]}
+        contentContainerStyle={{ paddingBottom: isWeb ? 34 + 84 : 100 }}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Profile</Text>
         </View>
-        <Text style={styles.userName}>{user?.name}</Text>
-        <Text style={styles.userEmail}>{user?.email}</Text>
+
+        <View style={styles.avatarSection}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{initials}</Text>
+          </View>
+          <Text style={styles.userName}>{user?.name}</Text>
+          <Text style={styles.userEmail}>{user?.email}</Text>
+          {user?.role === "admin" && (
+            <View style={styles.roleBadge}>
+              <Text style={styles.roleText}>Admin</Text>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Account</Text>
+          <View style={styles.menuGroup}>
+            <MenuRow icon="person-outline" label="Edit Profile" onPress={() => {}} />
+            <View style={styles.divider} />
+            <MenuRow icon="lock-closed-outline" label="Change Password" onPress={() => {}} />
+            <View style={styles.divider} />
+            <MenuRow icon="notifications-outline" label="Notifications" onPress={() => {}} />
+          </View>
+        </View>
+
         {user?.role === "admin" && (
-          <View style={styles.roleBadge}>
-            <Text style={styles.roleText}>Admin</Text>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Administration</Text>
+            <View style={styles.menuGroup}>
+              <MenuRow icon="settings-outline" label="Admin Panel" onPress={() => router.push("/admin")} color="#7B2D8B" />
+            </View>
           </View>
         )}
-      </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Account</Text>
-        <View style={styles.menuGroup}>
-          <MenuRow icon="person-outline" label="Edit Profile" onPress={() => {}} />
-          <View style={styles.divider} />
-          <MenuRow icon="lock-closed-outline" label="Change Password" onPress={() => {}} />
-          <View style={styles.divider} />
-          <MenuRow icon="notifications-outline" label="Notifications" onPress={() => {}} />
-        </View>
-      </View>
-
-      {user?.role === "admin" && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Administration</Text>
+          <Text style={styles.sectionTitle}>App</Text>
           <View style={styles.menuGroup}>
-            <MenuRow icon="settings-outline" label="Admin Panel" onPress={() => router.push("/admin")} color="#7B2D8B" />
+            <MenuRow icon="information-circle-outline" label="About" onPress={() => {}} />
+            <View style={styles.divider} />
+            <MenuRow icon="help-circle-outline" label="Help & Support" onPress={() => {}} />
           </View>
         </View>
-      )}
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>App</Text>
-        <View style={styles.menuGroup}>
-          <MenuRow icon="information-circle-outline" label="About" onPress={() => {}} />
-          <View style={styles.divider} />
-          <MenuRow icon="help-circle-outline" label="Help & Support" onPress={() => {}} />
+        <View style={styles.section}>
+          <Pressable
+            style={({ pressed }) => [styles.signOutBtn, { opacity: pressed ? 0.8 : 1 }]}
+            onPress={() => setShowConfirm(true)}
+          >
+            <Ionicons name="log-out-outline" size={20} color={Colors.light.error} />
+            <Text style={styles.signOutText}>Sign Out</Text>
+          </Pressable>
         </View>
-      </View>
 
-      <View style={styles.section}>
-        <Pressable
-          style={({ pressed }) => [styles.signOutBtn, { opacity: pressed ? 0.8 : 1 }]}
-          onPress={handleSignOut}
-        >
-          <Ionicons name="log-out-outline" size={20} color={Colors.light.error} />
-          <Text style={styles.signOutText}>Sign Out</Text>
-        </Pressable>
-      </View>
+        <Text style={styles.versionText}>MCQ Pro v1.0.0</Text>
+      </ScrollView>
 
-      <Text style={styles.versionText}>MCQ Pro v1.0.0</Text>
-    </ScrollView>
+      {/* Custom confirm modal — replaces Alert which is blocked in iframes */}
+      <Modal visible={showConfirm} transparent animationType="fade" onRequestClose={() => setShowConfirm(false)}>
+        <View style={styles.overlay}>
+          <View style={styles.confirmCard}>
+            <View style={styles.confirmIconBox}>
+              <Ionicons name="log-out-outline" size={30} color={Colors.light.error} />
+            </View>
+            <Text style={styles.confirmTitle}>Sign Out</Text>
+            <Text style={styles.confirmMsg}>Are you sure you want to sign out?</Text>
+            <View style={styles.confirmActions}>
+              <Pressable
+                style={({ pressed }) => [styles.cancelBtn, { opacity: pressed ? 0.8 : 1 }]}
+                onPress={() => setShowConfirm(false)}
+                disabled={signingOut}
+              >
+                <Text style={styles.cancelBtnText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [styles.confirmBtn, { opacity: pressed || signingOut ? 0.8 : 1 }]}
+                onPress={handleSignOut}
+                disabled={signingOut}
+              >
+                <Text style={styles.confirmBtnText}>{signingOut ? "Signing out…" : "Sign Out"}</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </>
   );
 }
 
@@ -169,4 +203,32 @@ const styles = StyleSheet.create({
     textAlign: "center", color: Colors.light.textMuted,
     fontSize: 12, fontFamily: "Inter_400Regular", paddingVertical: 16,
   },
+  overlay: {
+    flex: 1, backgroundColor: "rgba(0,0,0,0.45)",
+    alignItems: "center", justifyContent: "center", padding: 32,
+  },
+  confirmCard: {
+    width: "100%", maxWidth: 320, backgroundColor: Colors.light.card,
+    borderRadius: 20, padding: 24, alignItems: "center", gap: 10,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15, shadowRadius: 24, elevation: 12,
+  },
+  confirmIconBox: {
+    width: 60, height: 60, borderRadius: 30,
+    backgroundColor: Colors.light.error + "14",
+    alignItems: "center", justifyContent: "center", marginBottom: 4,
+  },
+  confirmTitle: { fontSize: 20, fontFamily: "Inter_700Bold", color: Colors.light.text },
+  confirmMsg: { fontSize: 14, fontFamily: "Inter_400Regular", color: Colors.light.textSecondary, textAlign: "center" },
+  confirmActions: { flexDirection: "row", gap: 10, marginTop: 8, width: "100%" },
+  cancelBtn: {
+    flex: 1, height: 46, borderRadius: 12, borderWidth: 1.5,
+    borderColor: Colors.light.border, alignItems: "center", justifyContent: "center",
+  },
+  cancelBtnText: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: Colors.light.textSecondary },
+  confirmBtn: {
+    flex: 1, height: 46, borderRadius: 12,
+    backgroundColor: Colors.light.error, alignItems: "center", justifyContent: "center",
+  },
+  confirmBtnText: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: "#FFF" },
 });
