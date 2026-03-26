@@ -18,6 +18,7 @@ export const coursesTable = pgTable("courses", {
   description: text("description"),
   icon: varchar("icon", { length: 100 }),
   color: varchar("color", { length: 20 }),
+  logo: text("logo"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

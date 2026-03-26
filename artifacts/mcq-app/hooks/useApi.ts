@@ -9,6 +9,7 @@ export interface Course {
   description?: string;
   icon?: string;
   color?: string;
+  logo?: string;
   subjectCount: number;
   questionCount: number;
 }
@@ -193,7 +194,7 @@ export const api = {
     if (!res.ok) throw new Error("Failed to fetch admin courses");
     return res.json();
   },
-  updateCourse: async (id: number, data: { name: string; code: string; description?: string }): Promise<Course> => {
+  updateCourse: async (id: number, data: { name: string; code: string; description?: string; logo?: string }): Promise<Course> => {
     const res = await fetch(`${API_BASE}/admin/courses/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -238,7 +239,7 @@ export const api = {
     });
     if (!res.ok) throw new Error("Failed to revoke paper");
   },
-  createCourse: async (data: { name: string; code: string; description?: string }) => {
+  createCourse: async (data: { name: string; code: string; description?: string; logo?: string }) => {
     const res = await fetch(`${API_BASE}/admin/courses`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

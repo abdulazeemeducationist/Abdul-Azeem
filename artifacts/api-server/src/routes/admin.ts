@@ -136,9 +136,9 @@ router.get("/courses", async (_req, res) => {
 
 router.post("/courses", async (req, res) => {
   try {
-    const { name, code, description, icon, color } = req.body;
+    const { name, code, description, icon, color, logo } = req.body;
     if (!name || !code) { res.status(400).json({ error: "name and code are required" }); return; }
-    const [course] = await db.insert(coursesTable).values({ name, code, description, icon, color }).returning();
+    const [course] = await db.insert(coursesTable).values({ name, code, description, icon, color, logo }).returning();
     res.status(201).json({ ...course, subjectCount: 0 });
   } catch (err) {
     console.error(err);
@@ -149,8 +149,8 @@ router.post("/courses", async (req, res) => {
 router.put("/courses/:courseId", async (req, res) => {
   try {
     const id = parseInt(req.params.courseId);
-    const { name, code, description } = req.body;
-    const [course] = await db.update(coursesTable).set({ name, code, description }).where(eq(coursesTable.id, id)).returning();
+    const { name, code, description, logo } = req.body;
+    const [course] = await db.update(coursesTable).set({ name, code, description, logo }).where(eq(coursesTable.id, id)).returning();
     if (!course) { res.status(404).json({ error: "Course not found" }); return; }
     res.json(course);
   } catch (err) {

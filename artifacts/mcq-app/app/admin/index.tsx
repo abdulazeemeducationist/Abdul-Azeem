@@ -1,6 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
+import { Image } from "expo-image";
+import * as ImagePicker from "expo-image-picker";
+import * as FileSystem from "expo-file-system";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
@@ -33,8 +36,8 @@ function StatCard({ label, value, icon, color }: StatCardProps) {
 
 type TabType = "overview" | "students" | "programs" | "content";
 
-interface ProgramForm { name: string; code: string; description: string }
-const EMPTY_FORM: ProgramForm = { name: "", code: "", description: "" };
+interface ProgramForm { name: string; code: string; description: string; logo: string }
+const EMPTY_FORM: ProgramForm = { name: "", code: "", description: "", logo: "" };
 
 export default function AdminScreen() {
   const { user } = useAuth();
@@ -95,17 +98,52 @@ export default function AdminScreen() {
   const openAddProgram = () => { setEditingProgram(null); setProgramForm(EMPTY_FORM); setShowProgramModal(true); };
   const openEditProgram = (p: Course & { subjectCount: number }) => {
     setEditingProgram(p);
-    setProgramForm({ name: p.name, code: p.code, description: p.description ?? "" });
+    setProgramForm({ name: p.name, code: p.code, description: p.description ?? "", logo: p.logo ?? "" });
     setShowProgramModal(true);
+  };
+
+  const pickLogo = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") return;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.6,
+      base64: false,
+    });
+    if (!result.canceled && result.assets[0]) {
+      const asset = result.assets[0];
+      if (Platform.OS === "web") {
+        const response = await fetch(asset.uri);
+        const blob = await response.blob();
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64 = reader.result as string;
+          setProgramForm(f => ({ ...f, logo: base64 }));
+        };
+        reader.readAsDataURL(blob);
+      } else {
+        const base64 = await FileSystem.readAsStringAsync(asset.uri, { encoding: FileSystem.EncodingType.Base64 });
+        const mime = asset.mimeType ?? "image/jpeg";
+        setProgramForm(f => ({ ...f, logo: `data:${mime};base64,${base64}` }));
+      }
+    }
   };
   const handleSaveProgram = async () => {
     if (!programForm.name.trim() || !programForm.code.trim()) return;
     setSavingProgram(true);
     try {
+      const payload = {
+        name: programForm.name.trim(),
+        code: programForm.code.trim(),
+        description: programForm.description.trim() || undefined,
+        logo: programForm.logo || undefined,
+      };
       if (editingProgram) {
-        await api.updateCourse(editingProgram.id, programForm);
+        await api.updateCourse(editingProgram.id, payload);
       } else {
-        await api.createCourse(programForm);
+        await api.createCourse(payload);
       }
       qc.invalidateQueries({ queryKey: ["adminCourses"] });
       qc.invalidateQueries({ queryKey: ["courses"] });
@@ -265,9 +303,13 @@ export default function AdminScreen() {
             ) : (
               programs.map(prog => (
                 <View key={prog.id} style={styles.programRow}>
-                  <View style={styles.progCodeBox}>
-                    <Text style={styles.progCode}>{prog.code}</Text>
-                  </View>
+                  {prog.logo ? (
+                    <Image source={{ uri: prog.logo }} style={styles.progLogoThumb} contentFit="cover" />
+                  ) : (
+                    <View style={styles.progCodeBox}>
+                      <Text style={styles.progCode}>{prog.code}</Text>
+                    </View>
+                  )}
                   <View style={{ flex: 1 }}>
                     <Text style={styles.progName} numberOfLines={1}>{prog.name}</Text>
                     {prog.description ? <Text style={styles.progDesc} numberOfLines={1}>{prog.description}</Text> : null}
@@ -370,6 +412,33 @@ export default function AdminScreen() {
             </Pressable>
           </View>
           <ScrollView style={styles.sheetScroll} contentContainerStyle={{ gap: 14, paddingBottom: Math.max(insets.bottom + 20, 40) }} keyboardShouldPersistTaps="handled">
+
+            {/* Logo Picker */}
+            <View style={styles.logoPickerSection}>
+              <Pressable style={styles.logoPickerBox} onPress={pickLogo}>
+                {programForm.logo ? (
+                  <Image source={{ uri: programForm.logo }} style={styles.logoPreview} contentFit="cover" />
+                ) : (
+                  <View style={styles.logoPlaceholder}>
+                    <Ionicons name="image-outline" size={28} color={Colors.light.textMuted} />
+                    <Text style={styles.logoPlaceholderText}>Tap to upload logo</Text>
+                  </View>
+                )}
+              </Pressable>
+              {programForm.logo ? (
+                <View style={styles.logoActions}>
+                  <Pressable style={styles.logoChangeBtn} onPress={pickLogo}>
+                    <Ionicons name="camera-outline" size={14} color={Colors.light.primary} />
+                    <Text style={styles.logoChangeBtnText}>Change</Text>
+                  </Pressable>
+                  <Pressable style={styles.logoRemoveBtn} onPress={() => setProgramForm(f => ({ ...f, logo: "" }))}>
+                    <Ionicons name="trash-outline" size={14} color={Colors.light.error} />
+                    <Text style={styles.logoRemoveBtnText}>Remove</Text>
+                  </Pressable>
+                </View>
+              ) : null}
+            </View>
+
             <View style={styles.formField}>
               <Text style={styles.formLabel}>Program Name <Text style={styles.required}>*</Text></Text>
               <TextInput
@@ -573,6 +642,21 @@ const styles = StyleSheet.create({
   },
   progCodeBox: { width: 46, height: 46, borderRadius: 12, backgroundColor: Colors.light.primary + "14", alignItems: "center", justifyContent: "center" },
   progCode: { fontSize: 11, fontFamily: "Inter_700Bold", color: Colors.light.primary },
+  progLogoThumb: { width: 46, height: 46, borderRadius: 12 },
+  logoPickerSection: { alignItems: "center", gap: 10 },
+  logoPickerBox: {
+    width: 100, height: 100, borderRadius: 20,
+    borderWidth: 2, borderColor: Colors.light.border, borderStyle: "dashed",
+    overflow: "hidden",
+  },
+  logoPreview: { width: "100%", height: "100%" },
+  logoPlaceholder: { flex: 1, alignItems: "center", justifyContent: "center", gap: 6, padding: 8 },
+  logoPlaceholderText: { fontSize: 11, fontFamily: "Inter_400Regular", color: Colors.light.textMuted, textAlign: "center" },
+  logoActions: { flexDirection: "row", gap: 8 },
+  logoChangeBtn: { flexDirection: "row", alignItems: "center", gap: 4, borderWidth: 1, borderColor: Colors.light.primary, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5 },
+  logoChangeBtnText: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: Colors.light.primary },
+  logoRemoveBtn: { flexDirection: "row", alignItems: "center", gap: 4, borderWidth: 1, borderColor: Colors.light.error + "60", borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5 },
+  logoRemoveBtnText: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: Colors.light.error },
   progName: { fontSize: 14, fontFamily: "Inter_600SemiBold", color: Colors.light.text },
   progDesc: { fontSize: 12, fontFamily: "Inter_400Regular", color: Colors.light.textSecondary, marginTop: 2 },
   progMeta: { fontSize: 11, fontFamily: "Inter_500Medium", color: Colors.light.textMuted, marginTop: 4 },

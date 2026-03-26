@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
 import React from "react";
@@ -53,7 +54,11 @@ function ProgramCard({ course }: { course: Course }) {
     >
       <View style={[styles.cardHeader, { backgroundColor: meta.bg }]}>
         <View style={[styles.iconCircle, { backgroundColor: "rgba(255,255,255,0.15)" }]}>
-          <Ionicons name={meta.icon} size={38} color="#FFFFFF" />
+          {course.logo ? (
+            <Image source={{ uri: course.logo }} style={styles.logoImg} contentFit="cover" />
+          ) : (
+            <Ionicons name={meta.icon} size={38} color="#FFFFFF" />
+          )}
         </View>
         <View style={styles.cardHeaderRight}>
           <Text style={styles.programCode}>{course.code}</Text>
@@ -204,8 +209,9 @@ const styles = StyleSheet.create({
   iconCircle: {
     width: 70, height: 70, borderRadius: 18,
     alignItems: "center", justifyContent: "center",
-    flexShrink: 0,
+    flexShrink: 0, overflow: "hidden",
   },
+  logoImg: { width: 70, height: 70, borderRadius: 18 },
   cardHeaderRight: { flex: 1, gap: 5 },
   programCode: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "rgba(255,255,255,0.7)", letterSpacing: 1, textTransform: "uppercase" },
   programName: { fontSize: 18, fontFamily: "Inter_700Bold", color: "#FFFFFF", lineHeight: 24 },
