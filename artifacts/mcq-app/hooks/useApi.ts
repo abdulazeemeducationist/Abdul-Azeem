@@ -285,6 +285,7 @@ export const api = {
     correctAnswers: string[];
     explanation: string;
     questionType: "single" | "multiple";
+    difficulty: string;
   }) => {
     const res = await fetch(`${API_BASE}/admin/questions`, {
       method: "POST",
@@ -302,6 +303,26 @@ export const api = {
     if (!res.ok) throw new Error("Failed to fetch questions");
     return res.json();
   },
+  importQuestions: async (questions: Array<{
+    topicId: number;
+    questionText: string;
+    optionA: string;
+    optionB: string;
+    optionC: string;
+    optionD: string;
+    correctAnswers: string[];
+    explanation: string;
+    questionType?: string;
+    difficulty?: string;
+  }>) => {
+    const res = await fetch(`${API_BASE}/admin/questions/import`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ questions }),
+    });
+    if (!res.ok) throw new Error("Failed to import questions");
+    return res.json() as Promise<{ imported: number }>;
+  },
   updateQuestion: async (id: number, data: {
     topicId: number;
     questionText: string;
@@ -312,6 +333,7 @@ export const api = {
     correctAnswers: string[];
     explanation: string;
     questionType: "single" | "multiple";
+    difficulty: string;
   }) => {
     const res = await fetch(`${API_BASE}/admin/questions/${id}`, {
       method: "PUT",

@@ -68,8 +68,13 @@ export default function AdminScreen() {
   const [showDeleteQConfirm, setShowDeleteQConfirm] = useState(false);
   const [filterSubjectId, setFilterSubjectId] = useState<number | null>(null);
   const [savingQ, setSavingQ] = useState(false);
-  const EMPTY_Q = { topicId: "", questionText: "", optionA: "", optionB: "", optionC: "", optionD: "", correctAnswers: "", explanation: "" };
+  const EMPTY_Q = { topicId: "", questionText: "", optionA: "", optionB: "", optionC: "", optionD: "", correctAnswers: "", explanation: "", difficulty: "medium" };
   const [qForm, setQForm] = useState(EMPTY_Q);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importState, setImportState] = useState<"idle"|"preview"|"importing"|"done">("idle");
+  const [importData, setImportData] = useState<any[]>([]);
+  const [importError, setImportError] = useState("");
+  const [importResult, setImportResult] = useState(0);
 
   const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useQuery({
     queryKey: ["adminStats"], queryFn: api.getAdminStats,
@@ -216,6 +221,7 @@ export default function AdminScreen() {
       optionA: q.optionA, optionB: q.optionB, optionC: q.optionC, optionD: q.optionD,
       correctAnswers: (q.correctAnswers as string[]).join(","),
       explanation: q.explanation,
+      difficulty: q.difficulty ?? "medium",
     });
     setShowAddQuestion(true);
   };
@@ -231,6 +237,7 @@ export default function AdminScreen() {
         optionA: qForm.optionA, optionB: qForm.optionB, optionC: qForm.optionC, optionD: qForm.optionD,
         correctAnswers: answers, explanation: qForm.explanation,
         questionType: answers.length > 1 ? "multiple" as const : "single" as const,
+        difficulty: qForm.difficulty,
       };
       if (editingQuestion) {
         await api.updateQuestion(editingQuestion.id, payload);
@@ -259,6 +266,65 @@ export default function AdminScreen() {
       refetchQuestions();
     } catch (e) { console.error(e); }
     finally { setSavingQ(false); setShowDeleteQConfirm(false); setDeletingQId(null); }
+  };
+
+  // --- Import MCQs ---
+  const openImport = () => { setImportState("idle"); setImportData([]); setImportError(""); setImportResult(0); setShowImportModal(true); };
+  const pickImportFile = async () => {
+    setImportError("");
+    try {
+      const DocumentPicker = await import("expo-document-picker");
+      const result = await DocumentPicker.getDocumentAsync({ type: ["application/json", "text/csv", "text/plain", "*/*"], copyToCacheDirectory: true });
+      if (result.canceled || !result.assets?.length) return;
+      const FileSystem = await import("expo-file-system");
+      const content = await FileSystem.readAsStringAsync(result.assets[0].uri);
+      const name = (result.assets[0].name ?? "").toLowerCase();
+      let parsed: any[] = [];
+      if (name.endsWith(".json")) {
+        try { parsed = JSON.parse(content); if (!Array.isArray(parsed)) parsed = [parsed]; }
+        catch { setImportError("Invalid JSON file. Expected an array of question objects."); return; }
+      } else {
+        // CSV parse
+        const lines = content.split("\n").map(l => l.trim()).filter(Boolean);
+        const header = lines[0].split(",").map(h => h.trim().toLowerCase().replace(/^"|"$/g, ""));
+        const required = ["topicid","questiontext","optiona","optionb","optionc","optiond","correctanswers","explanation"];
+        const missing = required.filter(r => !header.includes(r));
+        if (missing.length) { setImportError(`CSV missing columns: ${missing.join(", ")}`); return; }
+        for (let i = 1; i < lines.length; i++) {
+          const vals = lines[i].split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/).map(v => v.trim().replace(/^"|"$/g, ""));
+          const row: any = {};
+          header.forEach((h, idx) => row[h] = vals[idx] ?? "");
+          const answers = row["correctanswers"].toUpperCase().split(/[,;|]/).map((a: string) => a.trim()).filter((a: string) => ["A","B","C","D"].includes(a));
+          parsed.push({
+            topicId: parseInt(row["topicid"]),
+            questionText: row["questiontext"],
+            optionA: row["optiona"], optionB: row["optionb"], optionC: row["optionc"], optionD: row["optiond"],
+            correctAnswers: answers,
+            explanation: row["explanation"],
+            questionType: answers.length > 1 ? "multiple" : "single",
+            difficulty: row["difficulty"] ?? "medium",
+          });
+        }
+      }
+      // Validate
+      const invalid = parsed.filter(q => !q.topicId || !q.questionText || !q.optionA || !q.correctAnswers?.length);
+      if (invalid.length) { setImportError(`${invalid.length} row(s) missing required fields (topicId, questionText, optionA, correctAnswers).`); return; }
+      setImportData(parsed);
+      setImportState("preview");
+    } catch (e: any) { setImportError(e?.message ?? "Failed to read file"); }
+  };
+  const handleConfirmImport = async () => {
+    if (!importData.length) return;
+    setImportState("importing");
+    try {
+      const res = await api.importQuestions(importData);
+      setImportResult(res.imported);
+      setImportState("done");
+      qc.invalidateQueries({ queryKey: ["adminStats"] });
+      qc.invalidateQueries({ queryKey: ["adminQuestions"] });
+      refetchStats();
+      refetchQuestions();
+    } catch (e: any) { setImportError(e?.message ?? "Import failed"); setImportState("preview"); }
   };
 
   const groupedSubjects = (allSubjects ?? []).reduce<Record<string, AdminSubject[]>>((acc, s) => {
@@ -425,10 +491,16 @@ export default function AdminScreen() {
           <View style={styles.section}>
             <View style={styles.sectionHeaderRow}>
               <Text style={styles.sectionTitle}>MCQ Questions</Text>
-              <Pressable style={styles.addBtnSmall} onPress={openAddQuestion}>
-                <Ionicons name="add" size={16} color="#FFF" />
-                <Text style={styles.addBtnText}>Add MCQ</Text>
-              </Pressable>
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                <Pressable style={[styles.addBtnSmall, { backgroundColor: "#7C3AED" }]} onPress={openImport}>
+                  <Ionicons name="cloud-upload-outline" size={15} color="#FFF" />
+                  <Text style={styles.addBtnText}>Import</Text>
+                </Pressable>
+                <Pressable style={styles.addBtnSmall} onPress={openAddQuestion}>
+                  <Ionicons name="add" size={16} color="#FFF" />
+                  <Text style={styles.addBtnText}>Add MCQ</Text>
+                </Pressable>
+              </View>
             </View>
 
             {/* Subject filter */}
@@ -477,6 +549,12 @@ export default function AdminScreen() {
                       <Text style={styles.qTopicTag} numberOfLines={1}>{(q as any).topicName ?? `Topic ${q.topicId}`}</Text>
                       <View style={[styles.qTypeBadge, q.questionType === "multiple" ? styles.qTypeMultiple : styles.qTypeSingle]}>
                         <Text style={styles.qTypeText}>{q.questionType === "multiple" ? "Multi" : "Single"}</Text>
+                      </View>
+                      <View style={[styles.diffBadge,
+                        (q as any).difficulty === "easy" ? styles.diffEasy :
+                        (q as any).difficulty === "hard" ? styles.diffHard : styles.diffMedium
+                      ]}>
+                        <Text style={styles.diffText}>{(q as any).difficulty ?? "medium"}</Text>
                       </View>
                       <Pressable style={styles.editIconBtn} onPress={() => openEditQuestion(q)}>
                         <Ionicons name="pencil" size={14} color={Colors.light.primary} />
@@ -690,6 +768,96 @@ export default function AdminScreen() {
         </View>
       </Modal>
 
+      {/* ── Import MCQs Modal ── */}
+      <Modal visible={showImportModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowImportModal(false)}>
+        <View style={[styles.sheetContainer, { paddingTop: Math.max(insets.top + 8, 20) }]}>
+          <View style={styles.sheetHeader}>
+            <Text style={styles.sheetTitle}>Import MCQs</Text>
+            <Pressable onPress={() => setShowImportModal(false)}>
+              <Ionicons name="close" size={24} color={Colors.light.text} />
+            </Pressable>
+          </View>
+          <ScrollView style={styles.sheetScroll} contentContainerStyle={{ gap: 16, paddingBottom: Math.max(insets.bottom + 20, 40), paddingHorizontal: 20 }}>
+
+            {importState === "idle" && (
+              <>
+                <View style={styles.importInfoBox}>
+                  <Ionicons name="information-circle" size={20} color={Colors.light.primary} />
+                  <Text style={styles.importInfoText}>Upload a <Text style={{ fontFamily: "Inter_700Bold" }}>JSON</Text> or <Text style={{ fontFamily: "Inter_700Bold" }}>CSV</Text> file to bulk-import questions.</Text>
+                </View>
+
+                <Text style={styles.formLabel}>JSON format (array of objects):</Text>
+                <View style={styles.codeBox}>
+                  <Text style={styles.codeText}>{`[\n  {\n    "topicId": 1,\n    "questionText": "...",\n    "optionA": "...",\n    "optionB": "...",\n    "optionC": "...",\n    "optionD": "...",\n    "correctAnswers": ["A"],\n    "explanation": "...",\n    "difficulty": "medium"\n  }\n]`}</Text>
+                </View>
+
+                <Text style={styles.formLabel}>CSV columns (header row required):</Text>
+                <View style={styles.codeBox}>
+                  <Text style={styles.codeText}>topicId, questionText, optionA, optionB, optionC, optionD, correctAnswers, explanation, difficulty</Text>
+                </View>
+                <Text style={[styles.importInfoText, { color: Colors.light.textMuted, fontSize: 11 }]}>difficulty: easy / medium / hard (default: medium)</Text>
+
+                {!!importError && <Text style={styles.importError}>{importError}</Text>}
+
+                <Pressable style={styles.importPickBtn} onPress={pickImportFile}>
+                  <Ionicons name="document-outline" size={20} color="#FFF" />
+                  <Text style={styles.importPickBtnText}>Choose File (JSON / CSV)</Text>
+                </Pressable>
+              </>
+            )}
+
+            {importState === "preview" && (
+              <>
+                <View style={[styles.importInfoBox, { backgroundColor: "#DCFCE7" }]}>
+                  <Ionicons name="checkmark-circle" size={20} color="#16A34A" />
+                  <Text style={[styles.importInfoText, { color: "#166534" }]}>
+                    <Text style={{ fontFamily: "Inter_700Bold" }}>{importData.length} question{importData.length !== 1 ? "s" : ""}</Text> ready to import.
+                  </Text>
+                </View>
+                {/* Preview first 3 */}
+                {importData.slice(0, 3).map((q, i) => (
+                  <View key={i} style={styles.importPreviewCard}>
+                    <Text style={styles.importPreviewNum}>#{i + 1} · Topic {q.topicId} · {q.difficulty ?? "medium"}</Text>
+                    <Text style={styles.importPreviewQ} numberOfLines={2}>{q.questionText}</Text>
+                    <Text style={styles.importPreviewAns}>Answer: {q.correctAnswers?.join(", ")}</Text>
+                  </View>
+                ))}
+                {importData.length > 3 && <Text style={styles.importMoreText}>+{importData.length - 3} more questions…</Text>}
+                {!!importError && <Text style={styles.importError}>{importError}</Text>}
+                <View style={{ flexDirection: "row", gap: 10 }}>
+                  <Pressable style={[styles.cancelBtn2, { flex: 1 }]} onPress={() => { setImportState("idle"); setImportData([]); }}>
+                    <Text style={styles.cancelBtn2Text}>Back</Text>
+                  </Pressable>
+                  <Pressable style={[styles.saveBtn, { flex: 2 }]} onPress={handleConfirmImport}>
+                    <Text style={styles.saveBtnText}>Import {importData.length} Questions</Text>
+                  </Pressable>
+                </View>
+              </>
+            )}
+
+            {importState === "importing" && (
+              <View style={{ alignItems: "center", paddingTop: 40, gap: 12 }}>
+                <ActivityIndicator size="large" color={Colors.light.primary} />
+                <Text style={styles.importInfoText}>Importing questions…</Text>
+              </View>
+            )}
+
+            {importState === "done" && (
+              <>
+                <View style={[styles.importInfoBox, { backgroundColor: "#DCFCE7", flexDirection: "column", alignItems: "center", padding: 24 }]}>
+                  <Ionicons name="checkmark-circle" size={48} color="#16A34A" />
+                  <Text style={[styles.sheetTitle, { color: "#166534", marginTop: 8 }]}>Import Complete!</Text>
+                  <Text style={[styles.importInfoText, { color: "#166534" }]}>{importResult} question{importResult !== 1 ? "s" : ""} added successfully.</Text>
+                </View>
+                <Pressable style={styles.saveBtn} onPress={() => setShowImportModal(false)}>
+                  <Text style={styles.saveBtnText}>Done</Text>
+                </Pressable>
+              </>
+            )}
+          </ScrollView>
+        </View>
+      </Modal>
+
       {/* ── Add / Edit Question Modal ── */}
       <Modal visible={showAddQuestion} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowAddQuestion(false)}>
         <View style={[styles.sheetContainer, { paddingTop: Math.max(insets.top + 8, 20) }]}>
@@ -723,6 +891,35 @@ export default function AdminScreen() {
                 />
               </View>
             ))}
+
+            {/* Difficulty Picker */}
+            <View style={styles.formField}>
+              <Text style={styles.formLabel}>Difficulty Level</Text>
+              <View style={styles.diffPicker}>
+                {(["easy","medium","hard"] as const).map(d => (
+                  <Pressable
+                    key={d}
+                    style={[styles.diffPickerBtn,
+                      d === "easy" && styles.diffPickerEasy,
+                      d === "medium" && styles.diffPickerMedium,
+                      d === "hard" && styles.diffPickerHard,
+                      qForm.difficulty === d
+                        ? { backgroundColor: d === "easy" ? "#16A34A" : d === "medium" ? "#D97706" : "#DC2626" }
+                        : styles.diffPickerUnselected,
+                    ]}
+                    onPress={() => setQForm(f => ({ ...f, difficulty: d }))}
+                  >
+                    <Ionicons
+                      name={d === "easy" ? "leaf" : d === "medium" ? "flash" : "flame"}
+                      size={14}
+                      color={qForm.difficulty === d ? "#FFF" : d === "easy" ? "#16A34A" : d === "medium" ? "#D97706" : "#DC2626"}
+                    />
+                    <Text style={[styles.diffPickerText, qForm.difficulty === d && { color: "#FFF" }]}>{d.charAt(0).toUpperCase() + d.slice(1)}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+
             <Pressable style={[styles.saveBtn, { opacity: savingQ ? 0.85 : 1 }]} onPress={handleSaveQuestion} disabled={savingQ}>
               {savingQ ? <ActivityIndicator color="#FFF" /> : <Text style={styles.saveBtnText}>Save Question</Text>}
             </Pressable>
@@ -824,6 +1021,31 @@ const styles = StyleSheet.create({
   qOptLabelCorrect: { color: Colors.light.success },
   qOptText: { flex: 1, fontSize: 12, fontFamily: "Inter_400Regular", color: Colors.light.text },
   qOptTextCorrect: { fontFamily: "Inter_600SemiBold", color: Colors.light.text },
+  diffBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 },
+  diffEasy: { backgroundColor: "#DCFCE7" },
+  diffMedium: { backgroundColor: "#FEF3C7" },
+  diffHard: { backgroundColor: "#FEE2E2" },
+  diffText: { fontSize: 10, fontFamily: "Inter_600SemiBold", color: Colors.light.text, textTransform: "capitalize" },
+  diffPicker: { flexDirection: "row", gap: 10 },
+  diffPickerBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 10, borderRadius: 12, borderWidth: 1.5 },
+  diffPickerEasy: { borderColor: "#16A34A" },
+  diffPickerMedium: { borderColor: "#D97706" },
+  diffPickerHard: { borderColor: "#DC2626" },
+  diffPickerSelected: { opacity: 1 },
+  diffPickerUnselected: { opacity: 0.6, backgroundColor: "transparent" },
+  diffPickerText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: Colors.light.text },
+  importInfoBox: { flexDirection: "row", alignItems: "flex-start", gap: 10, backgroundColor: Colors.light.primary + "14", padding: 14, borderRadius: 12 },
+  importInfoText: { flex: 1, fontSize: 13, fontFamily: "Inter_500Medium", color: Colors.light.text, lineHeight: 20 },
+  codeBox: { backgroundColor: "#1E293B", borderRadius: 10, padding: 12 },
+  codeText: { fontSize: 11, fontFamily: "Inter_400Regular", color: "#94A3B8", lineHeight: 18 },
+  importPickBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#7C3AED", paddingVertical: 14, borderRadius: 14 },
+  importPickBtnText: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: "#FFF" },
+  importError: { fontSize: 13, fontFamily: "Inter_500Medium", color: Colors.light.error, backgroundColor: Colors.light.error + "14", padding: 12, borderRadius: 10 },
+  importPreviewCard: { backgroundColor: Colors.light.backgroundSecondary, borderRadius: 10, padding: 12, gap: 4 },
+  importPreviewNum: { fontSize: 11, fontFamily: "Inter_600SemiBold", color: Colors.light.textMuted, textTransform: "uppercase", letterSpacing: 0.5 },
+  importPreviewQ: { fontSize: 13, fontFamily: "Inter_500Medium", color: Colors.light.text, lineHeight: 18 },
+  importPreviewAns: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: Colors.light.success },
+  importMoreText: { fontSize: 12, fontFamily: "Inter_400Regular", color: Colors.light.textMuted, textAlign: "center", fontStyle: "italic" },
   studentCard: { backgroundColor: Colors.light.card, borderRadius: 14, padding: 14, marginBottom: 10, shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
   studentHeader: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8 },
   avatarCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.light.primary, alignItems: "center", justifyContent: "center" },

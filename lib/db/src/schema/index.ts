@@ -67,6 +67,7 @@ export const questionsTable = pgTable("questions", {
   correctAnswers: text("correct_answers").notNull(),
   explanation: text("explanation").notNull(),
   questionType: varchar("question_type", { length: 20 }).notNull().default("single"),
+  difficulty: varchar("difficulty", { length: 20 }).notNull().default("medium"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

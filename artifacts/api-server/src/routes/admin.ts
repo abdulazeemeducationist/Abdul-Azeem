@@ -223,6 +223,7 @@ router.get("/questions", async (req, res) => {
           correctAnswers: questionsTable.correctAnswers,
           explanation: questionsTable.explanation,
           questionType: questionsTable.questionType,
+          difficulty: questionsTable.difficulty,
         })
         .from(questionsTable)
         .innerJoin(topicsTable, eq(topicsTable.id, questionsTable.topicId))
@@ -241,6 +242,7 @@ router.get("/questions", async (req, res) => {
           correctAnswers: questionsTable.correctAnswers,
           explanation: questionsTable.explanation,
           questionType: questionsTable.questionType,
+          difficulty: questionsTable.difficulty,
         })
         .from(questionsTable)
         .innerJoin(topicsTable, eq(topicsTable.id, questionsTable.topicId))
@@ -260,10 +262,11 @@ router.get("/questions", async (req, res) => {
           correctAnswers: questionsTable.correctAnswers,
           explanation: questionsTable.explanation,
           questionType: questionsTable.questionType,
+          difficulty: questionsTable.difficulty,
         })
         .from(questionsTable)
         .innerJoin(topicsTable, eq(topicsTable.id, questionsTable.topicId))
-        .limit(100);
+        .limit(200);
     }
 
     res.json(rows.map(r => ({ ...r, correctAnswers: JSON.parse(r.correctAnswers) })));
@@ -275,11 +278,11 @@ router.get("/questions", async (req, res) => {
 
 router.post("/questions", async (req, res) => {
   try {
-    const { topicId, questionText, optionA, optionB, optionC, optionD, correctAnswers, explanation, questionType } = req.body;
+    const { topicId, questionText, optionA, optionB, optionC, optionD, correctAnswers, explanation, questionType, difficulty } = req.body;
     const [question] = await db.insert(questionsTable).values({
       topicId, questionText, optionA, optionB, optionC, optionD,
       correctAnswers: JSON.stringify(correctAnswers),
-      explanation, questionType,
+      explanation, questionType, difficulty: difficulty ?? "medium",
     }).returning();
     res.status(201).json({ ...question, correctAnswers: JSON.parse(question.correctAnswers) });
   } catch (err) {
@@ -288,14 +291,51 @@ router.post("/questions", async (req, res) => {
   }
 });
 
+router.post("/questions/import", async (req, res) => {
+  try {
+    const { questions } = req.body as { questions: Array<{
+      topicId: number;
+      questionText: string;
+      optionA: string;
+      optionB: string;
+      optionC: string;
+      optionD: string;
+      correctAnswers: string[];
+      explanation: string;
+      questionType?: string;
+      difficulty?: string;
+    }> };
+    if (!Array.isArray(questions) || !questions.length) {
+      return res.status(400).json({ error: "No questions provided" });
+    }
+    const values = questions.map(q => ({
+      topicId: q.topicId,
+      questionText: q.questionText,
+      optionA: q.optionA,
+      optionB: q.optionB,
+      optionC: q.optionC,
+      optionD: q.optionD,
+      correctAnswers: JSON.stringify(q.correctAnswers),
+      explanation: q.explanation,
+      questionType: q.questionType ?? "single",
+      difficulty: q.difficulty ?? "medium",
+    }));
+    const inserted = await db.insert(questionsTable).values(values).returning({ id: questionsTable.id });
+    res.status(201).json({ imported: inserted.length });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to import questions" });
+  }
+});
+
 router.put("/questions/:questionId", async (req, res) => {
   try {
     const id = parseInt(req.params.questionId);
-    const { topicId, questionText, optionA, optionB, optionC, optionD, correctAnswers, explanation, questionType } = req.body;
+    const { topicId, questionText, optionA, optionB, optionC, optionD, correctAnswers, explanation, questionType, difficulty } = req.body;
     const [question] = await db.update(questionsTable).set({
       topicId, questionText, optionA, optionB, optionC, optionD,
       correctAnswers: JSON.stringify(correctAnswers),
-      explanation, questionType,
+      explanation, questionType, difficulty: difficulty ?? "medium",
     }).where(eq(questionsTable.id, id)).returning();
     res.json({ ...question, correctAnswers: JSON.parse(question.correctAnswers) });
   } catch (err) {
