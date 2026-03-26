@@ -391,7 +391,7 @@ export default function AdminScreen() {
         {activeTab === "programs" && (
           <View style={styles.section}>
             <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>Programs</Text>
+              <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Programs</Text>
               <Pressable style={styles.addBtnSmall} onPress={openAddProgram}>
                 <Ionicons name="add" size={16} color="#FFF" />
                 <Text style={styles.addBtnText}>Add Program</Text>
@@ -490,7 +490,7 @@ export default function AdminScreen() {
         {activeTab === "content" && (
           <View style={styles.section}>
             <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>MCQ Questions</Text>
+              <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>MCQ Questions</Text>
               <View style={{ flexDirection: "row", gap: 8 }}>
                 <Pressable style={[styles.addBtnSmall, { backgroundColor: "#7C3AED" }]} onPress={openImport}>
                   <Ionicons name="cloud-upload-outline" size={15} color="#FFF" />
@@ -935,14 +935,14 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingBottom: 8, paddingTop: 8 },
   backBtn: { width: 38, height: 38, borderRadius: 12, backgroundColor: Colors.light.backgroundSecondary, alignItems: "center", justifyContent: "center" },
   headerTitle: { fontSize: 20, fontFamily: "Inter_700Bold", color: Colors.light.text },
-  tabBarScroll: { paddingHorizontal: 16, paddingBottom: 12, gap: 8 },
+  tabBarScroll: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 12, gap: 8 },
   tab: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: Colors.light.backgroundSecondary },
   tabActive: { backgroundColor: Colors.light.primary },
   tabLabel: { fontSize: 13, fontFamily: "Inter_500Medium", color: Colors.light.textMuted },
   tabLabelActive: { color: "#FFF", fontFamily: "Inter_600SemiBold" },
-  section: { paddingHorizontal: 16, paddingBottom: 16 },
-  sectionHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
-  sectionTitle: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: Colors.light.textMuted, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 12 },
+  section: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 16 },
+  sectionHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14 },
+  sectionTitle: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: Colors.light.textMuted, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 14 },
   sectionSubtitle: { fontSize: 13, fontFamily: "Inter_400Regular", color: Colors.light.textSecondary, marginBottom: 14, marginTop: -8 },
   addBtnSmall: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: Colors.light.primary, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20 },
   addBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#FFF" },
@@ -991,9 +991,6 @@ const styles = StyleSheet.create({
   actionIcon: { width: 52, height: 52, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   actionLabel: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: Colors.light.text, textAlign: "center" },
   comingSoon: { fontSize: 10, fontFamily: "Inter_400Regular", color: Colors.light.textMuted },
-  sectionHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6 },
-  addBtnSmall: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: Colors.light.primary, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10 },
-  addBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#FFF" },
   filterRow: { flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 6, marginTop: 4 },
   filterLabel: { fontSize: 12, fontFamily: "Inter_500Medium", color: Colors.light.textMuted },
   filterChips: { gap: 6, paddingBottom: 10, flexDirection: "row" },
