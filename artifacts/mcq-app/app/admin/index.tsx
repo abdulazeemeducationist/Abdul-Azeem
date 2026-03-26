@@ -4,7 +4,6 @@ import { router } from "expo-router";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   Platform,
   Pressable,
@@ -16,7 +15,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
-import { api, Student, AdminSubject } from "@/hooks/useApi";
+import { api, Student, AdminSubject, Course } from "@/hooks/useApi";
 import { useAuth } from "@/context/AuthContext";
 
 interface StatCardProps { label: string; value: number; icon: keyof typeof Ionicons.glyphMap; color: string }
@@ -32,40 +31,52 @@ function StatCard({ label, value, icon, color }: StatCardProps) {
   );
 }
 
-type TabType = "overview" | "students" | "content";
+type TabType = "overview" | "students" | "programs" | "content";
+
+interface ProgramForm { name: string; code: string; description: string }
+const EMPTY_FORM: ProgramForm = { name: "", code: "", description: "" };
 
 export default function AdminScreen() {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
   const topPad = isWeb ? Math.max(insets.top, 67) : insets.top;
-  const queryClient = useQueryClient();
+  const qc = useQueryClient();
 
   const [activeTab, setActiveTab] = useState<TabType>("overview");
-  const [showAddQuestion, setShowAddQuestion] = useState(false);
+
+  // Programs state
+  const [showProgramModal, setShowProgramModal] = useState(false);
+  const [editingProgram, setEditingProgram] = useState<(Course & { subjectCount: number }) | null>(null);
+  const [programForm, setProgramForm] = useState<ProgramForm>(EMPTY_FORM);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [savingProgram, setSavingProgram] = useState(false);
+
+  // Students state
   const [showEnrollModal, setShowEnrollModal] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({
+  const [savingEnroll, setSavingEnroll] = useState(false);
+
+  // Content state
+  const [showAddQuestion, setShowAddQuestion] = useState(false);
+  const [savingQ, setSavingQ] = useState(false);
+  const [qForm, setQForm] = useState({
     topicId: "", questionText: "", optionA: "", optionB: "", optionC: "", optionD: "",
-    correctAnswers: "", explanation: "", questionType: "single" as "single" | "multiple",
+    correctAnswers: "", explanation: "",
   });
 
   const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useQuery({
-    queryKey: ["adminStats"],
-    queryFn: api.getAdminStats,
+    queryKey: ["adminStats"], queryFn: api.getAdminStats,
   });
-
+  const { data: programs, isLoading: programsLoading, refetch: refetchPrograms } = useQuery({
+    queryKey: ["adminCourses"], queryFn: api.getAdminCourses, enabled: activeTab === "programs",
+  });
   const { data: students, isLoading: studentsLoading, refetch: refetchStudents } = useQuery({
-    queryKey: ["adminStudents"],
-    queryFn: api.getStudents,
-    enabled: activeTab === "students",
+    queryKey: ["adminStudents"], queryFn: api.getStudents, enabled: activeTab === "students",
   });
-
   const { data: allSubjects } = useQuery({
-    queryKey: ["adminSubjects"],
-    queryFn: api.getAllSubjects,
-    enabled: showEnrollModal,
+    queryKey: ["adminSubjects"], queryFn: api.getAllSubjects, enabled: showEnrollModal,
   });
 
   if (user?.role !== "admin") {
@@ -73,84 +84,103 @@ export default function AdminScreen() {
       <View style={[styles.center, { paddingTop: topPad }]}>
         <Ionicons name="lock-closed" size={48} color={Colors.light.error} />
         <Text style={styles.noAccessText}>Admin access required</Text>
-        <Pressable style={styles.backBtn} onPress={() => router.back()}>
-          <Text style={styles.backBtnText}>Go Back</Text>
+        <Pressable style={styles.retryBtn} onPress={() => router.back()}>
+          <Text style={styles.retryText}>Go Back</Text>
         </Pressable>
       </View>
     );
   }
 
-  const handleSaveQuestion = async () => {
-    if (!form.topicId || !form.questionText || !form.optionA || !form.optionB || !form.optionC || !form.optionD || !form.correctAnswers || !form.explanation) {
-      Alert.alert("Missing Fields", "Please fill in all fields.");
-      return;
-    }
-    const answers = form.correctAnswers.toUpperCase().split(",").map(a => a.trim()).filter(a => ["A","B","C","D"].includes(a));
-    if (answers.length === 0) {
-      Alert.alert("Invalid Answers", "Enter correct answers as A, B, C, or D.");
-      return;
-    }
-    setSaving(true);
+  // --- Programs CRUD ---
+  const openAddProgram = () => { setEditingProgram(null); setProgramForm(EMPTY_FORM); setShowProgramModal(true); };
+  const openEditProgram = (p: Course & { subjectCount: number }) => {
+    setEditingProgram(p);
+    setProgramForm({ name: p.name, code: p.code, description: p.description ?? "" });
+    setShowProgramModal(true);
+  };
+  const handleSaveProgram = async () => {
+    if (!programForm.name.trim() || !programForm.code.trim()) return;
+    setSavingProgram(true);
     try {
-      await api.createQuestion({
-        topicId: parseInt(form.topicId),
-        questionText: form.questionText,
-        optionA: form.optionA, optionB: form.optionB, optionC: form.optionC, optionD: form.optionD,
-        correctAnswers: answers, explanation: form.explanation,
-        questionType: answers.length > 1 ? "multiple" : "single",
-      });
-      Alert.alert("Success", "Question added successfully!");
-      queryClient.invalidateQueries({ queryKey: ["adminStats"] });
-      setShowAddQuestion(false);
-      setForm({ topicId: "", questionText: "", optionA: "", optionB: "", optionC: "", optionD: "", correctAnswers: "", explanation: "", questionType: "single" });
+      if (editingProgram) {
+        await api.updateCourse(editingProgram.id, programForm);
+      } else {
+        await api.createCourse(programForm);
+      }
+      qc.invalidateQueries({ queryKey: ["adminCourses"] });
+      qc.invalidateQueries({ queryKey: ["courses"] });
+      qc.invalidateQueries({ queryKey: ["adminStats"] });
+      refetchPrograms();
+      refetchStats();
+      setShowProgramModal(false);
+    } catch (e: any) {
+      console.error(e);
+    } finally {
+      setSavingProgram(false);
+    }
+  };
+  const confirmDelete = (id: number) => { setDeletingId(id); setShowDeleteConfirm(true); };
+  const handleDeleteProgram = async () => {
+    if (!deletingId) return;
+    setSavingProgram(true);
+    try {
+      await api.deleteCourse(deletingId);
+      qc.invalidateQueries({ queryKey: ["adminCourses"] });
+      qc.invalidateQueries({ queryKey: ["courses"] });
+      qc.invalidateQueries({ queryKey: ["adminStats"] });
+      refetchPrograms();
       refetchStats();
     } catch (e: any) {
-      Alert.alert("Error", e.message || "Failed to save question");
+      console.error(e);
     } finally {
-      setSaving(false);
+      setSavingProgram(false);
+      setShowDeleteConfirm(false);
+      setDeletingId(null);
     }
   };
 
+  // --- Enroll ---
   const handleAssignPaper = async (subjectId: number) => {
     if (!selectedStudent) return;
-    setSaving(true);
+    setSavingEnroll(true);
     try {
       await api.assignSubject(selectedStudent.id, subjectId, user.id);
-      Alert.alert("Success", "Paper access granted!");
-      queryClient.invalidateQueries({ queryKey: ["adminStudents"] });
+      qc.invalidateQueries({ queryKey: ["adminStudents"] });
       refetchStudents();
       setShowEnrollModal(false);
       setSelectedStudent(null);
-    } catch (e: any) {
-      Alert.alert("Already Assigned", e.message || "Failed to assign paper");
-    } finally {
-      setSaving(false);
-    }
+    } catch (e: any) { console.error(e); }
+    finally { setSavingEnroll(false); }
+  };
+  const handleRevokePaper = async (student: Student, subjectId: number) => {
+    try {
+      await api.revokeSubject(student.id, subjectId);
+      qc.invalidateQueries({ queryKey: ["adminStudents"] });
+      refetchStudents();
+    } catch (e) { console.error(e); }
   };
 
-  const handleRevokePaper = (student: Student, subjectId: number, subjectName: string) => {
-    Alert.alert("Revoke Access", `Remove ${student.name}'s access to ${subjectName}?`, [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Revoke", style: "destructive",
-        onPress: async () => {
-          try {
-            await api.revokeSubject(student.id, subjectId);
-            queryClient.invalidateQueries({ queryKey: ["adminStudents"] });
-            refetchStudents();
-          } catch (e: any) {
-            Alert.alert("Error", e.message || "Failed to revoke");
-          }
-        },
-      },
-    ]);
+  // --- Add Question ---
+  const handleSaveQuestion = async () => {
+    if (!qForm.topicId || !qForm.questionText || !qForm.optionA || !qForm.optionB || !qForm.optionC || !qForm.optionD || !qForm.correctAnswers || !qForm.explanation) return;
+    const answers = qForm.correctAnswers.toUpperCase().split(",").map(a => a.trim()).filter(a => ["A","B","C","D"].includes(a));
+    if (!answers.length) return;
+    setSavingQ(true);
+    try {
+      await api.createQuestion({
+        topicId: parseInt(qForm.topicId),
+        questionText: qForm.questionText,
+        optionA: qForm.optionA, optionB: qForm.optionB, optionC: qForm.optionC, optionD: qForm.optionD,
+        correctAnswers: answers, explanation: qForm.explanation,
+        questionType: answers.length > 1 ? "multiple" : "single",
+      });
+      qc.invalidateQueries({ queryKey: ["adminStats"] });
+      refetchStats();
+      setShowAddQuestion(false);
+      setQForm({ topicId: "", questionText: "", optionA: "", optionB: "", optionC: "", optionD: "", correctAnswers: "", explanation: "" });
+    } catch (e) { console.error(e); }
+    finally { setSavingQ(false); }
   };
-
-  const tabs: { key: TabType; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-    { key: "overview", label: "Overview", icon: "grid-outline" },
-    { key: "students", label: "Students", icon: "people-outline" },
-    { key: "content", label: "Content", icon: "document-text-outline" },
-  ];
 
   const groupedSubjects = (allSubjects ?? []).reduce<Record<string, AdminSubject[]>>((acc, s) => {
     const key = `${s.courseCode} — ${s.courseName}`;
@@ -159,38 +189,48 @@ export default function AdminScreen() {
     return acc;
   }, {});
 
+  const tabs: { key: TabType; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+    { key: "overview",  label: "Overview",  icon: "grid-outline" },
+    { key: "programs",  label: "Programs",  icon: "school-outline" },
+    { key: "students",  label: "Students",  icon: "people-outline" },
+    { key: "content",   label: "Content",   icon: "document-text-outline" },
+  ];
+
   return (
     <View style={[styles.container, { paddingTop: topPad }]}>
+      {/* Header */}
       <View style={styles.header}>
-        <Pressable style={styles.backBtn2} onPress={() => router.back()}>
+        <Pressable style={styles.backBtn} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={22} color={Colors.light.text} />
         </Pressable>
         <Text style={styles.headerTitle}>Admin Panel</Text>
         <View style={{ width: 38 }} />
       </View>
 
-      <View style={styles.tabBar}>
+      {/* Tab Bar */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabBarScroll}>
         {tabs.map(tab => (
           <Pressable key={tab.key} style={[styles.tab, activeTab === tab.key && styles.tabActive]} onPress={() => setActiveTab(tab.key)}>
-            <Ionicons name={tab.icon} size={16} color={activeTab === tab.key ? Colors.light.primary : Colors.light.textMuted} />
+            <Ionicons name={tab.icon} size={15} color={activeTab === tab.key ? Colors.light.primary : Colors.light.textMuted} />
             <Text style={[styles.tabLabel, activeTab === tab.key && styles.tabLabelActive]}>{tab.label}</Text>
           </Pressable>
         ))}
-      </View>
+      </ScrollView>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: Math.max(insets.bottom + 20, 40) }}>
 
+        {/* OVERVIEW TAB */}
         {activeTab === "overview" && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Platform Overview</Text>
             {statsLoading ? <ActivityIndicator color={Colors.light.primary} /> : (
               <View style={styles.statsGrid}>
-                <StatCard label="Users" value={stats?.totalUsers ?? 0} icon="people" color="#3B82F6" />
-                <StatCard label="Programs" value={stats?.totalCourses ?? 0} icon="school" color="#059669" />
-                <StatCard label="Papers" value={stats?.totalSubjects ?? 0} icon="book" color="#7C3AED" />
-                <StatCard label="Chapters" value={stats?.totalChapters ?? 0} icon="layers" color="#D97706" />
-                <StatCard label="Topics" value={stats?.totalTopics ?? 0} icon="bookmark" color="#DC2626" />
-                <StatCard label="MCQs" value={stats?.totalQuestions ?? 0} icon="help-circle" color="#0891B2" />
+                <StatCard label="Users"    value={stats?.totalUsers ?? 0}     icon="people"         color="#3B82F6" />
+                <StatCard label="Programs" value={stats?.totalCourses ?? 0}   icon="school"         color="#059669" />
+                <StatCard label="Papers"   value={stats?.totalSubjects ?? 0}  icon="book"           color="#7C3AED" />
+                <StatCard label="Chapters" value={stats?.totalChapters ?? 0}  icon="layers"         color="#D97706" />
+                <StatCard label="Topics"   value={stats?.totalTopics ?? 0}    icon="bookmark"       color="#DC2626" />
+                <StatCard label="MCQs"     value={stats?.totalQuestions ?? 0} icon="help-circle"    color="#0891B2" />
               </View>
             )}
             {stats && (
@@ -202,10 +242,56 @@ export default function AdminScreen() {
           </View>
         )}
 
+        {/* PROGRAMS TAB */}
+        {activeTab === "programs" && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>Programs</Text>
+              <Pressable style={styles.addBtnSmall} onPress={openAddProgram}>
+                <Ionicons name="add" size={16} color="#FFF" />
+                <Text style={styles.addBtnText}>Add Program</Text>
+              </Pressable>
+            </View>
+
+            {programsLoading ? (
+              <View style={{ paddingTop: 40, alignItems: "center" }}>
+                <ActivityIndicator color={Colors.light.primary} />
+              </View>
+            ) : !programs?.length ? (
+              <View style={styles.emptyState}>
+                <Ionicons name="school-outline" size={48} color={Colors.light.textMuted} />
+                <Text style={styles.emptyText}>No programs yet</Text>
+              </View>
+            ) : (
+              programs.map(prog => (
+                <View key={prog.id} style={styles.programRow}>
+                  <View style={styles.progCodeBox}>
+                    <Text style={styles.progCode}>{prog.code}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.progName} numberOfLines={1}>{prog.name}</Text>
+                    {prog.description ? <Text style={styles.progDesc} numberOfLines={1}>{prog.description}</Text> : null}
+                    <Text style={styles.progMeta}>{prog.subjectCount} papers</Text>
+                  </View>
+                  <View style={styles.rowActions}>
+                    <Pressable style={styles.editIconBtn} onPress={() => openEditProgram(prog)}>
+                      <Ionicons name="pencil" size={15} color={Colors.light.primary} />
+                    </Pressable>
+                    <Pressable style={styles.deleteIconBtn} onPress={() => confirmDelete(prog.id)}>
+                      <Ionicons name="trash" size={15} color={Colors.light.error} />
+                    </Pressable>
+                  </View>
+                </View>
+              ))
+            )}
+          </View>
+        )}
+
+        {/* STUDENTS TAB */}
         {activeTab === "students" && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Student Paper Access</Text>
-            <Text style={styles.sectionSubtitle}>Assign or revoke paper access for each student</Text>
+            <Text style={styles.sectionSubtitle}>Assign or revoke paper access per student</Text>
             {studentsLoading ? (
               <View style={{ paddingTop: 40, alignItems: "center" }}>
                 <ActivityIndicator color={Colors.light.primary} />
@@ -231,7 +317,6 @@ export default function AdminScreen() {
                       <Text style={styles.assignBtnText}>Add Paper</Text>
                     </Pressable>
                   </View>
-
                   {student.purchasedSubjects.length === 0 ? (
                     <Text style={styles.noPapers}>No papers assigned</Text>
                   ) : (
@@ -239,7 +324,7 @@ export default function AdminScreen() {
                       {student.purchasedSubjects.map(p => (
                         <View key={p.subjectId} style={styles.paperChip}>
                           <Text style={styles.paperChipText}>{p.subjectCode}</Text>
-                          <Pressable onPress={() => handleRevokePaper(student, p.subjectId, p.subjectName)} hitSlop={8}>
+                          <Pressable onPress={() => handleRevokePaper(student, p.subjectId)} hitSlop={8}>
                             <Ionicons name="close-circle" size={15} color="#EF4444" />
                           </Pressable>
                         </View>
@@ -252,6 +337,7 @@ export default function AdminScreen() {
           </View>
         )}
 
+        {/* CONTENT TAB */}
         {activeTab === "content" && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Content Management</Text>
@@ -262,74 +348,105 @@ export default function AdminScreen() {
                 </View>
                 <Text style={styles.actionLabel}>Add Question</Text>
               </Pressable>
-              <Pressable style={({ pressed }) => [styles.actionCard, { opacity: pressed ? 0.85 : 1 }]} onPress={() => Alert.alert("Coming Soon", "Analytics coming soon.")}>
-                <View style={[styles.actionIcon, { backgroundColor: Colors.light.warning + "14" }]}>
-                  <Ionicons name="analytics" size={28} color={Colors.light.warning} />
-                </View>
-                <Text style={styles.actionLabel}>Analytics</Text>
-              </Pressable>
-              <Pressable style={({ pressed }) => [styles.actionCard, { opacity: pressed ? 0.85 : 1 }]} onPress={() => Alert.alert("Coming Soon", "Bulk import coming soon.")}>
+              <Pressable style={({ pressed }) => [styles.actionCard, { opacity: pressed ? 0.85 : 1 }]}>
                 <View style={[styles.actionIcon, { backgroundColor: "#7C3AED14" }]}>
                   <Ionicons name="cloud-upload" size={28} color="#7C3AED" />
                 </View>
                 <Text style={styles.actionLabel}>Import MCQs</Text>
-              </Pressable>
-              <Pressable style={({ pressed }) => [styles.actionCard, { opacity: pressed ? 0.85 : 1 }]} onPress={() => Alert.alert("Coming Soon", "Manage programs coming soon.")}>
-                <View style={[styles.actionIcon, { backgroundColor: Colors.light.success + "14" }]}>
-                  <Ionicons name="school" size={28} color={Colors.light.success} />
-                </View>
-                <Text style={styles.actionLabel}>Programs</Text>
+                <Text style={styles.comingSoon}>Coming soon</Text>
               </Pressable>
             </View>
           </View>
         )}
       </ScrollView>
 
-      {/* Add Question Modal */}
-      <Modal visible={showAddQuestion} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowAddQuestion(false)}>
-        <View style={[styles.modalContainer, { paddingTop: Math.max(insets.top + 8, 20) }]}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Add MCQ Question</Text>
-            <Pressable onPress={() => setShowAddQuestion(false)}>
+      {/* ── Add / Edit Program Modal ── */}
+      <Modal visible={showProgramModal} transparent animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowProgramModal(false)}>
+        <View style={[styles.sheetContainer, { paddingTop: Math.max(insets.top + 8, 20) }]}>
+          <View style={styles.sheetHeader}>
+            <Text style={styles.sheetTitle}>{editingProgram ? "Edit Program" : "Add Program"}</Text>
+            <Pressable onPress={() => setShowProgramModal(false)}>
               <Ionicons name="close" size={24} color={Colors.light.text} />
             </Pressable>
           </View>
-          <ScrollView style={styles.modalScroll} contentContainerStyle={{ gap: 12, paddingBottom: Math.max(insets.bottom + 20, 40) }} keyboardShouldPersistTaps="handled">
-            {[
-              { label: "Topic ID", key: "topicId", placeholder: "Enter topic ID (e.g. 1)", keyboard: "numeric" as const },
-              { label: "Question Text", key: "questionText", placeholder: "Enter the question...", multiline: true },
-              { label: "Option A", key: "optionA", placeholder: "Option A" },
-              { label: "Option B", key: "optionB", placeholder: "Option B" },
-              { label: "Option C", key: "optionC", placeholder: "Option C" },
-              { label: "Option D", key: "optionD", placeholder: "Option D" },
-              { label: "Correct Answer(s)", key: "correctAnswers", placeholder: "A or A,B for multiple" },
-              { label: "Explanation", key: "explanation", placeholder: "Explain the correct answer...", multiline: true },
-            ].map(field => (
-              <View key={field.key} style={styles.formField}>
-                <Text style={styles.formLabel}>{field.label}</Text>
-                <TextInput
-                  style={[styles.formInput, field.multiline && styles.formInputMultiline]}
-                  value={form[field.key as keyof typeof form] as string}
-                  onChangeText={v => setForm(f => ({ ...f, [field.key]: v }))}
-                  placeholder={field.placeholder}
-                  placeholderTextColor={Colors.light.textMuted}
-                  multiline={field.multiline}
-                  keyboardType={field.keyboard}
-                />
-              </View>
-            ))}
-            <Pressable style={({ pressed }) => [styles.saveBtn, { opacity: pressed || saving ? 0.85 : 1 }]} onPress={handleSaveQuestion} disabled={saving}>
-              {saving ? <ActivityIndicator color="#FFF" /> : <Text style={styles.saveBtnText}>Save Question</Text>}
+          <ScrollView style={styles.sheetScroll} contentContainerStyle={{ gap: 14, paddingBottom: Math.max(insets.bottom + 20, 40) }} keyboardShouldPersistTaps="handled">
+            <View style={styles.formField}>
+              <Text style={styles.formLabel}>Program Name <Text style={styles.required}>*</Text></Text>
+              <TextInput
+                style={styles.formInput}
+                value={programForm.name}
+                onChangeText={v => setProgramForm(f => ({ ...f, name: v }))}
+                placeholder="e.g. Association of Chartered Certified Accountants"
+                placeholderTextColor={Colors.light.textMuted}
+              />
+            </View>
+            <View style={styles.formField}>
+              <Text style={styles.formLabel}>Code <Text style={styles.required}>*</Text></Text>
+              <TextInput
+                style={styles.formInput}
+                value={programForm.code}
+                onChangeText={v => setProgramForm(f => ({ ...f, code: v.toUpperCase() }))}
+                placeholder="e.g. ACCA"
+                placeholderTextColor={Colors.light.textMuted}
+                autoCapitalize="characters"
+                maxLength={10}
+              />
+            </View>
+            <View style={styles.formField}>
+              <Text style={styles.formLabel}>Description</Text>
+              <TextInput
+                style={[styles.formInput, styles.formInputMultiline]}
+                value={programForm.description}
+                onChangeText={v => setProgramForm(f => ({ ...f, description: v }))}
+                placeholder="Brief description of the program..."
+                placeholderTextColor={Colors.light.textMuted}
+                multiline
+              />
+            </View>
+            <Pressable
+              style={({ pressed }) => [
+                styles.saveBtn,
+                (!programForm.name.trim() || !programForm.code.trim()) && styles.saveBtnDisabled,
+                { opacity: pressed || savingProgram ? 0.85 : 1 }
+              ]}
+              onPress={handleSaveProgram}
+              disabled={savingProgram || !programForm.name.trim() || !programForm.code.trim()}
+            >
+              {savingProgram
+                ? <ActivityIndicator color="#FFF" />
+                : <Text style={styles.saveBtnText}>{editingProgram ? "Save Changes" : "Create Program"}</Text>
+              }
             </Pressable>
           </ScrollView>
         </View>
       </Modal>
 
-      {/* Assign Paper Modal */}
+      {/* ── Delete Confirm Modal ── */}
+      <Modal visible={showDeleteConfirm} transparent animationType="fade" onRequestClose={() => setShowDeleteConfirm(false)}>
+        <View style={styles.overlay}>
+          <View style={styles.confirmCard}>
+            <View style={styles.confirmIconBox}>
+              <Ionicons name="trash-outline" size={30} color={Colors.light.error} />
+            </View>
+            <Text style={styles.confirmTitle}>Delete Program?</Text>
+            <Text style={styles.confirmMsg}>This will permanently delete the program and cannot be undone.</Text>
+            <View style={styles.confirmActions}>
+              <Pressable style={styles.cancelBtn2} onPress={() => setShowDeleteConfirm(false)} disabled={savingProgram}>
+                <Text style={styles.cancelBtn2Text}>Cancel</Text>
+              </Pressable>
+              <Pressable style={[styles.deleteBtn, { opacity: savingProgram ? 0.7 : 1 }]} onPress={handleDeleteProgram} disabled={savingProgram}>
+                {savingProgram ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={styles.deleteBtnText}>Delete</Text>}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Assign Paper Modal ── */}
       <Modal visible={showEnrollModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => { setShowEnrollModal(false); setSelectedStudent(null); }}>
-        <View style={[styles.modalContainer, { paddingTop: Math.max(insets.top + 8, 20) }]}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Assign Paper Access</Text>
+        <View style={[styles.sheetContainer, { paddingTop: Math.max(insets.top + 8, 20) }]}>
+          <View style={styles.sheetHeader}>
+            <Text style={styles.sheetTitle}>Assign Paper Access</Text>
             <Pressable onPress={() => { setShowEnrollModal(false); setSelectedStudent(null); }}>
               <Ionicons name="close" size={24} color={Colors.light.text} />
             </Pressable>
@@ -345,36 +462,28 @@ export default function AdminScreen() {
               </View>
             </View>
           )}
-          <ScrollView style={styles.modalScroll} contentContainerStyle={{ gap: 8, paddingBottom: Math.max(insets.bottom + 20, 40) }}>
-            {!allSubjects ? (
-              <ActivityIndicator color={Colors.light.primary} style={{ marginTop: 20 }} />
-            ) : (
+          <ScrollView style={styles.sheetScroll} contentContainerStyle={{ gap: 6, paddingBottom: Math.max(insets.bottom + 20, 40) }}>
+            {!allSubjects ? <ActivityIndicator color={Colors.light.primary} style={{ marginTop: 20 }} /> : (
               Object.entries(groupedSubjects).map(([group, subjects]) => (
                 <View key={group}>
                   <Text style={styles.groupLabel}>{group}</Text>
                   {subjects.map(subject => {
-                    const alreadyAssigned = selectedStudent?.purchasedSubjects.some(p => p.subjectId === subject.id);
+                    const assigned = selectedStudent?.purchasedSubjects.some(p => p.subjectId === subject.id);
                     return (
                       <Pressable
                         key={subject.id}
-                        style={[styles.subjectPickItem, alreadyAssigned && styles.subjectPickItemDisabled]}
-                        onPress={() => !alreadyAssigned && handleAssignPaper(subject.id)}
-                        disabled={alreadyAssigned || saving}
+                        style={[styles.subjectPickItem, assigned && styles.subjectPickItemDisabled]}
+                        onPress={() => !assigned && handleAssignPaper(subject.id)}
+                        disabled={assigned || savingEnroll}
                       >
-                        <View style={[styles.pickCodeTag, { backgroundColor: alreadyAssigned ? "#F3F4F6" : Colors.light.primary + "14" }]}>
-                          <Text style={[styles.pickCodeText, { color: alreadyAssigned ? Colors.light.textMuted : Colors.light.primary }]}>{subject.code}</Text>
+                        <View style={[styles.pickCodeTag, { backgroundColor: assigned ? "#F3F4F6" : Colors.light.primary + "14" }]}>
+                          <Text style={[styles.pickCodeText, { color: assigned ? Colors.light.textMuted : Colors.light.primary }]}>{subject.code}</Text>
                         </View>
-                        <Text style={[styles.pickSubjectName, alreadyAssigned && { color: Colors.light.textMuted }]} numberOfLines={1}>{subject.name}</Text>
-                        {alreadyAssigned ? (
-                          <View style={styles.alreadyChip}>
-                            <Ionicons name="checkmark-circle" size={13} color="#059669" />
-                            <Text style={styles.alreadyText}>Assigned</Text>
-                          </View>
+                        <Text style={[styles.pickSubjectName, assigned && { color: Colors.light.textMuted }]} numberOfLines={1}>{subject.name}</Text>
+                        {assigned ? (
+                          <View style={styles.alreadyChip}><Ionicons name="checkmark-circle" size={13} color="#059669" /><Text style={styles.alreadyText}>Assigned</Text></View>
                         ) : (
-                          <View style={styles.addChip}>
-                            <Ionicons name="add" size={13} color={Colors.light.primary} />
-                            <Text style={styles.addText}>Assign</Text>
-                          </View>
+                          <View style={styles.addChip}><Ionicons name="add" size={13} color={Colors.light.primary} /><Text style={styles.addText}>Assign</Text></View>
                         )}
                       </Pressable>
                     );
@@ -385,6 +494,46 @@ export default function AdminScreen() {
           </ScrollView>
         </View>
       </Modal>
+
+      {/* ── Add Question Modal ── */}
+      <Modal visible={showAddQuestion} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowAddQuestion(false)}>
+        <View style={[styles.sheetContainer, { paddingTop: Math.max(insets.top + 8, 20) }]}>
+          <View style={styles.sheetHeader}>
+            <Text style={styles.sheetTitle}>Add MCQ Question</Text>
+            <Pressable onPress={() => setShowAddQuestion(false)}>
+              <Ionicons name="close" size={24} color={Colors.light.text} />
+            </Pressable>
+          </View>
+          <ScrollView style={styles.sheetScroll} contentContainerStyle={{ gap: 12, paddingBottom: Math.max(insets.bottom + 20, 40) }} keyboardShouldPersistTaps="handled">
+            {[
+              { label: "Topic ID", key: "topicId", placeholder: "e.g. 1", keyboard: "numeric" as const },
+              { label: "Question", key: "questionText", placeholder: "Enter the question...", multiline: true },
+              { label: "Option A", key: "optionA", placeholder: "Option A" },
+              { label: "Option B", key: "optionB", placeholder: "Option B" },
+              { label: "Option C", key: "optionC", placeholder: "Option C" },
+              { label: "Option D", key: "optionD", placeholder: "Option D" },
+              { label: "Correct Answer(s)", key: "correctAnswers", placeholder: "A  or  A,B  for multiple" },
+              { label: "Explanation", key: "explanation", placeholder: "Explain the correct answer...", multiline: true },
+            ].map(field => (
+              <View key={field.key} style={styles.formField}>
+                <Text style={styles.formLabel}>{field.label}</Text>
+                <TextInput
+                  style={[styles.formInput, field.multiline && styles.formInputMultiline]}
+                  value={qForm[field.key as keyof typeof qForm]}
+                  onChangeText={v => setQForm(f => ({ ...f, [field.key]: v }))}
+                  placeholder={field.placeholder}
+                  placeholderTextColor={Colors.light.textMuted}
+                  multiline={field.multiline}
+                  keyboardType={field.keyboard}
+                />
+              </View>
+            ))}
+            <Pressable style={[styles.saveBtn, { opacity: savingQ ? 0.85 : 1 }]} onPress={handleSaveQuestion} disabled={savingQ}>
+              {savingQ ? <ActivityIndicator color="#FFF" /> : <Text style={styles.saveBtnText}>Save Question</Text>}
+            </Pressable>
+          </ScrollView>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -392,32 +541,49 @@ export default function AdminScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.light.background },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingBottom: 8, paddingTop: 8 },
-  backBtn2: { width: 38, height: 38, borderRadius: 12, backgroundColor: Colors.light.backgroundSecondary, alignItems: "center", justifyContent: "center" },
+  backBtn: { width: 38, height: 38, borderRadius: 12, backgroundColor: Colors.light.backgroundSecondary, alignItems: "center", justifyContent: "center" },
   headerTitle: { fontSize: 20, fontFamily: "Inter_700Bold", color: Colors.light.text },
-  tabBar: { flexDirection: "row", marginHorizontal: 16, marginBottom: 12, backgroundColor: Colors.light.backgroundSecondary, borderRadius: 12, padding: 4 },
-  tab: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingVertical: 8, borderRadius: 9 },
-  tabActive: { backgroundColor: Colors.light.card, shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
-  tabLabel: { fontSize: 12, fontFamily: "Inter_500Medium", color: Colors.light.textMuted },
-  tabLabelActive: { color: Colors.light.primary, fontFamily: "Inter_600SemiBold" },
+  tabBarScroll: { paddingHorizontal: 16, paddingBottom: 12, gap: 8 },
+  tab: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: Colors.light.backgroundSecondary },
+  tabActive: { backgroundColor: Colors.light.primary },
+  tabLabel: { fontSize: 13, fontFamily: "Inter_500Medium", color: Colors.light.textMuted },
+  tabLabelActive: { color: "#FFF", fontFamily: "Inter_600SemiBold" },
   section: { paddingHorizontal: 16, paddingBottom: 16 },
-  sectionTitle: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: Colors.light.textMuted, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 4 },
-  sectionSubtitle: { fontSize: 13, fontFamily: "Inter_400Regular", color: Colors.light.textSecondary, marginBottom: 14 },
-  statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 8 },
+  sectionHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
+  sectionTitle: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: Colors.light.textMuted, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 12 },
+  sectionSubtitle: { fontSize: 13, fontFamily: "Inter_400Regular", color: Colors.light.textSecondary, marginBottom: 14, marginTop: -8 },
+  addBtnSmall: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: Colors.light.primary, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20 },
+  addBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#FFF" },
+  statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   statCard: {
     width: "47%", backgroundColor: Colors.light.card, borderRadius: 12, padding: 14,
-    borderLeftWidth: 3, alignItems: "flex-start", gap: 4,
+    borderLeftWidth: 3, gap: 4,
     shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
   },
   statIcon: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center", marginBottom: 4 },
   statValue: { fontSize: 24, fontFamily: "Inter_700Bold", color: Colors.light.text },
   statLabel: { fontSize: 12, fontFamily: "Inter_500Medium", color: Colors.light.textMuted },
-  avgCard: { backgroundColor: Colors.light.primary, borderRadius: 14, padding: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 10 },
+  avgCard: { backgroundColor: Colors.light.primary, borderRadius: 14, padding: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 12 },
   avgLabel: { fontSize: 14, fontFamily: "Inter_500Medium", color: "rgba(255,255,255,0.85)", flex: 1, lineHeight: 18 },
   avgValue: { fontSize: 28, fontFamily: "Inter_700Bold", color: "#FFF" },
-  actionGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginTop: 8 },
+  programRow: {
+    flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: Colors.light.card,
+    borderRadius: 14, padding: 14, marginBottom: 8,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
+  },
+  progCodeBox: { width: 46, height: 46, borderRadius: 12, backgroundColor: Colors.light.primary + "14", alignItems: "center", justifyContent: "center" },
+  progCode: { fontSize: 11, fontFamily: "Inter_700Bold", color: Colors.light.primary },
+  progName: { fontSize: 14, fontFamily: "Inter_600SemiBold", color: Colors.light.text },
+  progDesc: { fontSize: 12, fontFamily: "Inter_400Regular", color: Colors.light.textSecondary, marginTop: 2 },
+  progMeta: { fontSize: 11, fontFamily: "Inter_500Medium", color: Colors.light.textMuted, marginTop: 4 },
+  rowActions: { flexDirection: "row", gap: 6 },
+  editIconBtn: { width: 34, height: 34, borderRadius: 10, backgroundColor: Colors.light.primary + "12", alignItems: "center", justifyContent: "center" },
+  deleteIconBtn: { width: 34, height: 34, borderRadius: 10, backgroundColor: Colors.light.error + "12", alignItems: "center", justifyContent: "center" },
+  actionGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   actionCard: { width: "47%", backgroundColor: Colors.light.card, borderRadius: 14, padding: 16, alignItems: "center", gap: 8, shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
   actionIcon: { width: 52, height: 52, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   actionLabel: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: Colors.light.text, textAlign: "center" },
+  comingSoon: { fontSize: 10, fontFamily: "Inter_400Regular", color: Colors.light.textMuted },
   studentCard: { backgroundColor: Colors.light.card, borderRadius: 14, padding: 14, marginBottom: 10, shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
   studentHeader: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8 },
   avatarCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.light.primary, alignItems: "center", justifyContent: "center" },
@@ -432,29 +598,41 @@ const styles = StyleSheet.create({
   paperChipText: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: "#1D4ED8" },
   emptyState: { paddingTop: 40, alignItems: "center", gap: 8 },
   emptyText: { fontSize: 15, fontFamily: "Inter_500Medium", color: Colors.light.textMuted },
-  modalContainer: { flex: 1, backgroundColor: Colors.light.background },
-  modalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingBottom: 12 },
-  modalTitle: { fontSize: 20, fontFamily: "Inter_700Bold", color: Colors.light.text },
-  modalScroll: { flex: 1, paddingHorizontal: 20 },
+  sheetContainer: { flex: 1, backgroundColor: Colors.light.background },
+  sheetHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingBottom: 12 },
+  sheetTitle: { fontSize: 20, fontFamily: "Inter_700Bold", color: Colors.light.text },
+  sheetScroll: { flex: 1, paddingHorizontal: 20 },
   selectedStudentBanner: { flexDirection: "row", alignItems: "center", gap: 10, marginHorizontal: 20, marginBottom: 16, backgroundColor: Colors.light.backgroundSecondary, padding: 12, borderRadius: 12 },
   formField: { gap: 6 },
-  formLabel: { fontSize: 13, fontFamily: "Inter_500Medium", color: Colors.light.text, marginBottom: 4 },
+  formLabel: { fontSize: 13, fontFamily: "Inter_500Medium", color: Colors.light.text },
+  required: { color: Colors.light.error },
   formInput: { backgroundColor: Colors.light.backgroundSecondary, borderRadius: 10, padding: 12, fontSize: 14, fontFamily: "Inter_400Regular", color: Colors.light.text, borderWidth: 1, borderColor: Colors.light.border },
-  formInputMultiline: { height: 100, textAlignVertical: "top" },
-  saveBtn: { backgroundColor: Colors.light.primary, borderRadius: 14, height: 52, alignItems: "center", justifyContent: "center", marginTop: 8 },
+  formInputMultiline: { height: 90, textAlignVertical: "top" },
+  saveBtn: { backgroundColor: Colors.light.primary, borderRadius: 14, height: 52, alignItems: "center", justifyContent: "center", marginTop: 4 },
+  saveBtnDisabled: { backgroundColor: Colors.light.textMuted },
   saveBtnText: { fontSize: 16, fontFamily: "Inter_600SemiBold", color: "#FFF" },
   groupLabel: { fontSize: 11, fontFamily: "Inter_600SemiBold", color: Colors.light.textMuted, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6, marginTop: 8 },
   subjectPickItem: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: Colors.light.card, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: Colors.light.border, marginBottom: 4 },
   subjectPickItemDisabled: { opacity: 0.7 },
-  pickCodeTag: { width: 42, height: 36, borderRadius: 8, alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  pickCodeTag: { width: 42, height: 36, borderRadius: 8, alignItems: "center", justifyContent: "center" },
   pickCodeText: { fontSize: 10, fontFamily: "Inter_700Bold" },
   pickSubjectName: { flex: 1, fontSize: 13, fontFamily: "Inter_500Medium", color: Colors.light.text },
   alreadyChip: { flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: "#DCFCE7", paddingHorizontal: 7, paddingVertical: 3, borderRadius: 20 },
   alreadyText: { fontSize: 11, fontFamily: "Inter_600SemiBold", color: "#059669" },
   addChip: { flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: "#EFF6FF", paddingHorizontal: 7, paddingVertical: 3, borderRadius: 20 },
   addText: { fontSize: 11, fontFamily: "Inter_600SemiBold", color: Colors.light.primary },
+  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)", alignItems: "center", justifyContent: "center", padding: 32 },
+  confirmCard: { width: "100%", maxWidth: 320, backgroundColor: Colors.light.card, borderRadius: 20, padding: 24, alignItems: "center", gap: 10, shadowColor: "#000", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 24, elevation: 12 },
+  confirmIconBox: { width: 60, height: 60, borderRadius: 30, backgroundColor: Colors.light.error + "14", alignItems: "center", justifyContent: "center", marginBottom: 4 },
+  confirmTitle: { fontSize: 20, fontFamily: "Inter_700Bold", color: Colors.light.text },
+  confirmMsg: { fontSize: 14, fontFamily: "Inter_400Regular", color: Colors.light.textSecondary, textAlign: "center" },
+  confirmActions: { flexDirection: "row", gap: 10, marginTop: 8, width: "100%" },
+  cancelBtn2: { flex: 1, height: 46, borderRadius: 12, borderWidth: 1.5, borderColor: Colors.light.border, alignItems: "center", justifyContent: "center" },
+  cancelBtn2Text: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: Colors.light.textSecondary },
+  deleteBtn: { flex: 1, height: 46, borderRadius: 12, backgroundColor: Colors.light.error, alignItems: "center", justifyContent: "center" },
+  deleteBtnText: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: "#FFF" },
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12, backgroundColor: Colors.light.background },
   noAccessText: { fontSize: 18, fontFamily: "Inter_600SemiBold", color: Colors.light.text },
-  backBtn: { backgroundColor: Colors.light.primary, borderRadius: 14, paddingHorizontal: 24, paddingVertical: 12 },
-  backBtnText: { color: "#FFF", fontFamily: "Inter_600SemiBold", fontSize: 15 },
+  retryBtn: { backgroundColor: Colors.light.primary, borderRadius: 14, paddingHorizontal: 24, paddingVertical: 12 },
+  retryText: { color: "#FFF", fontFamily: "Inter_600SemiBold", fontSize: 15 },
 });

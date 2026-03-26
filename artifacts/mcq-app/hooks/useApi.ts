@@ -188,6 +188,24 @@ export const api = {
     });
     if (!res.ok) throw new Error("Failed to save quiz state");
   },
+  getAdminCourses: async (): Promise<(Course & { subjectCount: number })[]> => {
+    const res = await fetch(`${API_BASE}/admin/courses`);
+    if (!res.ok) throw new Error("Failed to fetch admin courses");
+    return res.json();
+  },
+  updateCourse: async (id: number, data: { name: string; code: string; description?: string }): Promise<Course> => {
+    const res = await fetch(`${API_BASE}/admin/courses/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error("Failed to update course");
+    return res.json();
+  },
+  deleteCourse: async (id: number): Promise<void> => {
+    const res = await fetch(`${API_BASE}/admin/courses/${id}`, { method: "DELETE" });
+    if (!res.ok) throw new Error("Failed to delete course");
+  },
   getAdminStats: async () => {
     const res = await fetch(`${API_BASE}/admin/stats`);
     if (!res.ok) throw new Error("Failed to fetch stats");

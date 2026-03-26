@@ -120,14 +120,53 @@ router.get("/subjects", async (_req, res) => {
   }
 });
 
+router.get("/courses", async (_req, res) => {
+  try {
+    const courses = await db.select().from(coursesTable);
+    const result = await Promise.all(courses.map(async (c) => {
+      const [{ count: subjectCount }] = await db.select({ count: count() }).from(subjectsTable).where(eq(subjectsTable.courseId, c.id));
+      return { ...c, subjectCount: Number(subjectCount) };
+    }));
+    res.json(result);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to get courses" });
+  }
+});
+
 router.post("/courses", async (req, res) => {
   try {
     const { name, code, description, icon, color } = req.body;
+    if (!name || !code) { res.status(400).json({ error: "name and code are required" }); return; }
     const [course] = await db.insert(coursesTable).values({ name, code, description, icon, color }).returning();
-    res.status(201).json({ ...course, subjectCount: 0, questionCount: 0 });
+    res.status(201).json({ ...course, subjectCount: 0 });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Internal Server Error", message: "Failed to create course" });
+  }
+});
+
+router.put("/courses/:courseId", async (req, res) => {
+  try {
+    const id = parseInt(req.params.courseId);
+    const { name, code, description } = req.body;
+    const [course] = await db.update(coursesTable).set({ name, code, description }).where(eq(coursesTable.id, id)).returning();
+    if (!course) { res.status(404).json({ error: "Course not found" }); return; }
+    res.json(course);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to update course" });
+  }
+});
+
+router.delete("/courses/:courseId", async (req, res) => {
+  try {
+    const id = parseInt(req.params.courseId);
+    await db.delete(coursesTable).where(eq(coursesTable.id, id));
+    res.json({ message: "Program deleted" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to delete course" });
   }
 });
 
