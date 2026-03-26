@@ -63,11 +63,13 @@ export default function AdminScreen() {
 
   // Content state
   const [showAddQuestion, setShowAddQuestion] = useState(false);
+  const [editingQuestion, setEditingQuestion] = useState<any | null>(null);
+  const [deletingQId, setDeletingQId] = useState<number | null>(null);
+  const [showDeleteQConfirm, setShowDeleteQConfirm] = useState(false);
+  const [filterSubjectId, setFilterSubjectId] = useState<number | null>(null);
   const [savingQ, setSavingQ] = useState(false);
-  const [qForm, setQForm] = useState({
-    topicId: "", questionText: "", optionA: "", optionB: "", optionC: "", optionD: "",
-    correctAnswers: "", explanation: "",
-  });
+  const EMPTY_Q = { topicId: "", questionText: "", optionA: "", optionB: "", optionC: "", optionD: "", correctAnswers: "", explanation: "" };
+  const [qForm, setQForm] = useState(EMPTY_Q);
 
   const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useQuery({
     queryKey: ["adminStats"], queryFn: api.getAdminStats,
@@ -79,7 +81,13 @@ export default function AdminScreen() {
     queryKey: ["adminStudents"], queryFn: api.getStudents, enabled: activeTab === "students",
   });
   const { data: allSubjects } = useQuery({
-    queryKey: ["adminSubjects"], queryFn: api.getAllSubjects, enabled: showEnrollModal,
+    queryKey: ["adminSubjects"], queryFn: api.getAllSubjects,
+    enabled: showEnrollModal || activeTab === "content",
+  });
+  const { data: adminQuestions, isLoading: questionsLoading, refetch: refetchQuestions } = useQuery({
+    queryKey: ["adminQuestions", filterSubjectId],
+    queryFn: () => api.getAdminQuestions(filterSubjectId ? { subjectId: filterSubjectId } : {}),
+    enabled: activeTab === "content",
   });
 
   if (user?.role !== "admin") {
@@ -198,26 +206,59 @@ export default function AdminScreen() {
     } catch (e) { console.error(e); }
   };
 
-  // --- Add Question ---
+  // --- Add / Edit Question ---
+  const openAddQuestion = () => { setEditingQuestion(null); setQForm(EMPTY_Q); setShowAddQuestion(true); };
+  const openEditQuestion = (q: any) => {
+    setEditingQuestion(q);
+    setQForm({
+      topicId: String(q.topicId),
+      questionText: q.questionText,
+      optionA: q.optionA, optionB: q.optionB, optionC: q.optionC, optionD: q.optionD,
+      correctAnswers: (q.correctAnswers as string[]).join(","),
+      explanation: q.explanation,
+    });
+    setShowAddQuestion(true);
+  };
   const handleSaveQuestion = async () => {
     if (!qForm.topicId || !qForm.questionText || !qForm.optionA || !qForm.optionB || !qForm.optionC || !qForm.optionD || !qForm.correctAnswers || !qForm.explanation) return;
     const answers = qForm.correctAnswers.toUpperCase().split(",").map(a => a.trim()).filter(a => ["A","B","C","D"].includes(a));
     if (!answers.length) return;
     setSavingQ(true);
     try {
-      await api.createQuestion({
+      const payload = {
         topicId: parseInt(qForm.topicId),
         questionText: qForm.questionText,
         optionA: qForm.optionA, optionB: qForm.optionB, optionC: qForm.optionC, optionD: qForm.optionD,
         correctAnswers: answers, explanation: qForm.explanation,
-        questionType: answers.length > 1 ? "multiple" : "single",
-      });
+        questionType: answers.length > 1 ? "multiple" as const : "single" as const,
+      };
+      if (editingQuestion) {
+        await api.updateQuestion(editingQuestion.id, payload);
+      } else {
+        await api.createQuestion(payload);
+      }
       qc.invalidateQueries({ queryKey: ["adminStats"] });
+      qc.invalidateQueries({ queryKey: ["adminQuestions"] });
       refetchStats();
+      refetchQuestions();
       setShowAddQuestion(false);
-      setQForm({ topicId: "", questionText: "", optionA: "", optionB: "", optionC: "", optionD: "", correctAnswers: "", explanation: "" });
+      setQForm(EMPTY_Q);
+      setEditingQuestion(null);
     } catch (e) { console.error(e); }
     finally { setSavingQ(false); }
+  };
+  const confirmDeleteQ = (id: number) => { setDeletingQId(id); setShowDeleteQConfirm(true); };
+  const handleDeleteQuestion = async () => {
+    if (!deletingQId) return;
+    setSavingQ(true);
+    try {
+      await api.deleteQuestion(deletingQId);
+      qc.invalidateQueries({ queryKey: ["adminStats"] });
+      qc.invalidateQueries({ queryKey: ["adminQuestions"] });
+      refetchStats();
+      refetchQuestions();
+    } catch (e) { console.error(e); }
+    finally { setSavingQ(false); setShowDeleteQConfirm(false); setDeletingQId(null); }
   };
 
   const groupedSubjects = (allSubjects ?? []).reduce<Record<string, AdminSubject[]>>((acc, s) => {
@@ -382,22 +423,86 @@ export default function AdminScreen() {
         {/* CONTENT TAB */}
         {activeTab === "content" && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Content Management</Text>
-            <View style={styles.actionGrid}>
-              <Pressable style={({ pressed }) => [styles.actionCard, { opacity: pressed ? 0.85 : 1 }]} onPress={() => setShowAddQuestion(true)}>
-                <View style={[styles.actionIcon, { backgroundColor: Colors.light.primary + "14" }]}>
-                  <Ionicons name="add-circle" size={28} color={Colors.light.primary} />
-                </View>
-                <Text style={styles.actionLabel}>Add Question</Text>
-              </Pressable>
-              <Pressable style={({ pressed }) => [styles.actionCard, { opacity: pressed ? 0.85 : 1 }]}>
-                <View style={[styles.actionIcon, { backgroundColor: "#7C3AED14" }]}>
-                  <Ionicons name="cloud-upload" size={28} color="#7C3AED" />
-                </View>
-                <Text style={styles.actionLabel}>Import MCQs</Text>
-                <Text style={styles.comingSoon}>Coming soon</Text>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>MCQ Questions</Text>
+              <Pressable style={styles.addBtnSmall} onPress={openAddQuestion}>
+                <Ionicons name="add" size={16} color="#FFF" />
+                <Text style={styles.addBtnText}>Add MCQ</Text>
               </Pressable>
             </View>
+
+            {/* Subject filter */}
+            <View style={styles.filterRow}>
+              <Ionicons name="funnel-outline" size={14} color={Colors.light.textMuted} />
+              <Text style={styles.filterLabel}>Filter by paper:</Text>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterChips}>
+              <Pressable
+                style={[styles.filterChip, !filterSubjectId && styles.filterChipActive]}
+                onPress={() => setFilterSubjectId(null)}
+              >
+                <Text style={[styles.filterChipText, !filterSubjectId && styles.filterChipTextActive]}>All</Text>
+              </Pressable>
+              {(allSubjects ?? []).map(s => (
+                <Pressable
+                  key={s.id}
+                  style={[styles.filterChip, filterSubjectId === s.id && styles.filterChipActive]}
+                  onPress={() => setFilterSubjectId(s.id)}
+                >
+                  <Text style={[styles.filterChipText, filterSubjectId === s.id && styles.filterChipTextActive]}>{s.code}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+
+            {questionsLoading ? (
+              <View style={{ paddingTop: 30, alignItems: "center" }}>
+                <ActivityIndicator color={Colors.light.primary} />
+              </View>
+            ) : !adminQuestions?.length ? (
+              <View style={styles.emptyState}>
+                <Ionicons name="help-circle-outline" size={48} color={Colors.light.textMuted} />
+                <Text style={styles.emptyText}>
+                  {filterSubjectId ? "No questions for this paper" : "No questions yet"}
+                </Text>
+              </View>
+            ) : (
+              <>
+                <Text style={styles.qCount}>{adminQuestions.length} question{adminQuestions.length !== 1 ? "s" : ""}</Text>
+                {adminQuestions.map((q, idx) => (
+                  <View key={q.id} style={styles.qCard}>
+                    <View style={styles.qCardHeader}>
+                      <View style={styles.qNumBadge}>
+                        <Text style={styles.qNumText}>#{idx + 1}</Text>
+                      </View>
+                      <Text style={styles.qTopicTag} numberOfLines={1}>{(q as any).topicName ?? `Topic ${q.topicId}`}</Text>
+                      <View style={[styles.qTypeBadge, q.questionType === "multiple" ? styles.qTypeMultiple : styles.qTypeSingle]}>
+                        <Text style={styles.qTypeText}>{q.questionType === "multiple" ? "Multi" : "Single"}</Text>
+                      </View>
+                      <Pressable style={styles.editIconBtn} onPress={() => openEditQuestion(q)}>
+                        <Ionicons name="pencil" size={14} color={Colors.light.primary} />
+                      </Pressable>
+                      <Pressable style={styles.deleteIconBtn} onPress={() => confirmDeleteQ(q.id)}>
+                        <Ionicons name="trash" size={14} color={Colors.light.error} />
+                      </Pressable>
+                    </View>
+                    <Text style={styles.qText} numberOfLines={2}>{q.questionText}</Text>
+                    <View style={styles.qOptions}>
+                      {(["A","B","C","D"] as const).map(opt => {
+                        const text = q[`option${opt}` as keyof typeof q] as string;
+                        const isCorrect = q.correctAnswers.includes(opt);
+                        return (
+                          <View key={opt} style={[styles.qOpt, isCorrect && styles.qOptCorrect]}>
+                            <Text style={[styles.qOptLabel, isCorrect && styles.qOptLabelCorrect]}>{opt}</Text>
+                            <Text style={[styles.qOptText, isCorrect && styles.qOptTextCorrect]} numberOfLines={1}>{text}</Text>
+                            {isCorrect && <Ionicons name="checkmark-circle" size={13} color={Colors.light.success} />}
+                          </View>
+                        );
+                      })}
+                    </View>
+                  </View>
+                ))}
+              </>
+            )}
           </View>
         )}
       </ScrollView>
@@ -564,11 +669,32 @@ export default function AdminScreen() {
         </View>
       </Modal>
 
-      {/* ── Add Question Modal ── */}
+      {/* ── Delete Question Confirm ── */}
+      <Modal visible={showDeleteQConfirm} transparent animationType="fade" onRequestClose={() => setShowDeleteQConfirm(false)}>
+        <View style={styles.overlay}>
+          <View style={styles.confirmCard}>
+            <View style={styles.confirmIconBox}>
+              <Ionicons name="trash-outline" size={30} color={Colors.light.error} />
+            </View>
+            <Text style={styles.confirmTitle}>Delete Question?</Text>
+            <Text style={styles.confirmMsg}>This will permanently remove the question and cannot be undone.</Text>
+            <View style={styles.confirmActions}>
+              <Pressable style={styles.cancelBtn2} onPress={() => setShowDeleteQConfirm(false)} disabled={savingQ}>
+                <Text style={styles.cancelBtn2Text}>Cancel</Text>
+              </Pressable>
+              <Pressable style={[styles.deleteBtn, { opacity: savingQ ? 0.7 : 1 }]} onPress={handleDeleteQuestion} disabled={savingQ}>
+                {savingQ ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={styles.deleteBtnText}>Delete</Text>}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Add / Edit Question Modal ── */}
       <Modal visible={showAddQuestion} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowAddQuestion(false)}>
         <View style={[styles.sheetContainer, { paddingTop: Math.max(insets.top + 8, 20) }]}>
           <View style={styles.sheetHeader}>
-            <Text style={styles.sheetTitle}>Add MCQ Question</Text>
+            <Text style={styles.sheetTitle}>{editingQuestion ? "Edit Question" : "Add MCQ Question"}</Text>
             <Pressable onPress={() => setShowAddQuestion(false)}>
               <Ionicons name="close" size={24} color={Colors.light.text} />
             </Pressable>
@@ -668,6 +794,36 @@ const styles = StyleSheet.create({
   actionIcon: { width: 52, height: 52, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   actionLabel: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: Colors.light.text, textAlign: "center" },
   comingSoon: { fontSize: 10, fontFamily: "Inter_400Regular", color: Colors.light.textMuted },
+  sectionHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6 },
+  addBtnSmall: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: Colors.light.primary, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10 },
+  addBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#FFF" },
+  filterRow: { flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 6, marginTop: 4 },
+  filterLabel: { fontSize: 12, fontFamily: "Inter_500Medium", color: Colors.light.textMuted },
+  filterChips: { gap: 6, paddingBottom: 10, flexDirection: "row" },
+  filterChip: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20, backgroundColor: Colors.light.card, borderWidth: 1, borderColor: Colors.light.border },
+  filterChipActive: { backgroundColor: Colors.light.primary, borderColor: Colors.light.primary },
+  filterChipText: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: Colors.light.textMuted },
+  filterChipTextActive: { color: "#FFF" },
+  qCount: { fontSize: 12, fontFamily: "Inter_500Medium", color: Colors.light.textMuted, marginBottom: 8 },
+  qCard: { backgroundColor: Colors.light.card, borderRadius: 14, padding: 12, marginBottom: 10, shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
+  qCardHeader: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 6, flexWrap: "wrap" },
+  qNumBadge: { backgroundColor: Colors.light.primary + "1A", paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 },
+  qNumText: { fontSize: 11, fontFamily: "Inter_700Bold", color: Colors.light.primary },
+  qTopicTag: { flex: 1, fontSize: 11, fontFamily: "Inter_500Medium", color: Colors.light.textMuted },
+  qTypeBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 },
+  qTypeSingle: { backgroundColor: "#DCFCE7" },
+  qTypeMultiple: { backgroundColor: "#FEF3C7" },
+  qTypeText: { fontSize: 10, fontFamily: "Inter_600SemiBold", color: Colors.light.text },
+  editIconBtn: { padding: 6, backgroundColor: Colors.light.primary + "14", borderRadius: 8 },
+  deleteIconBtn: { padding: 6, backgroundColor: Colors.light.error + "14", borderRadius: 8 },
+  qText: { fontSize: 13, fontFamily: "Inter_500Medium", color: Colors.light.text, marginBottom: 8, lineHeight: 18 },
+  qOptions: { gap: 4 },
+  qOpt: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, backgroundColor: Colors.light.background },
+  qOptCorrect: { backgroundColor: "#DCFCE7" },
+  qOptLabel: { width: 18, fontSize: 11, fontFamily: "Inter_700Bold", color: Colors.light.textMuted },
+  qOptLabelCorrect: { color: Colors.light.success },
+  qOptText: { flex: 1, fontSize: 12, fontFamily: "Inter_400Regular", color: Colors.light.text },
+  qOptTextCorrect: { fontFamily: "Inter_600SemiBold", color: Colors.light.text },
   studentCard: { backgroundColor: Colors.light.card, borderRadius: 14, padding: 14, marginBottom: 10, shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
   studentHeader: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8 },
   avatarCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.light.primary, alignItems: "center", justifyContent: "center" },

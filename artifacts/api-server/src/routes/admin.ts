@@ -203,6 +203,76 @@ router.post("/topics", async (req, res) => {
   }
 });
 
+router.get("/questions", async (req, res) => {
+  try {
+    const topicId = req.query.topicId ? parseInt(req.query.topicId as string) : null;
+    const subjectId = req.query.subjectId ? parseInt(req.query.subjectId as string) : null;
+
+    let rows;
+    if (topicId) {
+      rows = await db
+        .select({
+          id: questionsTable.id,
+          topicId: questionsTable.topicId,
+          topicName: topicsTable.name,
+          questionText: questionsTable.questionText,
+          optionA: questionsTable.optionA,
+          optionB: questionsTable.optionB,
+          optionC: questionsTable.optionC,
+          optionD: questionsTable.optionD,
+          correctAnswers: questionsTable.correctAnswers,
+          explanation: questionsTable.explanation,
+          questionType: questionsTable.questionType,
+        })
+        .from(questionsTable)
+        .innerJoin(topicsTable, eq(topicsTable.id, questionsTable.topicId))
+        .where(eq(questionsTable.topicId, topicId));
+    } else if (subjectId) {
+      rows = await db
+        .select({
+          id: questionsTable.id,
+          topicId: questionsTable.topicId,
+          topicName: topicsTable.name,
+          questionText: questionsTable.questionText,
+          optionA: questionsTable.optionA,
+          optionB: questionsTable.optionB,
+          optionC: questionsTable.optionC,
+          optionD: questionsTable.optionD,
+          correctAnswers: questionsTable.correctAnswers,
+          explanation: questionsTable.explanation,
+          questionType: questionsTable.questionType,
+        })
+        .from(questionsTable)
+        .innerJoin(topicsTable, eq(topicsTable.id, questionsTable.topicId))
+        .innerJoin(chaptersTable, eq(chaptersTable.id, topicsTable.chapterId))
+        .where(eq(chaptersTable.subjectId, subjectId));
+    } else {
+      rows = await db
+        .select({
+          id: questionsTable.id,
+          topicId: questionsTable.topicId,
+          topicName: topicsTable.name,
+          questionText: questionsTable.questionText,
+          optionA: questionsTable.optionA,
+          optionB: questionsTable.optionB,
+          optionC: questionsTable.optionC,
+          optionD: questionsTable.optionD,
+          correctAnswers: questionsTable.correctAnswers,
+          explanation: questionsTable.explanation,
+          questionType: questionsTable.questionType,
+        })
+        .from(questionsTable)
+        .innerJoin(topicsTable, eq(topicsTable.id, questionsTable.topicId))
+        .limit(100);
+    }
+
+    res.json(rows.map(r => ({ ...r, correctAnswers: JSON.parse(r.correctAnswers) })));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to get questions" });
+  }
+});
+
 router.post("/questions", async (req, res) => {
   try {
     const { topicId, questionText, optionA, optionB, optionC, optionD, correctAnswers, explanation, questionType } = req.body;

@@ -294,6 +294,33 @@ export const api = {
     if (!res.ok) throw new Error("Failed to create question");
     return res.json();
   },
+  getAdminQuestions: async (params: { topicId?: number; subjectId?: number } = {}): Promise<Question[]> => {
+    const qs = new URLSearchParams();
+    if (params.topicId) qs.set("topicId", String(params.topicId));
+    if (params.subjectId) qs.set("subjectId", String(params.subjectId));
+    const res = await fetch(`${API_BASE}/admin/questions?${qs}`);
+    if (!res.ok) throw new Error("Failed to fetch questions");
+    return res.json();
+  },
+  updateQuestion: async (id: number, data: {
+    topicId: number;
+    questionText: string;
+    optionA: string;
+    optionB: string;
+    optionC: string;
+    optionD: string;
+    correctAnswers: string[];
+    explanation: string;
+    questionType: "single" | "multiple";
+  }) => {
+    const res = await fetch(`${API_BASE}/admin/questions/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error("Failed to update question");
+    return res.json();
+  },
   deleteQuestion: async (id: number) => {
     const res = await fetch(`${API_BASE}/admin/questions/${id}`, { method: "DELETE" });
     if (!res.ok) throw new Error("Failed to delete question");
