@@ -162,6 +162,30 @@ router.put("/courses/:courseId", async (req, res) => {
 router.delete("/courses/:courseId", async (req, res) => {
   try {
     const id = parseInt(req.params.courseId);
+
+    // Manual cascade: subjects → chapters → topics → questions/progress
+    const subjects = await db.select({ id: subjectsTable.id }).from(subjectsTable).where(eq(subjectsTable.courseId, id));
+    const subjectIds = subjects.map(s => s.id);
+
+    if (subjectIds.length > 0) {
+      const chapters = await db.select({ id: chaptersTable.id }).from(chaptersTable).where(inArray(chaptersTable.subjectId, subjectIds));
+      const chapterIds = chapters.map(c => c.id);
+
+      if (chapterIds.length > 0) {
+        const topics = await db.select({ id: topicsTable.id }).from(topicsTable).where(inArray(topicsTable.chapterId, chapterIds));
+        const topicIds = topics.map(t => t.id);
+
+        if (topicIds.length > 0) {
+          await db.delete(questionsTable).where(inArray(questionsTable.topicId, topicIds));
+          await db.delete(userProgressTable).where(inArray(userProgressTable.topicId, topicIds));
+          await db.delete(topicsTable).where(inArray(topicsTable.id, topicIds));
+        }
+        await db.delete(chaptersTable).where(inArray(chaptersTable.id, chapterIds));
+      }
+      await db.delete(userSubjectPurchasesTable).where(inArray(userSubjectPurchasesTable.subjectId, subjectIds));
+      await db.delete(subjectsTable).where(eq(subjectsTable.courseId, id));
+    }
+
     await db.delete(coursesTable).where(eq(coursesTable.id, id));
     res.json({ message: "Program deleted" });
   } catch (err) {

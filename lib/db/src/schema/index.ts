@@ -32,8 +32,8 @@ export const levelsTable = pgTable("levels", {
 
 export const subjectsTable = pgTable("subjects", {
   id: serial("id").primaryKey(),
-  courseId: integer("course_id").notNull().references(() => coursesTable.id),
-  levelId: integer("level_id").references(() => levelsTable.id),
+  courseId: integer("course_id").notNull().references(() => coursesTable.id, { onDelete: "cascade" }),
+  levelId: integer("level_id").references(() => levelsTable.id, { onDelete: "set null" }),
   name: text("name").notNull(),
   code: varchar("code", { length: 50 }).notNull(),
   description: text("description"),
@@ -42,7 +42,7 @@ export const subjectsTable = pgTable("subjects", {
 
 export const chaptersTable = pgTable("chapters", {
   id: serial("id").primaryKey(),
-  subjectId: integer("subject_id").notNull().references(() => subjectsTable.id),
+  subjectId: integer("subject_id").notNull().references(() => subjectsTable.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   orderNumber: integer("order_number").notNull().default(1),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -50,7 +50,7 @@ export const chaptersTable = pgTable("chapters", {
 
 export const topicsTable = pgTable("topics", {
   id: serial("id").primaryKey(),
-  chapterId: integer("chapter_id").notNull().references(() => chaptersTable.id),
+  chapterId: integer("chapter_id").notNull().references(() => chaptersTable.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   orderNumber: integer("order_number").notNull().default(1),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -58,7 +58,7 @@ export const topicsTable = pgTable("topics", {
 
 export const questionsTable = pgTable("questions", {
   id: serial("id").primaryKey(),
-  topicId: integer("topic_id").notNull().references(() => topicsTable.id),
+  topicId: integer("topic_id").notNull().references(() => topicsTable.id, { onDelete: "cascade" }),
   questionText: text("question_text").notNull(),
   optionA: text("option_a").notNull(),
   optionB: text("option_b").notNull(),
@@ -89,8 +89,8 @@ export const userSubjectPurchasesTable = pgTable("user_subject_purchases", {
 
 export const userProgressTable = pgTable("user_progress", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => usersTable.id),
-  topicId: integer("topic_id").notNull().references(() => topicsTable.id),
+  userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+  topicId: integer("topic_id").notNull().references(() => topicsTable.id, { onDelete: "cascade" }),
   totalQuestions: integer("total_questions").notNull().default(0),
   correctAnswers: integer("correct_answers").notNull().default(0),
   scorePercentage: numeric("score_percentage", { precision: 5, scale: 2 }).notNull().default("0"),
