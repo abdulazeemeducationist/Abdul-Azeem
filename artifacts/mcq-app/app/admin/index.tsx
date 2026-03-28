@@ -335,7 +335,7 @@ export default function AdminScreen() {
   }, {});
 
   const tabs: { key: TabType; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-    { key: "overview",  label: "Overview",  icon: "grid-outline" },
+    { key: "overview",  label: "Dashboard",  icon: "grid-outline" },
     { key: "programs",  label: "Programs",  icon: "school-outline" },
     { key: "students",  label: "Students",  icon: "people-outline" },
     { key: "content",   label: "Content",   icon: "document-text-outline" },
@@ -367,7 +367,7 @@ export default function AdminScreen() {
         {/* OVERVIEW TAB */}
         {activeTab === "overview" && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Platform Overview</Text>
+            <Text style={styles.sectionTitle}>Dashboard</Text>
             {statsLoading ? <ActivityIndicator color={Colors.light.primary} /> : (
               <View style={styles.statsGrid}>
                 <StatCard label="Users"    value={stats?.totalUsers ?? 0}     icon="people"         color="#3B82F6" />
