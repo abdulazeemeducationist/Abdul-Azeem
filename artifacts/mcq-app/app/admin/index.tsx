@@ -356,7 +356,7 @@ export default function AdminScreen() {
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabBarScroll}>
         {tabs.map(tab => (
           <Pressable key={tab.key} style={[styles.tab, activeTab === tab.key && styles.tabActive]} onPress={() => setActiveTab(tab.key)}>
-            <Ionicons name={tab.icon} size={15} color={activeTab === tab.key ? Colors.light.primary : Colors.light.textMuted} />
+            <Ionicons name={tab.icon} size={15} color={activeTab === tab.key ? "#FFF" : Colors.light.textMuted} />
             <Text style={[styles.tabLabel, activeTab === tab.key && styles.tabLabelActive]}>{tab.label}</Text>
           </Pressable>
         ))}
@@ -398,6 +398,31 @@ export default function AdminScreen() {
               </Pressable>
             </View>
 
+            {/* Summary banner */}
+            {!programsLoading && !!programs?.length && (
+              <View style={styles.tabSummaryCard}>
+                <View style={styles.tabSummaryItem}>
+                  <View style={[styles.tabSummaryIcon, { backgroundColor: "#059669" + "20" }]}>
+                    <Ionicons name="school" size={18} color="#059669" />
+                  </View>
+                  <View>
+                    <Text style={styles.tabSummaryValue}>{programs.length}</Text>
+                    <Text style={styles.tabSummaryLabel}>Total Programs</Text>
+                  </View>
+                </View>
+                <View style={styles.tabSummaryDivider} />
+                <View style={styles.tabSummaryItem}>
+                  <View style={[styles.tabSummaryIcon, { backgroundColor: "#7C3AED" + "20" }]}>
+                    <Ionicons name="book" size={18} color="#7C3AED" />
+                  </View>
+                  <View>
+                    <Text style={styles.tabSummaryValue}>{programs.reduce((a, p) => a + (p.subjectCount ?? 0), 0)}</Text>
+                    <Text style={styles.tabSummaryLabel}>Total Papers</Text>
+                  </View>
+                </View>
+              </View>
+            )}
+
             {programsLoading ? (
               <View style={{ paddingTop: 40, alignItems: "center" }}>
                 <ActivityIndicator color={Colors.light.primary} />
@@ -408,30 +433,37 @@ export default function AdminScreen() {
                 <Text style={styles.emptyText}>No programs yet</Text>
               </View>
             ) : (
-              programs.map(prog => (
-                <View key={prog.id} style={styles.programRow}>
-                  {prog.logo ? (
-                    <Image source={{ uri: prog.logo }} style={styles.progLogoThumb} contentFit="cover" />
-                  ) : (
-                    <View style={styles.progCodeBox}>
-                      <Text style={styles.progCode}>{prog.code}</Text>
+              programs.map((prog, idx) => {
+                const accentColors = ["#059669", "#7C3AED", "#3B82F6", "#D97706", "#DC2626", "#0891B2"];
+                const accent = accentColors[idx % accentColors.length];
+                return (
+                  <View key={prog.id} style={[styles.programRow, { borderLeftColor: accent, borderLeftWidth: 3 }]}>
+                    {prog.logo ? (
+                      <Image source={{ uri: prog.logo }} style={styles.progLogoThumb} contentFit="cover" />
+                    ) : (
+                      <View style={[styles.progCodeBox, { backgroundColor: accent + "18" }]}>
+                        <Text style={[styles.progCode, { color: accent }]}>{prog.code}</Text>
+                      </View>
+                    )}
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.progName} numberOfLines={1}>{prog.name}</Text>
+                      {prog.description ? <Text style={styles.progDesc} numberOfLines={1}>{prog.description}</Text> : null}
+                      <View style={styles.progMetaRow}>
+                        <Ionicons name="book-outline" size={11} color={Colors.light.textMuted} />
+                        <Text style={styles.progMeta}>{prog.subjectCount} papers</Text>
+                      </View>
                     </View>
-                  )}
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.progName} numberOfLines={1}>{prog.name}</Text>
-                    {prog.description ? <Text style={styles.progDesc} numberOfLines={1}>{prog.description}</Text> : null}
-                    <Text style={styles.progMeta}>{prog.subjectCount} papers</Text>
+                    <View style={styles.rowActions}>
+                      <Pressable style={styles.editIconBtn} onPress={() => openEditProgram(prog)}>
+                        <Ionicons name="pencil" size={15} color={Colors.light.primary} />
+                      </Pressable>
+                      <Pressable style={styles.deleteIconBtn} onPress={() => confirmDelete(prog.id)}>
+                        <Ionicons name="trash" size={15} color={Colors.light.error} />
+                      </Pressable>
+                    </View>
                   </View>
-                  <View style={styles.rowActions}>
-                    <Pressable style={styles.editIconBtn} onPress={() => openEditProgram(prog)}>
-                      <Ionicons name="pencil" size={15} color={Colors.light.primary} />
-                    </Pressable>
-                    <Pressable style={styles.deleteIconBtn} onPress={() => confirmDelete(prog.id)}>
-                      <Ionicons name="trash" size={15} color={Colors.light.error} />
-                    </Pressable>
-                  </View>
-                </View>
-              ))
+                );
+              })
             )}
           </View>
         )}
@@ -439,8 +471,33 @@ export default function AdminScreen() {
         {/* STUDENTS TAB */}
         {activeTab === "students" && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Student Paper Access</Text>
-            <Text style={styles.sectionSubtitle}>Assign or revoke paper access per student</Text>
+            <Text style={[styles.sectionTitle, { marginBottom: 12 }]}>Students</Text>
+
+            {/* Summary banner */}
+            {!studentsLoading && !!students?.length && (
+              <View style={styles.tabSummaryCard}>
+                <View style={styles.tabSummaryItem}>
+                  <View style={[styles.tabSummaryIcon, { backgroundColor: "#3B82F6" + "20" }]}>
+                    <Ionicons name="people" size={18} color="#3B82F6" />
+                  </View>
+                  <View>
+                    <Text style={styles.tabSummaryValue}>{students.length}</Text>
+                    <Text style={styles.tabSummaryLabel}>Registered</Text>
+                  </View>
+                </View>
+                <View style={styles.tabSummaryDivider} />
+                <View style={styles.tabSummaryItem}>
+                  <View style={[styles.tabSummaryIcon, { backgroundColor: "#059669" + "20" }]}>
+                    <Ionicons name="checkmark-circle" size={18} color="#059669" />
+                  </View>
+                  <View>
+                    <Text style={styles.tabSummaryValue}>{students.reduce((a, s) => a + s.purchasedSubjects.length, 0)}</Text>
+                    <Text style={styles.tabSummaryLabel}>Papers Assigned</Text>
+                  </View>
+                </View>
+              </View>
+            )}
+
             {studentsLoading ? (
               <View style={{ paddingTop: 40, alignItems: "center" }}>
                 <ActivityIndicator color={Colors.light.primary} />
@@ -452,7 +509,7 @@ export default function AdminScreen() {
               </View>
             ) : (
               students.map(student => (
-                <View key={student.id} style={styles.studentCard}>
+                <View key={student.id} style={[styles.studentCard, { borderLeftWidth: 3, borderLeftColor: Colors.light.primary }]}>
                   <View style={styles.studentHeader}>
                     <View style={styles.avatarCircle}>
                       <Text style={styles.avatarText}>{student.name.charAt(0).toUpperCase()}</Text>
@@ -463,12 +520,16 @@ export default function AdminScreen() {
                     </View>
                     <Pressable style={styles.assignBtn} onPress={() => { setSelectedStudent(student); setShowEnrollModal(true); }}>
                       <Ionicons name="add" size={16} color="#FFF" />
-                      <Text style={styles.assignBtnText}>Add Paper</Text>
+                      <Text style={styles.assignBtnText}>Assign</Text>
                     </Pressable>
                   </View>
-                  {student.purchasedSubjects.length === 0 ? (
-                    <Text style={styles.noPapers}>No papers assigned</Text>
-                  ) : (
+                  <View style={styles.studentPapersRow}>
+                    <Ionicons name="book-outline" size={12} color={Colors.light.textMuted} />
+                    <Text style={styles.studentPapersLabel}>
+                      {student.purchasedSubjects.length === 0 ? "No papers assigned" : `${student.purchasedSubjects.length} paper${student.purchasedSubjects.length !== 1 ? "s" : ""} assigned`}
+                    </Text>
+                  </View>
+                  {student.purchasedSubjects.length > 0 && (
                     <View style={styles.chipsWrap}>
                       {student.purchasedSubjects.map(p => (
                         <View key={p.subjectId} style={styles.paperChip}>
@@ -947,6 +1008,18 @@ const styles = StyleSheet.create({
   addBtnSmall: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: Colors.light.primary, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20 },
   addBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#FFF" },
   statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  tabSummaryCard: {
+    flexDirection: "row", alignItems: "center", backgroundColor: Colors.light.card, borderRadius: 14, padding: 16,
+    marginBottom: 14, shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
+  },
+  tabSummaryItem: { flex: 1, flexDirection: "row", alignItems: "center", gap: 10 },
+  tabSummaryIcon: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  tabSummaryValue: { fontSize: 22, fontFamily: "Inter_700Bold", color: Colors.light.text },
+  tabSummaryLabel: { fontSize: 11, fontFamily: "Inter_500Medium", color: Colors.light.textMuted, marginTop: 1 },
+  tabSummaryDivider: { width: 1, height: 36, backgroundColor: Colors.light.border, marginHorizontal: 12 },
+  progMetaRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 },
+  studentPapersRow: { flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 8 },
+  studentPapersLabel: { fontSize: 12, fontFamily: "Inter_500Medium", color: Colors.light.textMuted },
   statCard: {
     width: "47%", backgroundColor: Colors.light.card, borderRadius: 12, padding: 14,
     borderLeftWidth: 3, gap: 4,
