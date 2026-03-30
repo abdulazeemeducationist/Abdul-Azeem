@@ -96,7 +96,7 @@ export default function AdminScreen() {
   });
   const { data: allSubjects, refetch: refetchSubjects } = useQuery({
     queryKey: ["adminSubjects"], queryFn: api.getAllSubjects,
-    enabled: showEnrollModal || activeTab === "content" || activeTab === "programs",
+    enabled: showEnrollModal || activeTab === "content",
   });
   const { data: adminQuestions, isLoading: questionsLoading, refetch: refetchQuestions } = useQuery({
     queryKey: ["adminQuestions", filterSubjectId],
@@ -497,29 +497,6 @@ export default function AdminScreen() {
               })
             )}
 
-            {/* Papers Visibility */}
-            {!programsLoading && !!programs?.length && (
-              <>
-                <Text style={[styles.sectionTitle, { marginTop: 18, marginBottom: 10 }]}>Paper Visibility</Text>
-                {(allSubjects ?? []).map(s => (
-                  <View key={s.id} style={styles.paperVisRow}>
-                    <View style={[styles.progCodeBox, { backgroundColor: Colors.light.primary + "14" }]}>
-                      <Text style={[styles.progCode, { color: Colors.light.primary }]}>{s.code}</Text>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.progName} numberOfLines={1}>{s.name}</Text>
-                      <Text style={styles.progMeta}>{s.courseName}</Text>
-                    </View>
-                    <Pressable
-                      style={[styles.toggleIconBtn, { backgroundColor: s.isActive ? "#DCFCE7" : "#FEE2E2" }]}
-                      onPress={() => handleToggleSubject(s.id, s.isActive)}
-                    >
-                      <Ionicons name={s.isActive ? "eye" : "eye-off"} size={15} color={s.isActive ? "#059669" : "#DC2626"} />
-                    </Pressable>
-                  </View>
-                ))}
-              </>
-            )}
           </View>
         )}
 
