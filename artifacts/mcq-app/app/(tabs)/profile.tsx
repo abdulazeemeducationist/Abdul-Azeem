@@ -231,18 +231,6 @@ export default function ProfileScreen() {
                   : <Ionicons name="camera" size={16} color="#FFF" />}
               </View>
             </Pressable>
-            {user?.profilePicture ? (
-              <Pressable
-                style={styles.removeOverlay}
-                onPress={handleRemovePhoto}
-                disabled={removingPic || uploadingPic}
-                hitSlop={6}
-              >
-                {removingPic
-                  ? <ActivityIndicator size="small" color="#FFF" />
-                  : <Ionicons name="close" size={12} color="#FFF" />}
-              </Pressable>
-            ) : null}
           </View>
           <Text style={styles.userName}>{user?.name}</Text>
           <Text style={styles.userEmail}>{user?.email}</Text>

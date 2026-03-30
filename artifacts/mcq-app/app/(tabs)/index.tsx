@@ -75,14 +75,14 @@ function ProgramCard({ course }: { course: Course }) {
       <View style={styles.cardFooter}>
         <View style={styles.footerStats}>
           <Ionicons name="book-outline" size={13} color={Colors.light.textMuted} />
-          <Text style={styles.footerStatsText}>{course.subjectCount} {course.code === "ACCA" ? "Papers" : "Subjects"}</Text>
+          <Text style={styles.footerStatsText}>{course.subjectCount} Courses</Text>
           <Text style={styles.footerDot}>·</Text>
           <Ionicons name="help-circle-outline" size={13} color={Colors.light.textMuted} />
           <Text style={styles.footerStatsText}>{course.questionCount} MCQs</Text>
         </View>
         <View style={styles.goRow}>
           <Text style={[styles.goText, { color: meta.bg }]}>
-            {meta.hasLevels ? "View Levels" : "View Papers"}
+            {meta.hasLevels ? "View Levels" : "View Courses"}
           </Text>
           <Ionicons name="arrow-forward" size={15} color={meta.bg} />
         </View>
