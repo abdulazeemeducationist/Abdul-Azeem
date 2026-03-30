@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { usersTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { usersTable, otpVerificationsTable } from "@workspace/db";
+import { eq, and } from "drizzle-orm";
 import crypto from "crypto";
 
 const router: IRouter = Router();
@@ -15,15 +15,97 @@ function generateToken(userId: number, email: string): string {
   return Buffer.from(JSON.stringify(payload)).toString("base64");
 }
 
+function generatePhoneToken(phoneNumber: string): string {
+  const payload = { phoneNumber, ts: Date.now(), purpose: "signup" };
+  return Buffer.from(JSON.stringify(payload)).toString("base64");
+}
+
+function verifyPhoneToken(token: string, expectedPhone: string): boolean {
+  try {
+    const { phoneNumber, ts } = JSON.parse(Buffer.from(token, "base64").toString());
+    if (phoneNumber !== expectedPhone) return false;
+    if (Date.now() - ts > 30 * 60 * 1000) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+router.post("/send-otp", async (req, res) => {
+  try {
+    const { phoneNumber } = req.body;
+    if (!phoneNumber) {
+      res.status(400).json({ error: "Bad Request", message: "phoneNumber is required" });
+      return;
+    }
+    const cleaned = phoneNumber.replace(/\D/g, "");
+    if (cleaned.length < 10 || cleaned.length > 15) {
+      res.status(400).json({ error: "Bad Request", message: "Invalid phone number format" });
+      return;
+    }
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    await db.update(otpVerificationsTable)
+      .set({ used: true })
+      .where(eq(otpVerificationsTable.phoneNumber, cleaned));
+    await db.insert(otpVerificationsTable).values({ phoneNumber: cleaned, code, expiresAt });
+    console.log(`[OTP] Verification code for ${cleaned}: ${code}`);
+    res.json({ message: "Verification code sent", devCode: code });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to send code" });
+  }
+});
+
+router.post("/verify-otp", async (req, res) => {
+  try {
+    const { phoneNumber, code } = req.body;
+    if (!phoneNumber || !code) {
+      res.status(400).json({ error: "Bad Request", message: "phoneNumber and code are required" });
+      return;
+    }
+    const cleaned = phoneNumber.replace(/\D/g, "");
+    const [otp] = await db.select().from(otpVerificationsTable)
+      .where(and(
+        eq(otpVerificationsTable.phoneNumber, cleaned),
+        eq(otpVerificationsTable.code, code),
+        eq(otpVerificationsTable.used, false),
+      )).limit(1);
+    if (!otp) {
+      res.status(400).json({ error: "Invalid Code", message: "The code is incorrect. Please try again." });
+      return;
+    }
+    if (new Date() > otp.expiresAt) {
+      res.status(400).json({ error: "Expired Code", message: "Code has expired. Please request a new one." });
+      return;
+    }
+    await db.update(otpVerificationsTable).set({ used: true }).where(eq(otpVerificationsTable.id, otp.id));
+    const phoneToken = generatePhoneToken(cleaned);
+    res.json({ verified: true, phoneToken });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to verify code" });
+  }
+});
+
 router.post("/signup", async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, whatsappNumber, phoneToken } = req.body;
     if (!name || !email || !password) {
       res.status(400).json({ error: "Bad Request", message: "Name, email and password are required" });
       return;
     }
     if (password.length < 6) {
       res.status(400).json({ error: "Bad Request", message: "Password must be at least 6 characters" });
+      return;
+    }
+    if (!whatsappNumber || !phoneToken) {
+      res.status(400).json({ error: "Bad Request", message: "WhatsApp number verification is required" });
+      return;
+    }
+    const cleanedPhone = whatsappNumber.replace(/\D/g, "");
+    if (!verifyPhoneToken(phoneToken, cleanedPhone)) {
+      res.status(400).json({ error: "Bad Request", message: "WhatsApp verification expired or invalid. Please verify again." });
       return;
     }
     const existing = await db.select().from(usersTable).where(eq(usersTable.email, email.toLowerCase())).limit(1);
@@ -36,6 +118,8 @@ router.post("/signup", async (req, res) => {
       email: email.toLowerCase(),
       passwordHash: hashPassword(password),
       role: "student",
+      whatsappNumber: cleanedPhone,
+      whatsappVerified: true,
     }).returning();
     const token = generateToken(user.id, user.email);
     res.status(201).json({

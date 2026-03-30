@@ -18,8 +18,10 @@ interface AuthContextValue {
   token: string | null;
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (name: string, email: string, password: string) => Promise<void>;
+  signUp: (name: string, email: string, password: string, whatsappNumber: string, phoneToken: string) => Promise<void>;
   signOut: () => Promise<void>;
+  sendOtp: (phoneNumber: string) => Promise<{ devCode?: string }>;
+  verifyOtp: (phoneNumber: string, code: string) => Promise<{ phoneToken: string }>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -60,11 +62,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(data.token);
   };
 
-  const signUp = async (name: string, email: string, password: string) => {
+  const signUp = async (name: string, email: string, password: string, whatsappNumber: string, phoneToken: string) => {
     const res = await fetch(`${API_BASE}/auth/signup`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, password }),
+      body: JSON.stringify({ name, email, password, whatsappNumber, phoneToken }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.message || "Sign up failed");
@@ -73,13 +75,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(data.token);
   };
 
+  const sendOtp = async (phoneNumber: string) => {
+    const res = await fetch(`${API_BASE}/auth/send-otp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phoneNumber }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || "Failed to send code");
+    return { devCode: data.devCode };
+  };
+
+  const verifyOtp = async (phoneNumber: string, code: string) => {
+    const res = await fetch(`${API_BASE}/auth/verify-otp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phoneNumber, code }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || "Verification failed");
+    return { phoneToken: data.phoneToken };
+  };
+
   const signOut = async () => {
     await AsyncStorage.removeItem("auth");
     setUser(null);
     setToken(null);
   };
 
-  const value = useMemo(() => ({ user, token, isLoading, signIn, signUp, signOut }), [user, token, isLoading]);
+  const value = useMemo(
+    () => ({ user, token, isLoading, signIn, signUp, signOut, sendOtp, verifyOtp }),
+    [user, token, isLoading],
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

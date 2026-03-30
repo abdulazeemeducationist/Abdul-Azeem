@@ -8,6 +8,17 @@ export const usersTable = pgTable("users", {
   email: varchar("email", { length: 255 }).notNull().unique(),
   passwordHash: text("password_hash").notNull(),
   role: varchar("role", { length: 20 }).notNull().default("student"),
+  whatsappNumber: varchar("whatsapp_number", { length: 20 }),
+  whatsappVerified: boolean("whatsapp_verified").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const otpVerificationsTable = pgTable("otp_verifications", {
+  id: serial("id").primaryKey(),
+  phoneNumber: varchar("phone_number", { length: 20 }).notNull(),
+  code: varchar("code", { length: 6 }).notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  used: boolean("used").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

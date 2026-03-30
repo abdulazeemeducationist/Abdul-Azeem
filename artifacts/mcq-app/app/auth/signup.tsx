@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -16,15 +16,75 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
 import { useAuth } from "@/context/AuthContext";
 
+type OtpStep = "idle" | "sending" | "sent" | "verifying" | "verified";
+
 export default function SignUpScreen() {
-  const { signUp } = useAuth();
+  const { signUp, sendOtp, verifyOtp } = useAuth();
   const insets = useSafeAreaInsets();
+
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [whatsapp, setWhatsapp] = useState("");
+  const [otp, setOtp] = useState("");
+  const [otpStep, setOtpStep] = useState<OtpStep>("idle");
+  const [phoneToken, setPhoneToken] = useState("");
+  const [devCode, setDevCode] = useState("");
+  const [resendCountdown, setResendCountdown] = useState(0);
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [otpError, setOtpError] = useState("");
+
+  const startResendCountdown = () => {
+    setResendCountdown(60);
+    countdownRef.current = setInterval(() => {
+      setResendCountdown(prev => {
+        if (prev <= 1) { clearInterval(countdownRef.current!); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const handleSendCode = async () => {
+    setOtpError("");
+    const cleaned = whatsapp.replace(/\D/g, "");
+    if (cleaned.length < 10) {
+      setOtpError("Enter a valid WhatsApp number (min 10 digits)");
+      return;
+    }
+    setOtpStep("sending");
+    try {
+      const result = await sendOtp(cleaned);
+      setDevCode(result.devCode ?? "");
+      setOtp("");
+      setOtpStep("sent");
+      startResendCountdown();
+    } catch (e: any) {
+      setOtpError(e.message || "Failed to send code");
+      setOtpStep("idle");
+    }
+  };
+
+  const handleVerifyCode = async () => {
+    setOtpError("");
+    if (otp.length !== 6) {
+      setOtpError("Enter the 6-digit code");
+      return;
+    }
+    const cleaned = whatsapp.replace(/\D/g, "");
+    setOtpStep("verifying");
+    try {
+      const result = await verifyOtp(cleaned, otp);
+      setPhoneToken(result.phoneToken);
+      setOtpStep("verified");
+    } catch (e: any) {
+      setOtpError(e.message || "Incorrect code");
+      setOtpStep("sent");
+    }
+  };
 
   const handleSignUp = async () => {
     if (!name.trim() || !email.trim() || !password.trim()) {
@@ -35,16 +95,23 @@ export default function SignUpScreen() {
       setError("Password must be at least 6 characters");
       return;
     }
+    if (otpStep !== "verified") {
+      setError("Please verify your WhatsApp number first");
+      return;
+    }
     setError("");
     setLoading(true);
     try {
-      await signUp(name.trim(), email.trim(), password);
+      await signUp(name.trim(), email.trim(), password, whatsapp.replace(/\D/g, ""), phoneToken);
     } catch (e: any) {
       setError(e.message || "Sign up failed. Please try again.");
     } finally {
       setLoading(false);
     }
   };
+
+  const canSendCode = otpStep === "idle" || (otpStep === "sent" && resendCountdown === 0);
+  const phoneVerified = otpStep === "verified";
 
   return (
     <KeyboardAvoidingView
@@ -74,6 +141,7 @@ export default function SignUpScreen() {
             </View>
           ) : null}
 
+          {/* Full Name */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Full Name</Text>
             <View style={styles.inputWrapper}>
@@ -89,6 +157,7 @@ export default function SignUpScreen() {
             </View>
           </View>
 
+          {/* Email */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Email Address</Text>
             <View style={styles.inputWrapper}>
@@ -106,6 +175,7 @@ export default function SignUpScreen() {
             </View>
           </View>
 
+          {/* Password */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Password</Text>
             <View style={styles.inputWrapper}>
@@ -125,10 +195,96 @@ export default function SignUpScreen() {
             </View>
           </View>
 
+          {/* WhatsApp Number */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>WhatsApp Number</Text>
+            <View style={[styles.inputWrapper, phoneVerified && styles.inputWrapperVerified]}>
+              <Ionicons
+                name="logo-whatsapp"
+                size={18}
+                color={phoneVerified ? "#25D366" : Colors.light.textMuted}
+                style={styles.inputIcon}
+              />
+              <TextInput
+                style={[styles.input, styles.inputFlex]}
+                value={whatsapp}
+                onChangeText={text => {
+                  setWhatsapp(text);
+                  if (otpStep !== "idle") { setOtpStep("idle"); setDevCode(""); setOtp(""); setOtpError(""); }
+                }}
+                placeholder="e.g. 03001234567"
+                placeholderTextColor={Colors.light.textMuted}
+                keyboardType="phone-pad"
+                editable={!phoneVerified}
+              />
+              {phoneVerified ? (
+                <View style={styles.verifiedBadge}>
+                  <Ionicons name="checkmark-circle" size={18} color="#25D366" />
+                  <Text style={styles.verifiedText}>Verified</Text>
+                </View>
+              ) : (
+                <Pressable
+                  style={[styles.sendCodeBtn, (!canSendCode || otpStep === "sending") && styles.sendCodeBtnDisabled]}
+                  onPress={handleSendCode}
+                  disabled={!canSendCode || otpStep === "sending"}
+                >
+                  {otpStep === "sending" ? (
+                    <ActivityIndicator size="small" color="#FFF" />
+                  ) : (
+                    <Text style={styles.sendCodeText}>
+                      {otpStep === "sent" && resendCountdown > 0 ? `${resendCountdown}s` : "Send Code"}
+                    </Text>
+                  )}
+                </Pressable>
+              )}
+            </View>
+
+            {/* Dev code info banner */}
+            {devCode && otpStep === "sent" ? (
+              <View style={styles.devBanner}>
+                <Ionicons name="information-circle-outline" size={14} color="#1D4ED8" />
+                <Text style={styles.devBannerText}>Test code: <Text style={styles.devCode}>{devCode}</Text></Text>
+              </View>
+            ) : null}
+
+            {/* OTP input (after code sent) */}
+            {(otpStep === "sent" || otpStep === "verifying") ? (
+              <View style={styles.otpRow}>
+                <TextInput
+                  style={styles.otpInput}
+                  value={otp}
+                  onChangeText={v => { setOtp(v.replace(/\D/g, "").slice(0, 6)); setOtpError(""); }}
+                  placeholder="6-digit code"
+                  placeholderTextColor={Colors.light.textMuted}
+                  keyboardType="number-pad"
+                  maxLength={6}
+                />
+                <Pressable
+                  style={[styles.verifyBtn, (otp.length !== 6 || otpStep === "verifying") && styles.verifyBtnDisabled]}
+                  onPress={handleVerifyCode}
+                  disabled={otp.length !== 6 || otpStep === "verifying"}
+                >
+                  {otpStep === "verifying" ? (
+                    <ActivityIndicator size="small" color="#FFF" />
+                  ) : (
+                    <Text style={styles.verifyBtnText}>Verify</Text>
+                  )}
+                </Pressable>
+              </View>
+            ) : null}
+
+            {otpError ? (
+              <View style={styles.otpErrorRow}>
+                <Ionicons name="alert-circle-outline" size={13} color={Colors.light.error} />
+                <Text style={styles.otpErrorText}>{otpError}</Text>
+              </View>
+            ) : null}
+          </View>
+
           <Pressable
-            style={({ pressed }) => [styles.signUpBtn, { opacity: pressed || loading ? 0.85 : 1 }]}
+            style={({ pressed }) => [styles.signUpBtn, { opacity: pressed || loading || !phoneVerified ? 0.7 : 1 }]}
             onPress={handleSignUp}
-            disabled={loading}
+            disabled={loading || !phoneVerified}
           >
             {loading ? (
               <ActivityIndicator color="#FFF" />
@@ -182,10 +338,42 @@ const styles = StyleSheet.create({
     borderRadius: 12, borderWidth: 1, borderColor: Colors.light.border,
     paddingHorizontal: 12, height: 48,
   },
+  inputWrapperVerified: { borderColor: "#25D366", backgroundColor: "#F0FDF4" },
   inputIcon: { marginRight: 8 },
   input: { flex: 1, fontSize: 15, fontFamily: "Inter_400Regular", color: Colors.light.text },
   inputFlex: { flex: 1 },
   eyeBtn: { padding: 4 },
+  sendCodeBtn: {
+    backgroundColor: Colors.light.primary, borderRadius: 8,
+    paddingHorizontal: 12, paddingVertical: 6, minWidth: 84, alignItems: "center",
+  },
+  sendCodeBtnDisabled: { backgroundColor: Colors.light.textMuted },
+  sendCodeText: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: "#FFF" },
+  verifiedBadge: { flexDirection: "row", alignItems: "center", gap: 4 },
+  verifiedText: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: "#25D366" },
+  devBanner: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    backgroundColor: "#EFF6FF", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8,
+    borderWidth: 1, borderColor: "#BFDBFE",
+  },
+  devBannerText: { fontSize: 12, fontFamily: "Inter_400Regular", color: "#1D4ED8" },
+  devCode: { fontFamily: "Inter_700Bold", letterSpacing: 2 },
+  otpRow: { flexDirection: "row", gap: 8, alignItems: "center" },
+  otpInput: {
+    flex: 1, height: 44,
+    backgroundColor: Colors.light.backgroundSecondary,
+    borderRadius: 10, borderWidth: 1, borderColor: Colors.light.border,
+    paddingHorizontal: 14, fontSize: 18, fontFamily: "Inter_600SemiBold",
+    color: Colors.light.text, letterSpacing: 6, textAlign: "center",
+  },
+  verifyBtn: {
+    backgroundColor: "#25D366", borderRadius: 10,
+    paddingHorizontal: 18, height: 44, alignItems: "center", justifyContent: "center",
+  },
+  verifyBtnDisabled: { backgroundColor: Colors.light.textMuted },
+  verifyBtnText: { fontSize: 14, fontFamily: "Inter_600SemiBold", color: "#FFF" },
+  otpErrorRow: { flexDirection: "row", alignItems: "center", gap: 5 },
+  otpErrorText: { fontSize: 12, fontFamily: "Inter_400Regular", color: Colors.light.error },
   signUpBtn: {
     backgroundColor: Colors.light.primary, borderRadius: 14, height: 52,
     alignItems: "center", justifyContent: "center", marginTop: 4,
