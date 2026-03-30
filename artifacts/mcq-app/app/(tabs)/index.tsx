@@ -109,7 +109,15 @@ export default function HomeScreen() {
     <View style={[styles.container, { paddingTop: topPad }]}>
       <View style={styles.header}>
         <View style={styles.avatarCircle}>
-          <Text style={styles.avatarText}>{initial}</Text>
+          {user?.profilePicture ? (
+            <Image
+              source={{ uri: user.profilePicture }}
+              style={styles.avatarCircleImg}
+              contentFit="cover"
+            />
+          ) : (
+            <Text style={styles.avatarText}>{initial}</Text>
+          )}
         </View>
         <View style={styles.headerText}>
           <Text style={styles.welcomeLabel}>Welcome back,</Text>
@@ -171,10 +179,12 @@ const styles = StyleSheet.create({
     width: 48, height: 48, borderRadius: 24,
     backgroundColor: Colors.light.primary,
     alignItems: "center", justifyContent: "center",
+    overflow: "hidden",
     shadowColor: Colors.light.primary,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.3, shadowRadius: 6, elevation: 4,
   },
+  avatarCircleImg: { width: 48, height: 48, borderRadius: 24 },
   avatarText: { fontSize: 20, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
   headerText: { flex: 1 },
   welcomeLabel: { fontSize: 12, fontFamily: "Inter_400Regular", color: Colors.light.textSecondary },

@@ -205,11 +205,11 @@ export default function ProfileScreen() {
         {/* Avatar section */}
         <View style={styles.avatarSection}>
           <View style={styles.avatarWrap}>
-            <Pressable onPress={handlePickImage} disabled={uploadingPic || removingPic}>
+            <Pressable style={styles.avatarPressable} onPress={handlePickImage} disabled={uploadingPic || removingPic}>
               {user?.profilePicture ? (
-                <Image source={{ uri: user.profilePicture }} style={styles.avatarImg} contentFit="cover" />
+                <Image source={{ uri: user.profilePicture }} style={styles.avatarFill} contentFit="cover" />
               ) : (
-                <View style={styles.avatar}>
+                <View style={styles.avatarFill}>
                   <Text style={styles.avatarText}>{initials}</Text>
                 </View>
               )}
@@ -452,26 +452,27 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 26, fontFamily: "Inter_700Bold", color: Colors.light.text },
 
   avatarSection: { alignItems: "center", paddingVertical: 24, gap: 6 },
-  avatarWrap: { position: "relative", marginBottom: 4, alignSelf: "center" },
-  removeOverlay: {
-    position: "absolute", top: 0, right: -2,
-    width: 24, height: 24, borderRadius: 12,
-    backgroundColor: Colors.light.error,
-    borderWidth: 2, borderColor: Colors.light.background,
-    alignItems: "center", justifyContent: "center",
+  avatarWrap: { position: "relative", marginBottom: 4, alignSelf: "center", width: 90, height: 90 },
+  avatarPressable: {
+    width: 90, height: 90, borderRadius: 45, overflow: "hidden",
   },
-  avatar: {
+  avatarFill: {
     width: 90, height: 90, borderRadius: 45,
     backgroundColor: Colors.light.primary, alignItems: "center", justifyContent: "center",
   },
-  avatarImg: { width: 90, height: 90, borderRadius: 45 },
   avatarText: { fontSize: 30, fontFamily: "Inter_700Bold", color: "#FFF" },
   cameraOverlay: {
-    position: "absolute", bottom: 0, right: 0,
-    width: 30, height: 30, borderRadius: 15,
-    backgroundColor: Colors.light.primary,
+    position: "absolute", bottom: 0, left: 0, right: 0,
+    height: 28, backgroundColor: "rgba(0,0,0,0.45)",
+    alignItems: "center", justifyContent: "center",
+  },
+  removeOverlay: {
+    position: "absolute", top: 0, right: 0,
+    width: 26, height: 26, borderRadius: 13,
+    backgroundColor: Colors.light.error,
     borderWidth: 2, borderColor: Colors.light.background,
     alignItems: "center", justifyContent: "center",
+    zIndex: 10,
   },
   userName: { fontSize: 20, fontFamily: "Inter_700Bold", color: Colors.light.text },
   userEmail: { fontSize: 14, fontFamily: "Inter_400Regular", color: Colors.light.textSecondary },
