@@ -74,9 +74,22 @@ export default function ProfileScreen() {
   const [pwdError, setPwdError] = useState("");
   const [pwdSuccess, setPwdSuccess] = useState(false);
 
-  // Picture upload
+  // Picture upload / remove
   const [uploadingPic, setUploadingPic] = useState(false);
+  const [removingPic, setRemovingPic] = useState(false);
   const [picError, setPicError] = useState("");
+
+  const handleRemovePhoto = async () => {
+    setRemovingPic(true);
+    setPicError("");
+    try {
+      await updateProfilePicture("");
+    } catch (e: any) {
+      setPicError(e?.message || "Failed to remove photo.");
+    } finally {
+      setRemovingPic(false);
+    }
+  };
 
   const initials = user?.name
     ? user.name.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase()
@@ -191,20 +204,34 @@ export default function ProfileScreen() {
 
         {/* Avatar section */}
         <View style={styles.avatarSection}>
-          <Pressable style={styles.avatarWrap} onPress={handlePickImage} disabled={uploadingPic}>
-            {user?.profilePicture ? (
-              <Image source={{ uri: user.profilePicture }} style={styles.avatarImg} contentFit="cover" />
-            ) : (
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{initials}</Text>
+          <View style={styles.avatarWrap}>
+            <Pressable onPress={handlePickImage} disabled={uploadingPic || removingPic}>
+              {user?.profilePicture ? (
+                <Image source={{ uri: user.profilePicture }} style={styles.avatarImg} contentFit="cover" />
+              ) : (
+                <View style={styles.avatar}>
+                  <Text style={styles.avatarText}>{initials}</Text>
+                </View>
+              )}
+              <View style={styles.cameraOverlay}>
+                {uploadingPic
+                  ? <ActivityIndicator size="small" color="#FFF" />
+                  : <Ionicons name="camera" size={16} color="#FFF" />}
               </View>
-            )}
-            <View style={styles.cameraOverlay}>
-              {uploadingPic
-                ? <ActivityIndicator size="small" color="#FFF" />
-                : <Ionicons name="camera" size={16} color="#FFF" />}
-            </View>
-          </Pressable>
+            </Pressable>
+            {user?.profilePicture ? (
+              <Pressable
+                style={styles.removeOverlay}
+                onPress={handleRemovePhoto}
+                disabled={removingPic || uploadingPic}
+                hitSlop={6}
+              >
+                {removingPic
+                  ? <ActivityIndicator size="small" color="#FFF" />
+                  : <Ionicons name="close" size={12} color="#FFF" />}
+              </Pressable>
+            ) : null}
+          </View>
           <Text style={styles.userName}>{user?.name}</Text>
           <Text style={styles.userEmail}>{user?.email}</Text>
           {user?.whatsappNumber ? (
@@ -235,6 +262,12 @@ export default function ProfileScreen() {
             <MenuRow icon="lock-closed-outline" label="Change Password" onPress={openChangePassword} />
             <View style={styles.divider} />
             <MenuRow icon="image-outline" label="Update Profile Picture" onPress={handlePickImage} />
+            {user?.profilePicture ? (
+              <>
+                <View style={styles.divider} />
+                <MenuRow icon="trash-outline" label="Remove Photo" onPress={handleRemovePhoto} color={Colors.light.error} />
+              </>
+            ) : null}
           </View>
         </View>
 
@@ -419,7 +452,14 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 26, fontFamily: "Inter_700Bold", color: Colors.light.text },
 
   avatarSection: { alignItems: "center", paddingVertical: 24, gap: 6 },
-  avatarWrap: { position: "relative", marginBottom: 4 },
+  avatarWrap: { position: "relative", marginBottom: 4, alignSelf: "center" },
+  removeOverlay: {
+    position: "absolute", top: 0, right: -2,
+    width: 24, height: 24, borderRadius: 12,
+    backgroundColor: Colors.light.error,
+    borderWidth: 2, borderColor: Colors.light.background,
+    alignItems: "center", justifyContent: "center",
+  },
   avatar: {
     width: 90, height: 90, borderRadius: 45,
     backgroundColor: Colors.light.primary, alignItems: "center", justifyContent: "center",

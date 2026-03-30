@@ -202,8 +202,8 @@ router.put("/profile/picture", async (req, res) => {
     const token = authHeader.replace("Bearer ", "");
     const { userId } = JSON.parse(Buffer.from(token, "base64").toString());
     const { picture } = req.body;
-    if (!picture) { res.status(400).json({ error: "Bad Request", message: "picture is required" }); return; }
-    const [user] = await db.update(usersTable).set({ profilePicture: picture }).where(eq(usersTable.id, userId)).returning();
+    if (picture === undefined) { res.status(400).json({ error: "Bad Request", message: "picture is required" }); return; }
+    const [user] = await db.update(usersTable).set({ profilePicture: picture === "" ? null : picture }).where(eq(usersTable.id, userId)).returning();
     res.json({ profilePicture: user.profilePicture });
   } catch (err) {
     console.error(err);
