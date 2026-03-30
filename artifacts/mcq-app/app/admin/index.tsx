@@ -832,10 +832,10 @@ export default function AdminScreen() {
                         ) : (
                           progPapers.map(paper => (
                             <View key={paper.id} style={styles.paperRow}>
-                              <View style={[styles.paperCodeBadge, { backgroundColor: paper.isActive ? Colors.light.primary + "14" : "#F3F4F6" }]}>
-                                <Text style={[styles.paperCode, { color: paper.isActive ? Colors.light.primary : Colors.light.textMuted }]}>{paper.code}</Text>
+                              <View style={{ flex: 1 }}>
+                                <Text style={[styles.courseCodeLarge, { color: paper.isActive ? Colors.light.primary : Colors.light.textMuted }]}>{paper.code}</Text>
+                                <Text style={[styles.courseNameSub, !paper.isActive && { color: Colors.light.textMuted }]} numberOfLines={1}>{paper.name}</Text>
                               </View>
-                              <Text style={[styles.paperName, !paper.isActive && { color: Colors.light.textMuted }]} numberOfLines={1}>{paper.name}</Text>
                               {!paper.isActive && (
                                 <View style={styles.inactiveBadge}><Text style={styles.inactiveBadgeText}>Off</Text></View>
                               )}
@@ -922,10 +922,10 @@ export default function AdminScreen() {
                       <Text style={styles.courseGroupHeader}>{prog.name}</Text>
                       {progCourses.map(paper => (
                         <View key={paper.id} style={styles.paperRowFull}>
-                          <View style={[styles.paperCodeBadge, { backgroundColor: paper.isActive ? Colors.light.primary + "14" : "#F3F4F6" }]}>
-                            <Text style={[styles.paperCode, { color: paper.isActive ? Colors.light.primary : Colors.light.textMuted }]}>{paper.code}</Text>
+                          <View style={{ flex: 1 }}>
+                            <Text style={[styles.courseCodeLarge, { color: paper.isActive ? Colors.light.primary : Colors.light.textMuted }]}>{paper.code}</Text>
+                            <Text style={[styles.courseNameSub, !paper.isActive && { color: Colors.light.textMuted }]} numberOfLines={1}>{paper.name}</Text>
                           </View>
-                          <Text style={[styles.paperName, { flex: 1 }, !paper.isActive && { color: Colors.light.textMuted }]} numberOfLines={1}>{paper.name}</Text>
                           {!paper.isActive && <View style={styles.inactiveBadge}><Text style={styles.inactiveBadgeText}>Off</Text></View>}
                           <View style={styles.paperActions}>
                             <Pressable style={[styles.toggleIconBtn, { backgroundColor: paper.isActive ? "#DCFCE7" : "#FEE2E2" }]} onPress={() => handleToggleSubject(paper.id, paper.isActive)}>
@@ -946,10 +946,10 @@ export default function AdminScreen() {
               }
               return filtered.map(paper => (
                 <View key={paper.id} style={styles.paperRowFull}>
-                  <View style={[styles.paperCodeBadge, { backgroundColor: paper.isActive ? Colors.light.primary + "14" : "#F3F4F6" }]}>
-                    <Text style={[styles.paperCode, { color: paper.isActive ? Colors.light.primary : Colors.light.textMuted }]}>{paper.code}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.courseCodeLarge, { color: paper.isActive ? Colors.light.primary : Colors.light.textMuted }]}>{paper.code}</Text>
+                    <Text style={[styles.courseNameSub, !paper.isActive && { color: Colors.light.textMuted }]} numberOfLines={1}>{paper.name}</Text>
                   </View>
-                  <Text style={[styles.paperName, { flex: 1 }, !paper.isActive && { color: Colors.light.textMuted }]} numberOfLines={1}>{paper.name}</Text>
                   {!paper.isActive && <View style={styles.inactiveBadge}><Text style={styles.inactiveBadgeText}>Off</Text></View>}
                   <View style={styles.paperActions}>
                     <Pressable style={[styles.toggleIconBtn, { backgroundColor: paper.isActive ? "#DCFCE7" : "#FEE2E2" }]} onPress={() => handleToggleSubject(paper.id, paper.isActive)}>
@@ -2127,6 +2127,8 @@ const styles = StyleSheet.create({
 
   courseGroupHeader: { fontSize: 11, fontFamily: "Inter_700Bold", color: Colors.light.textMuted, textTransform: "uppercase", letterSpacing: 0.8, marginTop: 12, marginBottom: 4, paddingHorizontal: 4 },
   paperRowFull: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: Colors.light.card, borderRadius: 12, padding: 12, marginBottom: 6, shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 3, elevation: 1 },
+  courseCodeLarge: { fontSize: 18, fontFamily: "Inter_700Bold", letterSpacing: 0.3 },
+  courseNameSub: { fontSize: 12, fontFamily: "Inter_400Regular", color: Colors.light.textMuted, marginTop: 1 },
 
   contentSubTabs: { flexDirection: "row", gap: 8, marginBottom: 14 },
   contentSubTab: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingVertical: 9, borderRadius: 10, backgroundColor: Colors.light.backgroundSecondary, borderWidth: 1, borderColor: Colors.light.border },
