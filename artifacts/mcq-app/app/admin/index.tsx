@@ -63,6 +63,7 @@ export default function AdminScreen() {
   const [programForm, setProgramForm] = useState<ProgramForm>(EMPTY_FORM);
   const [savingProgram, setSavingProgram] = useState(false);
   const [pendingProgDeleteIds, setPendingProgDeleteIds] = useState<number[]>([]);
+  const [confirmModal, setConfirmModal] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
 
   // Students state
   const [showEnrollModal, setShowEnrollModal] = useState(false);
@@ -257,17 +258,24 @@ export default function AdminScreen() {
     } catch (e) { console.error(e); }
   };
   const confirmDelete = (id: number) => {
-    setPendingProgDeleteIds(prev => [...prev, id]);
-    showUndo("Program deleted.", async () => {
-      await api.deleteCourse(id);
-      setPendingProgDeleteIds(prev => prev.filter(x => x !== id));
-      qc.invalidateQueries({ queryKey: ["adminCourses"] });
-      qc.invalidateQueries({ queryKey: ["courses"] });
-      qc.invalidateQueries({ queryKey: ["adminStats"] });
-      refetchPrograms();
-      refetchStats();
-    }, () => {
-      setPendingProgDeleteIds(prev => prev.filter(x => x !== id));
+    setConfirmModal({
+      title: "Delete Program?",
+      message: "This will permanently delete the program and all its papers, chapters, topics, and questions.",
+      onConfirm: () => {
+        setConfirmModal(null);
+        setPendingProgDeleteIds(prev => [...prev, id]);
+        showUndo("Program deleted.", async () => {
+          await api.deleteCourse(id);
+          setPendingProgDeleteIds(prev => prev.filter(x => x !== id));
+          qc.invalidateQueries({ queryKey: ["adminCourses"] });
+          qc.invalidateQueries({ queryKey: ["courses"] });
+          qc.invalidateQueries({ queryKey: ["adminStats"] });
+          refetchPrograms();
+          refetchStats();
+        }, () => {
+          setPendingProgDeleteIds(prev => prev.filter(x => x !== id));
+        });
+      },
     });
   };
 
@@ -359,16 +367,23 @@ export default function AdminScreen() {
     finally { setSavingQ(false); }
   };
   const confirmDeleteQ = (id: number) => {
-    setPendingQDeleteIds(prev => [...prev, id]);
-    showUndo("Question deleted.", async () => {
-      await api.deleteQuestion(id);
-      setPendingQDeleteIds(prev => prev.filter(x => x !== id));
-      qc.invalidateQueries({ queryKey: ["adminStats"] });
-      qc.invalidateQueries({ queryKey: ["adminQuestions"] });
-      refetchStats();
-      refetchQuestions();
-    }, () => {
-      setPendingQDeleteIds(prev => prev.filter(x => x !== id));
+    setConfirmModal({
+      title: "Delete Question?",
+      message: "This question will be permanently removed from the question bank.",
+      onConfirm: () => {
+        setConfirmModal(null);
+        setPendingQDeleteIds(prev => [...prev, id]);
+        showUndo("Question deleted.", async () => {
+          await api.deleteQuestion(id);
+          setPendingQDeleteIds(prev => prev.filter(x => x !== id));
+          qc.invalidateQueries({ queryKey: ["adminStats"] });
+          qc.invalidateQueries({ queryKey: ["adminQuestions"] });
+          refetchStats();
+          refetchQuestions();
+        }, () => {
+          setPendingQDeleteIds(prev => prev.filter(x => x !== id));
+        });
+      },
     });
   };
 
@@ -1075,6 +1090,28 @@ export default function AdminScreen() {
         </View>
       </Modal>
 
+      {/* ── Confirm Delete Modal ── */}
+      <Modal visible={!!confirmModal} transparent animationType="fade" onRequestClose={() => setConfirmModal(null)}>
+        <View style={styles.overlay}>
+          <View style={styles.confirmCard}>
+            <View style={styles.confirmIconBox}>
+              <Ionicons name="warning-outline" size={32} color={Colors.light.error} />
+            </View>
+            <Text style={styles.confirmTitle}>{confirmModal?.title}</Text>
+            <Text style={styles.confirmMsg}>{confirmModal?.message}</Text>
+            <View style={styles.confirmActions}>
+              <Pressable style={styles.cancelBtn2} onPress={() => setConfirmModal(null)}>
+                <Text style={styles.cancelBtn2Text}>Cancel</Text>
+              </Pressable>
+              <Pressable style={styles.deleteBtn} onPress={() => confirmModal?.onConfirm()}>
+                <Ionicons name="trash-outline" size={16} color="#FFF" />
+                <Text style={styles.deleteBtnText}>Delete</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* ── Undo Snackbar ── */}
       {snackbar && (
         <View style={styles.snackbar} pointerEvents="box-none">
@@ -1274,7 +1311,7 @@ const styles = StyleSheet.create({
   confirmActions: { flexDirection: "row", gap: 10, marginTop: 8, width: "100%" },
   cancelBtn2: { flex: 1, height: 46, borderRadius: 12, borderWidth: 1.5, borderColor: Colors.light.border, alignItems: "center", justifyContent: "center" },
   cancelBtn2Text: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: Colors.light.textSecondary },
-  deleteBtn: { flex: 1, height: 46, borderRadius: 12, backgroundColor: Colors.light.error, alignItems: "center", justifyContent: "center" },
+  deleteBtn: { flex: 1, height: 46, borderRadius: 12, backgroundColor: Colors.light.error, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
   deleteBtnText: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: "#FFF" },
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12, backgroundColor: Colors.light.background },
   noAccessText: { fontSize: 18, fontFamily: "Inter_600SemiBold", color: Colors.light.text },
