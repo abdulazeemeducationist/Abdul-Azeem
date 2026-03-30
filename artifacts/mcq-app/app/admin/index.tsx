@@ -104,6 +104,8 @@ export default function AdminScreen() {
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [editingNote, setEditingNote] = useState<ChapterNote | null>(null);
   const [noteForm, setNoteForm] = useState({ title: "", fileUrl: "", description: "" });
+  const [noteFileName, setNoteFileName] = useState("");
+  const [pickingNote, setPickingNote] = useState(false);
   const [savingNote, setSavingNote] = useState(false);
 
   // Content state
@@ -722,8 +724,29 @@ export default function AdminScreen() {
   };
 
   // --- Notes CRUD ---
-  const openAddNote = () => { setEditingNote(null); setNoteForm({ title: "", fileUrl: "", description: "" }); setShowNoteModal(true); };
-  const openEditNote = (n: ChapterNote) => { setEditingNote(n); setNoteForm({ title: n.title, fileUrl: n.fileUrl, description: n.description ?? "" }); setShowNoteModal(true); };
+  const openAddNote = () => { setEditingNote(null); setNoteForm({ title: "", fileUrl: "", description: "" }); setNoteFileName(""); setShowNoteModal(true); };
+  const openEditNote = (n: ChapterNote) => {
+    setEditingNote(n);
+    setNoteForm({ title: n.title, fileUrl: n.fileUrl, description: n.description ?? "" });
+    setNoteFileName(n.fileUrl.startsWith("data:") ? "Uploaded PDF" : n.fileUrl ? "Existing file" : "");
+    setShowNoteModal(true);
+  };
+  const pickNoteFile = async () => {
+    setPickingNote(true);
+    try {
+      const DocumentPicker = await import("expo-document-picker");
+      const result = await DocumentPicker.getDocumentAsync({ type: ["application/pdf", "*/*"], copyToCacheDirectory: true });
+      if (result.canceled || !result.assets?.length) return;
+      const asset = result.assets[0];
+      const FileSystem = await import("expo-file-system");
+      const base64 = await FileSystem.readAsStringAsync(asset.uri, { encoding: FileSystem.EncodingType.Base64 });
+      const mimeType = asset.mimeType ?? "application/pdf";
+      const dataUri = `data:${mimeType};base64,${base64}`;
+      setNoteForm(f => ({ ...f, fileUrl: dataUri }));
+      setNoteFileName(asset.name ?? "Uploaded file");
+    } catch (e) { console.error(e); }
+    finally { setPickingNote(false); }
+  };
   const handleSaveNote = async () => {
     if (!noteForm.title.trim() || !noteForm.fileUrl.trim() || !noteFilterChapterId) return;
     setSavingNote(true);
@@ -1451,7 +1474,7 @@ export default function AdminScreen() {
                   {!!noteFilterChapterId && (
                     <Pressable style={styles.addBtnSmall} onPress={openAddNote}>
                       <Ionicons name="add" size={16} color="#FFF" />
-                      <Text style={styles.addBtnText}>Add Note</Text>
+                      <Text style={styles.addBtnText}>Add Notes</Text>
                     </Pressable>
                   )}
                 </View>
@@ -1500,7 +1523,12 @@ export default function AdminScreen() {
                         </View>
                         <View style={{ flex: 1 }}>
                           <Text style={styles.videoAdminTitle} numberOfLines={1}>{n.title}</Text>
-                          <Text style={styles.videoAdminUrl} numberOfLines={1}>{n.fileUrl}</Text>
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 }}>
+                            <Ionicons name="document-attach" size={11} color={Colors.light.textMuted} />
+                            <Text style={styles.videoAdminUrl} numberOfLines={1}>
+                              {n.fileUrl.startsWith("data:") ? "PDF uploaded" : n.fileUrl || "No file"}
+                            </Text>
+                          </View>
                         </View>
                         <Pressable style={styles.editIconBtn} onPress={() => openEditNote(n)}>
                           <Ionicons name="pencil" size={13} color={Colors.light.primary} />
@@ -2010,11 +2038,11 @@ export default function AdminScreen() {
         </View>
       </Modal>
 
-      {/* ── Add / Edit Note Modal ── */}
+      {/* ── Add / Edit Notes Modal ── */}
       <Modal visible={showNoteModal} transparent animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowNoteModal(false)}>
         <View style={[styles.sheetContainer, { paddingTop: Math.max(insets.top + 8, 20) }]}>
           <View style={styles.sheetHeader}>
-            <Text style={styles.sheetTitle}>{editingNote ? "Edit Note" : "Add Note"}</Text>
+            <Text style={styles.sheetTitle}>{editingNote ? "Edit Notes" : "Add Notes"}</Text>
             <Pressable onPress={() => setShowNoteModal(false)}>
               <Ionicons name="close" size={24} color={Colors.light.text} />
             </Pressable>
@@ -2022,12 +2050,39 @@ export default function AdminScreen() {
           <ScrollView style={styles.sheetScroll} contentContainerStyle={{ gap: 14, paddingBottom: Math.max(insets.bottom + 20, 40) }} keyboardShouldPersistTaps="handled">
             <View style={styles.formField}>
               <Text style={styles.formLabel}>Title <Text style={styles.required}>*</Text></Text>
-              <TextInput style={styles.formInput} value={noteForm.title} onChangeText={v => setNoteForm(f => ({ ...f, title: v }))} placeholder="e.g. Chapter 1 Study Notes" placeholderTextColor={Colors.light.textMuted} />
+              <TextInput style={styles.formInput} value={noteForm.title} onChangeText={v => setNoteForm(f => ({ ...f, title: v }))} placeholder="e.g. Chapter 1 Lecture Notes" placeholderTextColor={Colors.light.textMuted} />
             </View>
+
+            {/* PDF Upload */}
             <View style={styles.formField}>
-              <Text style={styles.formLabel}>PDF / File URL <Text style={styles.required}>*</Text></Text>
-              <TextInput style={styles.formInput} value={noteForm.fileUrl} onChangeText={v => setNoteForm(f => ({ ...f, fileUrl: v }))} placeholder="https://example.com/notes.pdf" placeholderTextColor={Colors.light.textMuted} autoCapitalize="none" keyboardType="url" />
+              <Text style={styles.formLabel}>PDF File <Text style={styles.required}>*</Text></Text>
+              {noteFileName ? (
+                <View style={styles.noteFileSelected}>
+                  <View style={styles.noteFileIcon}>
+                    <Ionicons name="document-text" size={20} color="#DC2626" />
+                  </View>
+                  <Text style={styles.noteFileName} numberOfLines={1}>{noteFileName}</Text>
+                  <Pressable style={styles.noteFileChangeBtn} onPress={pickNoteFile} disabled={pickingNote}>
+                    {pickingNote ? <ActivityIndicator size="small" color={Colors.light.primary} /> : <Text style={styles.noteFileChangeBtnText}>Change</Text>}
+                  </Pressable>
+                </View>
+              ) : (
+                <Pressable style={styles.noteFilePicker} onPress={pickNoteFile} disabled={pickingNote}>
+                  {pickingNote ? (
+                    <ActivityIndicator color={Colors.light.primary} />
+                  ) : (
+                    <>
+                      <View style={styles.noteFilePickerIcon}>
+                        <Ionicons name="cloud-upload-outline" size={28} color={Colors.light.primary} />
+                      </View>
+                      <Text style={styles.noteFilePickerTitle}>Tap to upload PDF</Text>
+                      <Text style={styles.noteFilePickerSub}>PDF files supported</Text>
+                    </>
+                  )}
+                </Pressable>
+              )}
             </View>
+
             <View style={styles.formField}>
               <Text style={styles.formLabel}>Description</Text>
               <TextInput style={[styles.formInput, styles.formInputMultiline]} value={noteForm.description} onChangeText={v => setNoteForm(f => ({ ...f, description: v }))} placeholder="Optional description..." placeholderTextColor={Colors.light.textMuted} multiline />
@@ -2037,7 +2092,7 @@ export default function AdminScreen() {
               onPress={handleSaveNote}
               disabled={savingNote || !noteForm.title.trim() || !noteForm.fileUrl.trim()}
             >
-              {savingNote ? <ActivityIndicator color="#FFF" /> : <Text style={styles.saveBtnText}>{editingNote ? "Save Changes" : "Add Note"}</Text>}
+              {savingNote ? <ActivityIndicator color="#FFF" /> : <Text style={styles.saveBtnText}>{editingNote ? "Save Changes" : "Add Notes"}</Text>}
             </Pressable>
           </ScrollView>
         </View>
@@ -2366,4 +2421,15 @@ const styles = StyleSheet.create({
   hiddenBadge: { backgroundColor: "#FEF9C3", paddingHorizontal: 7, paddingVertical: 2, borderRadius: 20 },
   hiddenBadgeText: { fontSize: 9, fontFamily: "Inter_600SemiBold", color: "#92400E" },
   previewIconBtn: { width: 30, height: 30, borderRadius: 8, backgroundColor: "#7C3AED18", alignItems: "center", justifyContent: "center" },
+
+  // Note file picker styles
+  noteFilePicker: { borderWidth: 1.5, borderColor: Colors.light.primary, borderStyle: "dashed", borderRadius: 14, paddingVertical: 24, alignItems: "center", gap: 6, backgroundColor: Colors.light.primary + "06" },
+  noteFilePickerIcon: { width: 52, height: 52, borderRadius: 14, backgroundColor: Colors.light.primary + "14", alignItems: "center", justifyContent: "center" },
+  noteFilePickerTitle: { fontSize: 14, fontFamily: "Inter_600SemiBold", color: Colors.light.primary },
+  noteFilePickerSub: { fontSize: 12, fontFamily: "Inter_400Regular", color: Colors.light.textMuted },
+  noteFileSelected: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "#DCFCE7", borderRadius: 12, padding: 12, borderWidth: 1, borderColor: "#86EFAC" },
+  noteFileIcon: { width: 36, height: 36, borderRadius: 8, backgroundColor: "#FEE2E2", alignItems: "center", justifyContent: "center" },
+  noteFileName: { flex: 1, fontSize: 13, fontFamily: "Inter_600SemiBold", color: Colors.light.text },
+  noteFileChangeBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: Colors.light.primary },
+  noteFileChangeBtnText: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: "#FFF" },
 });
