@@ -190,8 +190,8 @@ function AdminDashboard({ userName, avatar, initial }: { userName: string; avata
         {/* Quick Actions */}
         <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Manage</Text>
         <View style={styles.quickActions}>
-          <QuickAction label="Programs"  sub="Add, edit, or remove programs and papers" icon="school-outline"         color="#059669" tab="programs" />
           <QuickAction label="Students"  sub="Manage accounts and paper access"          icon="people-outline"        color="#3B82F6" tab="students" />
+          <QuickAction label="Programs"  sub="Add, edit, or remove programs and papers" icon="school-outline"         color="#059669" tab="programs" />
           <QuickAction label="Content"   sub="Chapters, topics, and MCQ questions"       icon="document-text-outline" color="#7C3AED" tab="content" />
         </View>
       </ScrollView>

@@ -38,7 +38,7 @@ export default function AdminScreen() {
   const [activeTab, setActiveTab] = useState<TabType>(() => {
     const t = params.tab;
     if (t === "students" || t === "content" || t === "programs") return t;
-    return "programs";
+    return "students";
   });
 
   useEffect(() => {
@@ -581,8 +581,8 @@ export default function AdminScreen() {
   }, {});
 
   const tabs: { key: TabType; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-    { key: "programs",  label: "Programs",  icon: "school-outline" },
     { key: "students",  label: "Students",  icon: "people-outline" },
+    { key: "programs",  label: "Programs",  icon: "school-outline" },
     { key: "content",   label: "Content",   icon: "document-text-outline" },
   ];
 
