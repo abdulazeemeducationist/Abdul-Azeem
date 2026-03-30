@@ -472,14 +472,21 @@ export default function AdminScreen() {
       </View>
 
       {/* Tab Bar */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabBarScroll}>
-        {tabs.map(tab => (
-          <Pressable key={tab.key} style={[styles.tab, activeTab === tab.key && styles.tabActive]} onPress={() => setActiveTab(tab.key)}>
-            <Ionicons name={tab.icon} size={15} color={activeTab === tab.key ? "#FFF" : Colors.light.textMuted} />
-            <Text style={[styles.tabLabel, activeTab === tab.key && styles.tabLabelActive]}>{tab.label}</Text>
-          </Pressable>
-        ))}
-      </ScrollView>
+      <View style={styles.tabBar}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabBarScroll}>
+          {tabs.map(tab => (
+            <Pressable key={tab.key} style={styles.tab} onPress={() => setActiveTab(tab.key)}>
+              <Ionicons
+                name={tab.icon}
+                size={19}
+                color={activeTab === tab.key ? Colors.light.primary : Colors.light.textMuted}
+              />
+              <Text style={[styles.tabLabel, activeTab === tab.key && styles.tabLabelActive]}>{tab.label}</Text>
+              {activeTab === tab.key && <View style={styles.tabIndicator} />}
+            </Pressable>
+          ))}
+        </ScrollView>
+      </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: Math.max(insets.bottom + 20, 40) }}>
 
@@ -1138,11 +1145,12 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingBottom: 8, paddingTop: 8 },
   backBtn: { width: 38, height: 38, borderRadius: 12, backgroundColor: Colors.light.backgroundSecondary, alignItems: "center", justifyContent: "center" },
   headerTitle: { fontSize: 20, fontFamily: "Inter_700Bold", color: Colors.light.text },
-  tabBarScroll: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 12, gap: 8 },
-  tab: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: Colors.light.backgroundSecondary },
-  tabActive: { backgroundColor: Colors.light.primary },
-  tabLabel: { fontSize: 13, fontFamily: "Inter_500Medium", color: Colors.light.textMuted },
-  tabLabelActive: { color: "#FFF", fontFamily: "Inter_600SemiBold" },
+  tabBar: { backgroundColor: Colors.light.card, borderBottomWidth: 1, borderBottomColor: Colors.light.border },
+  tabBarScroll: { paddingHorizontal: 8 },
+  tab: { flexDirection: "column", alignItems: "center", justifyContent: "center", paddingHorizontal: 18, paddingTop: 10, paddingBottom: 10, gap: 4, minWidth: 80, position: "relative" },
+  tabIndicator: { position: "absolute", bottom: 0, left: 12, right: 12, height: 2.5, backgroundColor: Colors.light.primary, borderRadius: 2 },
+  tabLabel: { fontSize: 11, fontFamily: "Inter_500Medium", color: Colors.light.textMuted, letterSpacing: 0.2 },
+  tabLabelActive: { color: Colors.light.primary, fontFamily: "Inter_600SemiBold" },
   section: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 16 },
   sectionHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14 },
   sectionTitle: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: Colors.light.textMuted, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 14 },
