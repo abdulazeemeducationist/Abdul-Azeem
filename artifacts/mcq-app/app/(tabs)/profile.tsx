@@ -1,13 +1,17 @@
 import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
+import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
+  ActivityIndicator,
   Modal,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -40,12 +44,41 @@ function MenuRow({ icon, label, onPress, color, rightText }: MenuRowProps) {
 }
 
 export default function ProfileScreen() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, updateProfile, changePassword, updateProfilePicture } = useAuth();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
   const topPad = isWeb ? Math.max(insets.top, 67) : insets.top;
+
+  // Sign out modal
   const [showConfirm, setShowConfirm] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+
+  // Edit profile modal
+  const [showEditProfile, setShowEditProfile] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editWhatsapp, setEditWhatsapp] = useState("");
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileError, setProfileError] = useState("");
+  const [profileSuccess, setProfileSuccess] = useState(false);
+
+  // Change password modal
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [currentPwd, setCurrentPwd] = useState("");
+  const [newPwd, setNewPwd] = useState("");
+  const [confirmPwd, setConfirmPwd] = useState("");
+  const [showCurrentPwd, setShowCurrentPwd] = useState(false);
+  const [showNewPwd, setShowNewPwd] = useState(false);
+  const [showConfirmPwd, setShowConfirmPwd] = useState(false);
+  const [savingPwd, setSavingPwd] = useState(false);
+  const [pwdError, setPwdError] = useState("");
+  const [pwdSuccess, setPwdSuccess] = useState(false);
+
+  // Picture upload
+  const [uploadingPic, setUploadingPic] = useState(false);
+
+  const initials = user?.name
+    ? user.name.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase()
+    : "U";
 
   const handleSignOut = async () => {
     setSigningOut(true);
@@ -58,9 +91,73 @@ export default function ProfileScreen() {
     }
   };
 
-  const initials = user?.name
-    ? user.name.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase()
-    : "U";
+  const openEditProfile = () => {
+    setEditName(user?.name ?? "");
+    setEditWhatsapp(user?.whatsappNumber ?? "");
+    setProfileError("");
+    setProfileSuccess(false);
+    setShowEditProfile(true);
+  };
+
+  const handleSaveProfile = async () => {
+    if (!editName.trim()) { setProfileError("Name is required"); return; }
+    setSavingProfile(true);
+    setProfileError("");
+    try {
+      await updateProfile(editName.trim(), editWhatsapp);
+      setProfileSuccess(true);
+      setTimeout(() => { setShowEditProfile(false); setProfileSuccess(false); }, 1000);
+    } catch (e: any) {
+      setProfileError(e.message || "Failed to update profile");
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const openChangePassword = () => {
+    setCurrentPwd(""); setNewPwd(""); setConfirmPwd("");
+    setPwdError(""); setPwdSuccess(false);
+    setShowChangePassword(true);
+  };
+
+  const handleChangePassword = async () => {
+    if (!currentPwd || !newPwd || !confirmPwd) { setPwdError("All fields are required"); return; }
+    if (newPwd.length < 6) { setPwdError("New password must be at least 6 characters"); return; }
+    if (newPwd !== confirmPwd) { setPwdError("Passwords do not match"); return; }
+    setSavingPwd(true);
+    setPwdError("");
+    try {
+      await changePassword(currentPwd, newPwd);
+      setPwdSuccess(true);
+      setTimeout(() => { setShowChangePassword(false); setPwdSuccess(false); }, 1000);
+    } catch (e: any) {
+      setPwdError(e.message || "Failed to change password");
+    } finally {
+      setSavingPwd(false);
+    }
+  };
+
+  const handlePickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") return;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.4,
+      base64: true,
+    });
+    if (result.canceled || !result.assets?.[0]?.base64) return;
+    setUploadingPic(true);
+    try {
+      const dataUri = `data:image/jpeg;base64,${result.assets[0].base64}`;
+      await updateProfilePicture(dataUri);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setUploadingPic(false);
+    }
+  };
 
   return (
     <>
@@ -73,12 +170,30 @@ export default function ProfileScreen() {
           <Text style={styles.headerTitle}>Profile</Text>
         </View>
 
+        {/* Avatar section */}
         <View style={styles.avatarSection}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{initials}</Text>
-          </View>
+          <Pressable style={styles.avatarWrap} onPress={handlePickImage} disabled={uploadingPic}>
+            {user?.profilePicture ? (
+              <Image source={{ uri: user.profilePicture }} style={styles.avatarImg} contentFit="cover" />
+            ) : (
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{initials}</Text>
+              </View>
+            )}
+            <View style={styles.cameraOverlay}>
+              {uploadingPic
+                ? <ActivityIndicator size="small" color="#FFF" />
+                : <Ionicons name="camera" size={16} color="#FFF" />}
+            </View>
+          </Pressable>
           <Text style={styles.userName}>{user?.name}</Text>
           <Text style={styles.userEmail}>{user?.email}</Text>
+          {user?.whatsappNumber ? (
+            <View style={styles.whatsappRow}>
+              <Ionicons name="logo-whatsapp" size={13} color="#25D366" />
+              <Text style={styles.whatsappText}>{user.whatsappNumber}</Text>
+            </View>
+          ) : null}
           {user?.role === "admin" && (
             <View style={styles.roleBadge}>
               <Text style={styles.roleText}>Admin</Text>
@@ -86,14 +201,15 @@ export default function ProfileScreen() {
           )}
         </View>
 
+        {/* Account section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Account</Text>
           <View style={styles.menuGroup}>
-            <MenuRow icon="person-outline" label="Edit Profile" onPress={() => {}} />
+            <MenuRow icon="person-outline" label="Edit Profile" onPress={openEditProfile} />
             <View style={styles.divider} />
-            <MenuRow icon="lock-closed-outline" label="Change Password" onPress={() => {}} />
+            <MenuRow icon="lock-closed-outline" label="Change Password" onPress={openChangePassword} />
             <View style={styles.divider} />
-            <MenuRow icon="notifications-outline" label="Notifications" onPress={() => {}} />
+            <MenuRow icon="image-outline" label="Update Profile Picture" onPress={handlePickImage} />
           </View>
         </View>
 
@@ -128,31 +244,143 @@ export default function ProfileScreen() {
         <Text style={styles.versionText}>MCQ Pro v1.0.0</Text>
       </ScrollView>
 
-      {/* Custom confirm modal — replaces Alert which is blocked in iframes */}
+      {/* Sign out modal */}
       <Modal visible={showConfirm} transparent animationType="fade" onRequestClose={() => setShowConfirm(false)}>
         <View style={styles.overlay}>
-          <View style={styles.confirmCard}>
-            <View style={styles.confirmIconBox}>
+          <View style={styles.modalCard}>
+            <View style={[styles.modalIconBox, { backgroundColor: Colors.light.error + "14" }]}>
               <Ionicons name="log-out-outline" size={30} color={Colors.light.error} />
             </View>
-            <Text style={styles.confirmTitle}>Sign Out</Text>
-            <Text style={styles.confirmMsg}>Are you sure you want to sign out?</Text>
-            <View style={styles.confirmActions}>
-              <Pressable
-                style={({ pressed }) => [styles.cancelBtn, { opacity: pressed ? 0.8 : 1 }]}
-                onPress={() => setShowConfirm(false)}
-                disabled={signingOut}
-              >
+            <Text style={styles.modalTitle}>Sign Out</Text>
+            <Text style={styles.modalMsg}>Are you sure you want to sign out?</Text>
+            <View style={styles.modalActions}>
+              <Pressable style={({ pressed }) => [styles.cancelBtn, { opacity: pressed ? 0.8 : 1 }]} onPress={() => setShowConfirm(false)} disabled={signingOut}>
                 <Text style={styles.cancelBtnText}>Cancel</Text>
               </Pressable>
-              <Pressable
-                style={({ pressed }) => [styles.confirmBtn, { opacity: pressed || signingOut ? 0.8 : 1 }]}
-                onPress={handleSignOut}
-                disabled={signingOut}
-              >
-                <Text style={styles.confirmBtnText}>{signingOut ? "Signing out…" : "Sign Out"}</Text>
+              <Pressable style={({ pressed }) => [styles.dangerBtn, { opacity: pressed || signingOut ? 0.8 : 1 }]} onPress={handleSignOut} disabled={signingOut}>
+                <Text style={styles.dangerBtnText}>{signingOut ? "Signing out…" : "Sign Out"}</Text>
               </Pressable>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Edit profile modal */}
+      <Modal visible={showEditProfile} transparent animationType="slide" onRequestClose={() => setShowEditProfile(false)}>
+        <View style={styles.overlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Edit Profile</Text>
+              <Pressable onPress={() => setShowEditProfile(false)} hitSlop={12}>
+                <Ionicons name="close" size={22} color={Colors.light.textMuted} />
+              </Pressable>
+            </View>
+            {profileError ? (
+              <View style={styles.errorBox}>
+                <Ionicons name="alert-circle" size={14} color={Colors.light.error} />
+                <Text style={styles.errorText}>{profileError}</Text>
+              </View>
+            ) : null}
+            {profileSuccess ? (
+              <View style={styles.successBox}>
+                <Ionicons name="checkmark-circle" size={14} color="#16A34A" />
+                <Text style={styles.successText}>Profile updated!</Text>
+              </View>
+            ) : null}
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Full Name</Text>
+              <View style={styles.inputWrapper}>
+                <Ionicons name="person-outline" size={17} color={Colors.light.textMuted} style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  value={editName}
+                  onChangeText={setEditName}
+                  placeholder="Your full name"
+                  placeholderTextColor={Colors.light.textMuted}
+                  autoCapitalize="words"
+                />
+              </View>
+            </View>
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>WhatsApp Number</Text>
+              <View style={styles.inputWrapper}>
+                <Ionicons name="logo-whatsapp" size={17} color="#25D366" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  value={editWhatsapp}
+                  onChangeText={setEditWhatsapp}
+                  placeholder="e.g. 03001234567"
+                  placeholderTextColor={Colors.light.textMuted}
+                  keyboardType="phone-pad"
+                />
+              </View>
+            </View>
+            <Pressable
+              style={({ pressed }) => [styles.primaryBtn, { opacity: pressed || savingProfile ? 0.85 : 1 }]}
+              onPress={handleSaveProfile}
+              disabled={savingProfile}
+            >
+              {savingProfile ? <ActivityIndicator color="#FFF" /> : <Text style={styles.primaryBtnText}>Save Changes</Text>}
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Change password modal */}
+      <Modal visible={showChangePassword} transparent animationType="slide" onRequestClose={() => setShowChangePassword(false)}>
+        <View style={styles.overlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Change Password</Text>
+              <Pressable onPress={() => setShowChangePassword(false)} hitSlop={12}>
+                <Ionicons name="close" size={22} color={Colors.light.textMuted} />
+              </Pressable>
+            </View>
+            {pwdError ? (
+              <View style={styles.errorBox}>
+                <Ionicons name="alert-circle" size={14} color={Colors.light.error} />
+                <Text style={styles.errorText}>{pwdError}</Text>
+              </View>
+            ) : null}
+            {pwdSuccess ? (
+              <View style={styles.successBox}>
+                <Ionicons name="checkmark-circle" size={14} color="#16A34A" />
+                <Text style={styles.successText}>Password changed successfully!</Text>
+              </View>
+            ) : null}
+            {(["Current Password", "New Password", "Confirm New Password"] as const).map((lbl, i) => {
+              const val = [currentPwd, newPwd, confirmPwd][i];
+              const setVal = [setCurrentPwd, setNewPwd, setConfirmPwd][i];
+              const show = [showCurrentPwd, showNewPwd, showConfirmPwd][i];
+              const setShow = [setShowCurrentPwd, setShowNewPwd, setShowConfirmPwd][i];
+              return (
+                <View key={lbl} style={styles.fieldGroup}>
+                  <Text style={styles.fieldLabel}>{lbl}</Text>
+                  <View style={styles.inputWrapper}>
+                    <Ionicons name="lock-closed-outline" size={17} color={Colors.light.textMuted} style={styles.inputIcon} />
+                    <TextInput
+                      style={[styles.input, { flex: 1 }]}
+                      value={val}
+                      onChangeText={setVal}
+                      placeholder={lbl}
+                      placeholderTextColor={Colors.light.textMuted}
+                      secureTextEntry={!show}
+                      autoCapitalize="none"
+                    />
+                    <Pressable onPress={() => setShow(!show)} style={styles.eyeBtn}>
+                      <Ionicons name={show ? "eye" : "eye-off"} size={17} color={Colors.light.textMuted} />
+                    </Pressable>
+                  </View>
+                </View>
+              );
+            })}
+            <Pressable
+              style={({ pressed }) => [styles.primaryBtn, { opacity: pressed || savingPwd ? 0.85 : 1 }]}
+              onPress={handleChangePassword}
+              disabled={savingPwd}
+            >
+              {savingPwd ? <ActivityIndicator color="#FFF" /> : <Text style={styles.primaryBtnText}>Change Password</Text>}
+            </Pressable>
           </View>
         </View>
       </Modal>
@@ -164,20 +392,29 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.light.background },
   header: { paddingHorizontal: 20, paddingBottom: 12, paddingTop: 12 },
   headerTitle: { fontSize: 26, fontFamily: "Inter_700Bold", color: Colors.light.text },
+
   avatarSection: { alignItems: "center", paddingVertical: 24, gap: 6 },
+  avatarWrap: { position: "relative", marginBottom: 4 },
   avatar: {
-    width: 80, height: 80, borderRadius: 40,
+    width: 90, height: 90, borderRadius: 45,
     backgroundColor: Colors.light.primary, alignItems: "center", justifyContent: "center",
-    marginBottom: 4,
   },
-  avatarText: { fontSize: 28, fontFamily: "Inter_700Bold", color: "#FFF" },
+  avatarImg: { width: 90, height: 90, borderRadius: 45 },
+  avatarText: { fontSize: 30, fontFamily: "Inter_700Bold", color: "#FFF" },
+  cameraOverlay: {
+    position: "absolute", bottom: 0, right: 0,
+    width: 30, height: 30, borderRadius: 15,
+    backgroundColor: Colors.light.primary,
+    borderWidth: 2, borderColor: Colors.light.background,
+    alignItems: "center", justifyContent: "center",
+  },
   userName: { fontSize: 20, fontFamily: "Inter_700Bold", color: Colors.light.text },
   userEmail: { fontSize: 14, fontFamily: "Inter_400Regular", color: Colors.light.textSecondary },
-  roleBadge: {
-    backgroundColor: Colors.light.primary + "18", paddingHorizontal: 12,
-    paddingVertical: 4, borderRadius: 20, marginTop: 4,
-  },
+  whatsappRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
+  whatsappText: { fontSize: 13, fontFamily: "Inter_400Regular", color: Colors.light.textSecondary },
+  roleBadge: { backgroundColor: Colors.light.primary + "18", paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20, marginTop: 4 },
   roleText: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: Colors.light.primary },
+
   section: { marginBottom: 8, paddingHorizontal: 16 },
   sectionTitle: {
     fontSize: 12, fontFamily: "Inter_600SemiBold", color: Colors.light.textMuted,
@@ -193,42 +430,51 @@ const styles = StyleSheet.create({
   menuLabel: { fontSize: 15, fontFamily: "Inter_500Medium", color: Colors.light.text },
   menuRightText: { fontSize: 14, fontFamily: "Inter_400Regular", color: Colors.light.textMuted },
   divider: { height: 1, backgroundColor: Colors.light.border, marginLeft: 62 },
+
   signOutBtn: {
     flexDirection: "row", alignItems: "center", justifyContent: "center",
-    gap: 8, padding: 16, backgroundColor: Colors.light.error + "12",
-    borderRadius: 14,
+    gap: 8, padding: 16, backgroundColor: Colors.light.error + "12", borderRadius: 14,
   },
   signOutText: { fontSize: 16, fontFamily: "Inter_600SemiBold", color: Colors.light.error },
-  versionText: {
-    textAlign: "center", color: Colors.light.textMuted,
-    fontSize: 12, fontFamily: "Inter_400Regular", paddingVertical: 16,
-  },
-  overlay: {
-    flex: 1, backgroundColor: "rgba(0,0,0,0.45)",
-    alignItems: "center", justifyContent: "center", padding: 32,
-  },
-  confirmCard: {
-    width: "100%", maxWidth: 320, backgroundColor: Colors.light.card,
-    borderRadius: 20, padding: 24, alignItems: "center", gap: 10,
+  versionText: { textAlign: "center", color: Colors.light.textMuted, fontSize: 12, fontFamily: "Inter_400Regular", paddingVertical: 16 },
+
+  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)", alignItems: "center", justifyContent: "center", padding: 20 },
+  modalCard: {
+    width: "100%", maxWidth: 360, backgroundColor: Colors.light.card,
+    borderRadius: 20, padding: 24, gap: 14,
     shadowColor: "#000", shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.15, shadowRadius: 24, elevation: 12,
   },
-  confirmIconBox: {
-    width: 60, height: 60, borderRadius: 30,
-    backgroundColor: Colors.light.error + "14",
-    alignItems: "center", justifyContent: "center", marginBottom: 4,
+  modalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  modalIconBox: { width: 60, height: 60, borderRadius: 30, alignItems: "center", justifyContent: "center", alignSelf: "center" },
+  modalTitle: { fontSize: 20, fontFamily: "Inter_700Bold", color: Colors.light.text },
+  modalMsg: { fontSize: 14, fontFamily: "Inter_400Regular", color: Colors.light.textSecondary, textAlign: "center" },
+  modalActions: { flexDirection: "row", gap: 10 },
+
+  errorBox: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: Colors.light.error + "12", borderRadius: 10, padding: 10 },
+  errorText: { flex: 1, fontSize: 13, fontFamily: "Inter_400Regular", color: Colors.light.error },
+  successBox: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#F0FDF4", borderRadius: 10, padding: 10 },
+  successText: { flex: 1, fontSize: 13, fontFamily: "Inter_400Regular", color: "#16A34A" },
+
+  fieldGroup: { gap: 6 },
+  fieldLabel: { fontSize: 13, fontFamily: "Inter_500Medium", color: Colors.light.text },
+  inputWrapper: {
+    flexDirection: "row", alignItems: "center",
+    backgroundColor: Colors.light.backgroundSecondary,
+    borderRadius: 12, borderWidth: 1, borderColor: Colors.light.border,
+    paddingHorizontal: 12, height: 48,
   },
-  confirmTitle: { fontSize: 20, fontFamily: "Inter_700Bold", color: Colors.light.text },
-  confirmMsg: { fontSize: 14, fontFamily: "Inter_400Regular", color: Colors.light.textSecondary, textAlign: "center" },
-  confirmActions: { flexDirection: "row", gap: 10, marginTop: 8, width: "100%" },
+  inputIcon: { marginRight: 8 },
+  input: { flex: 1, fontSize: 15, fontFamily: "Inter_400Regular", color: Colors.light.text },
+  eyeBtn: { padding: 4 },
+
+  primaryBtn: { backgroundColor: Colors.light.primary, borderRadius: 14, height: 50, alignItems: "center", justifyContent: "center" },
+  primaryBtnText: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: "#FFF" },
   cancelBtn: {
     flex: 1, height: 46, borderRadius: 12, borderWidth: 1.5,
     borderColor: Colors.light.border, alignItems: "center", justifyContent: "center",
   },
   cancelBtnText: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: Colors.light.textSecondary },
-  confirmBtn: {
-    flex: 1, height: 46, borderRadius: 12,
-    backgroundColor: Colors.light.error, alignItems: "center", justifyContent: "center",
-  },
-  confirmBtnText: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: "#FFF" },
+  dangerBtn: { flex: 1, height: 46, borderRadius: 12, backgroundColor: Colors.light.error, alignItems: "center", justifyContent: "center" },
+  dangerBtnText: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: "#FFF" },
 });

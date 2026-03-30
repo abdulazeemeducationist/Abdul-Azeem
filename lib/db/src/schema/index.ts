@@ -10,6 +10,7 @@ export const usersTable = pgTable("users", {
   role: varchar("role", { length: 20 }).notNull().default("student"),
   whatsappNumber: varchar("whatsapp_number", { length: 20 }),
   whatsappVerified: boolean("whatsapp_verified").notNull().default(false),
+  profilePicture: text("profile_picture"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

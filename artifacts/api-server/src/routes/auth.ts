@@ -155,6 +155,76 @@ router.post("/signin", async (req, res) => {
   }
 });
 
+router.put("/profile", async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) { res.status(401).json({ error: "Unauthorized" }); return; }
+    const token = authHeader.replace("Bearer ", "");
+    const { userId } = JSON.parse(Buffer.from(token, "base64").toString());
+    const { name, whatsappNumber } = req.body;
+    if (!name?.trim()) { res.status(400).json({ error: "Bad Request", message: "Name is required" }); return; }
+    const [user] = await db.update(usersTable)
+      .set({ name: name.trim(), whatsappNumber: whatsappNumber ? whatsappNumber.replace(/\D/g, "") : null })
+      .where(eq(usersTable.id, userId))
+      .returning();
+    res.json({ user: { id: user.id, name: user.name, email: user.email, role: user.role, whatsappNumber: user.whatsappNumber, profilePicture: user.profilePicture, createdAt: user.createdAt } });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to update profile" });
+  }
+});
+
+router.put("/profile/password", async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) { res.status(401).json({ error: "Unauthorized" }); return; }
+    const token = authHeader.replace("Bearer ", "");
+    const { userId } = JSON.parse(Buffer.from(token, "base64").toString());
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) { res.status(400).json({ error: "Bad Request", message: "Current and new password are required" }); return; }
+    if (newPassword.length < 6) { res.status(400).json({ error: "Bad Request", message: "New password must be at least 6 characters" }); return; }
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+    if (!user || user.passwordHash !== hashPassword(currentPassword)) {
+      res.status(400).json({ error: "Bad Request", message: "Current password is incorrect" }); return;
+    }
+    await db.update(usersTable).set({ passwordHash: hashPassword(newPassword) }).where(eq(usersTable.id, userId));
+    res.json({ message: "Password updated successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to update password" });
+  }
+});
+
+router.put("/profile/picture", async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) { res.status(401).json({ error: "Unauthorized" }); return; }
+    const token = authHeader.replace("Bearer ", "");
+    const { userId } = JSON.parse(Buffer.from(token, "base64").toString());
+    const { picture } = req.body;
+    if (!picture) { res.status(400).json({ error: "Bad Request", message: "picture is required" }); return; }
+    const [user] = await db.update(usersTable).set({ profilePicture: picture }).where(eq(usersTable.id, userId)).returning();
+    res.json({ profilePicture: user.profilePicture });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to update picture" });
+  }
+});
+
+router.get("/me", async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) { res.status(401).json({ error: "Unauthorized" }); return; }
+    const token = authHeader.replace("Bearer ", "");
+    const { userId } = JSON.parse(Buffer.from(token, "base64").toString());
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+    if (!user) { res.status(404).json({ error: "Not Found" }); return; }
+    res.json({ id: user.id, name: user.name, email: user.email, role: user.role, whatsappNumber: user.whatsappNumber, profilePicture: user.profilePicture, createdAt: user.createdAt });
+  } catch (err) {
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
 router.post("/reset-password", async (req, res) => {
   const { email } = req.body;
   if (!email) {

@@ -10,6 +10,8 @@ export interface AuthUser {
   name: string;
   email: string;
   role: string;
+  whatsappNumber?: string;
+  profilePicture?: string;
   createdAt: string;
 }
 
@@ -22,6 +24,9 @@ interface AuthContextValue {
   signOut: () => Promise<void>;
   sendOtp: (phoneNumber: string) => Promise<{ devCode?: string }>;
   verifyOtp: (phoneNumber: string, code: string) => Promise<{ phoneToken: string }>;
+  updateProfile: (name: string, whatsappNumber: string) => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  updateProfilePicture: (picture: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -49,6 +54,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loadAuth();
   }, []);
 
+  const persistUser = async (u: AuthUser, t: string) => {
+    await AsyncStorage.setItem("auth", JSON.stringify({ user: u, token: t }));
+    setUser(u);
+    setToken(t);
+  };
+
   const signIn = async (email: string, password: string) => {
     const res = await fetch(`${API_BASE}/auth/signin`, {
       method: "POST",
@@ -57,9 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.message || "Sign in failed");
-    await AsyncStorage.setItem("auth", JSON.stringify({ user: data.user, token: data.token }));
-    setUser(data.user);
-    setToken(data.token);
+    await persistUser(data.user, data.token);
   };
 
   const signUp = async (name: string, email: string, password: string, whatsappNumber: string, phoneToken: string) => {
@@ -70,9 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.message || "Sign up failed");
-    await AsyncStorage.setItem("auth", JSON.stringify({ user: data.user, token: data.token }));
-    setUser(data.user);
-    setToken(data.token);
+    await persistUser(data.user, data.token);
   };
 
   const sendOtp = async (phoneNumber: string) => {
@@ -97,6 +104,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { phoneToken: data.phoneToken };
   };
 
+  const updateProfile = async (name: string, whatsappNumber: string) => {
+    const res = await fetch(`${API_BASE}/auth/profile`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ name, whatsappNumber }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || "Failed to update profile");
+    const updated = { ...user!, ...data.user };
+    await AsyncStorage.setItem("auth", JSON.stringify({ user: updated, token }));
+    setUser(updated);
+  };
+
+  const changePassword = async (currentPassword: string, newPassword: string) => {
+    const res = await fetch(`${API_BASE}/auth/profile/password`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || "Failed to change password");
+  };
+
+  const updateProfilePicture = async (picture: string) => {
+    const res = await fetch(`${API_BASE}/auth/profile/picture`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ picture }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || "Failed to update picture");
+    const updated = { ...user!, profilePicture: data.profilePicture };
+    await AsyncStorage.setItem("auth", JSON.stringify({ user: updated, token }));
+    setUser(updated);
+  };
+
   const signOut = async () => {
     await AsyncStorage.removeItem("auth");
     setUser(null);
@@ -104,7 +147,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const value = useMemo(
-    () => ({ user, token, isLoading, signIn, signUp, signOut, sendOtp, verifyOtp }),
+    () => ({ user, token, isLoading, signIn, signUp, signOut, sendOtp, verifyOtp, updateProfile, changePassword, updateProfilePicture }),
     [user, token, isLoading],
   );
 
