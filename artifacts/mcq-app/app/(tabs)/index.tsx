@@ -167,9 +167,10 @@ function AdminDashboard({ userName, avatar, initial }: { userName: string; avata
         ) : (
           <>
             <View style={styles.statsGrid}>
-              <StatTile label="Programs"  value={stats?.totalCourses ?? 0}   icon="school"          color="#059669" route={{ pathname: "/admin", params: { tab: "programs" } }} />
-              <StatTile label="Courses"   value={stats?.totalSubjects ?? 0}  icon="book"            color="#7C3AED" route={{ pathname: "/admin", params: { tab: "programs" } }} />
-              <StatTile label="Students"  value={stats?.totalUsers ?? 0}     icon="people"          color="#3B82F6" route={{ pathname: "/admin", params: { tab: "students" } }} />
+              <StatTile label="Programs"  value={stats?.totalCourses ?? 0}    icon="school"                color="#059669" route={{ pathname: "/admin", params: { tab: "programs" } }} />
+              <StatTile label="Courses"   value={stats?.totalSubjects ?? 0}   icon="book"                  color="#7C3AED" route={{ pathname: "/admin", params: { tab: "programs" } }} />
+              <StatTile label="Content"   value={stats?.totalChapters ?? 0}   icon="document-text"         color="#D97706" route={{ pathname: "/admin", params: { tab: "content" } }} />
+              <StatTile label="Students"  value={stats?.totalUsers ?? 0}      icon="people"                color="#3B82F6" route={{ pathname: "/admin", params: { tab: "students" } }} />
             </View>
 
             {stats && (
@@ -187,8 +188,9 @@ function AdminDashboard({ userName, avatar, initial }: { userName: string; avata
         {/* Quick Actions */}
         <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Manage</Text>
         <View style={styles.quickActions}>
-          <QuickAction label="Programs"  sub="Add, edit, or remove programs and papers" icon="school-outline"         color="#059669" tab="programs" />
-          <QuickAction label="Content"   sub="Chapters, topics, and MCQ questions"       icon="document-text-outline" color="#7C3AED" tab="content" />
+          <QuickAction label="Programs"  sub="Add, edit, or remove programs"              icon="school-outline"         color="#059669" tab="programs" />
+          <QuickAction label="Courses"   sub="Manage courses within each program"        icon="book-outline"           color="#7C3AED" tab="programs" />
+          <QuickAction label="Content"   sub="Chapters, videos, notes, and MCQs"         icon="document-text-outline" color="#D97706" tab="content" />
           <QuickAction label="Students"  sub="Manage accounts and course access"         icon="people-outline"        color="#3B82F6" tab="students" />
         </View>
       </ScrollView>
