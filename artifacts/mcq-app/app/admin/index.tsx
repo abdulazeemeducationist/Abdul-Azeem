@@ -738,13 +738,26 @@ export default function AdminScreen() {
       const result = await DocumentPicker.getDocumentAsync({ type: ["application/pdf", "*/*"], copyToCacheDirectory: true });
       if (result.canceled || !result.assets?.length) return;
       const asset = result.assets[0];
-      const FileSystem = await import("expo-file-system");
-      const base64 = await FileSystem.readAsStringAsync(asset.uri, { encoding: FileSystem.EncodingType.Base64 });
       const mimeType = asset.mimeType ?? "application/pdf";
-      const dataUri = `data:${mimeType};base64,${base64}`;
+      let dataUri: string;
+      if (Platform.OS === "web") {
+        // On web, asset.uri is a blob: URL — use FileReader to convert to base64 data URI
+        const response = await fetch(asset.uri);
+        const blob = await response.blob();
+        dataUri = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+      } else {
+        // On native, use expo-file-system
+        const base64 = await FileSystem.readAsStringAsync(asset.uri, { encoding: FileSystem.EncodingType.Base64 });
+        dataUri = `data:${mimeType};base64,${base64}`;
+      }
       setNoteForm(f => ({ ...f, fileUrl: dataUri }));
       setNoteFileName(asset.name ?? "Uploaded file");
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error("pickNoteFile error:", e); }
     finally { setPickingNote(false); }
   };
   const handleSaveNote = async () => {
