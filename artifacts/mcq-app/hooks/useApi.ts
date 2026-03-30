@@ -425,10 +425,11 @@ export const api = {
     if (!res.ok) throw new Error("Failed to create question");
     return res.json();
   },
-  getAdminQuestions: async (params: { topicId?: number; subjectId?: number } = {}): Promise<Question[]> => {
+  getAdminQuestions: async (params: { topicId?: number; subjectId?: number; chapterId?: number } = {}): Promise<Question[]> => {
     const qs = new URLSearchParams();
     if (params.topicId) qs.set("topicId", String(params.topicId));
     if (params.subjectId) qs.set("subjectId", String(params.subjectId));
+    if (params.chapterId) qs.set("chapterId", String(params.chapterId));
     const res = await fetch(`${API_BASE}/admin/questions?${qs}`);
     if (!res.ok) throw new Error("Failed to fetch questions");
     return res.json();

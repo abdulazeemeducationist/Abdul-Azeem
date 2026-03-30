@@ -81,7 +81,7 @@ export default function AdminScreen() {
   const [studentFormError, setStudentFormError] = useState("");
 
   // Content sub-tab
-  const [contentSubTab, setContentSubTab] = useState<"chapters" | "mcqs" | "videos" | "notes">("chapters");
+  const [contentSubTab, setContentSubTab] = useState<"chapters" | "videos" | "notes" | "practice">("chapters");
 
   // Chapter management state
   const [chapFilterSubjectId, setChapFilterSubjectId] = useState<number | null>(null);
@@ -112,6 +112,8 @@ export default function AdminScreen() {
   const [showAddQuestion, setShowAddQuestion] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<any | null>(null);
   const [filterSubjectId, setFilterSubjectId] = useState<number | null>(null);
+  const [mcqFilterSubjectId, setMcqFilterSubjectId] = useState<number | null>(null);
+  const [mcqFilterChapterId, setMcqFilterChapterId] = useState<number | null>(null);
   const [savingQ, setSavingQ] = useState(false);
   const [pendingQDeleteIds, setPendingQDeleteIds] = useState<number[]>([]);
 
@@ -142,9 +144,17 @@ export default function AdminScreen() {
     enabled: showEnrollModal || activeTab === "content" || activeTab === "programs" || activeTab === "courses",
   });
   const { data: adminQuestions, isLoading: questionsLoading, refetch: refetchQuestions } = useQuery({
-    queryKey: ["adminQuestions", filterSubjectId],
-    queryFn: () => api.getAdminQuestions(filterSubjectId ? { subjectId: filterSubjectId } : {}),
-    enabled: activeTab === "content" && contentSubTab === "mcqs",
+    queryKey: ["adminQuestions", mcqFilterSubjectId, mcqFilterChapterId],
+    queryFn: () => api.getAdminQuestions(
+      mcqFilterChapterId ? { chapterId: mcqFilterChapterId } :
+      mcqFilterSubjectId ? { subjectId: mcqFilterSubjectId } : {}
+    ),
+    enabled: activeTab === "content" && contentSubTab === "practice" && !!mcqFilterChapterId,
+  });
+  const { data: mcqChapters, isLoading: mcqChaptersLoading } = useQuery({
+    queryKey: ["chapters", mcqFilterSubjectId, "mcq"],
+    queryFn: () => api.getAdminChapters(Number(mcqFilterSubjectId)),
+    enabled: activeTab === "content" && contentSubTab === "practice" && !!mcqFilterSubjectId,
   });
   const { data: videoChapters, isLoading: videoChaptersLoading } = useQuery({
     queryKey: ["chapters", videoFilterSubjectId],
@@ -1199,10 +1209,10 @@ export default function AdminScreen() {
             {/* Content sub-tabs */}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[styles.contentSubTabs, { gap: 8, paddingHorizontal: 0 }]}>
               {([
-                { key: "chapters" as const, label: "Chapters", icon: "list-outline" },
-                { key: "mcqs" as const,     label: "MCQs",     icon: "help-circle-outline" },
-                { key: "videos" as const,   label: "Videos",   icon: "play-circle-outline" },
-                { key: "notes" as const,    label: "Notes",    icon: "document-text-outline" },
+                { key: "chapters" as const,  label: "Chapters",  icon: "list-outline" },
+                { key: "videos" as const,    label: "Videos",    icon: "play-circle-outline" },
+                { key: "notes" as const,     label: "Notes",     icon: "document-text-outline" },
+                { key: "practice" as const,  label: "Practice",  icon: "help-circle-outline" },
               ]).map(st => (
                 <Pressable
                   key={st.key}
@@ -1305,55 +1315,75 @@ export default function AdminScreen() {
               </>
             )}
 
-            {/* MCQs sub-section */}
-            {contentSubTab === "mcqs" && (<>
+            {/* Practice (MCQs) sub-section */}
+            {contentSubTab === "practice" && (<>
             <View style={styles.sectionHeaderRow}>
               <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>MCQ Questions</Text>
-              <View style={{ flexDirection: "row", gap: 8 }}>
-                <Pressable style={[styles.addBtnSmall, { backgroundColor: "#7C3AED" }]} onPress={openImport}>
-                  <Ionicons name="cloud-upload-outline" size={15} color="#FFF" />
-                  <Text style={styles.addBtnText}>Import</Text>
-                </Pressable>
-                <Pressable style={styles.addBtnSmall} onPress={openAddQuestion}>
-                  <Ionicons name="add" size={16} color="#FFF" />
-                  <Text style={styles.addBtnText}>Add MCQ</Text>
-                </Pressable>
-              </View>
+              {!!mcqFilterChapterId && (
+                <View style={{ flexDirection: "row", gap: 8 }}>
+                  <Pressable style={[styles.addBtnSmall, { backgroundColor: "#7C3AED" }]} onPress={openImport}>
+                    <Ionicons name="cloud-upload-outline" size={15} color="#FFF" />
+                    <Text style={styles.addBtnText}>Import</Text>
+                  </Pressable>
+                  <Pressable style={styles.addBtnSmall} onPress={openAddQuestion}>
+                    <Ionicons name="add" size={16} color="#FFF" />
+                    <Text style={styles.addBtnText}>Add MCQ</Text>
+                  </Pressable>
+                </View>
+              )}
             </View>
 
-            {/* Subject filter */}
+            {/* Course filter */}
             <View style={styles.filterRow}>
               <Ionicons name="funnel-outline" size={14} color={Colors.light.textMuted} />
-              <Text style={styles.filterLabel}>Filter by course:</Text>
+              <Text style={styles.filterLabel}>Select course:</Text>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterChips}>
-              <Pressable
-                style={[styles.filterChip, !filterSubjectId && styles.filterChipActive]}
-                onPress={() => setFilterSubjectId(null)}
-              >
-                <Text style={[styles.filterChipText, !filterSubjectId && styles.filterChipTextActive]}>All</Text>
-              </Pressable>
               {(allSubjects ?? []).map(s => (
                 <Pressable
                   key={s.id}
-                  style={[styles.filterChip, filterSubjectId === s.id && styles.filterChipActive]}
-                  onPress={() => setFilterSubjectId(s.id)}
+                  style={[styles.filterChip, mcqFilterSubjectId === s.id && styles.filterChipActive]}
+                  onPress={() => { setMcqFilterSubjectId(s.id); setMcqFilterChapterId(null); }}
                 >
-                  <Text style={[styles.filterChipText, filterSubjectId === s.id && styles.filterChipTextActive]}>{s.code}</Text>
+                  <Text style={[styles.filterChipText, mcqFilterSubjectId === s.id && styles.filterChipTextActive]}>{s.code}</Text>
                 </Pressable>
               ))}
             </ScrollView>
 
-            {questionsLoading ? (
+            {mcqFilterSubjectId && (
+              <>
+                <View style={styles.filterRow}>
+                  <Ionicons name="layers-outline" size={14} color={Colors.light.textMuted} />
+                  <Text style={styles.filterLabel}>Select chapter:</Text>
+                </View>
+                {mcqChaptersLoading ? <ActivityIndicator color={Colors.light.primary} style={{ marginBottom: 8 }} /> : (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterChips}>
+                    {(mcqChapters ?? []).map((ch: any) => (
+                      <Pressable key={ch.id} style={[styles.filterChip, mcqFilterChapterId === ch.id && styles.filterChipActive]}
+                        onPress={() => setMcqFilterChapterId(ch.id)}>
+                        <Text style={[styles.filterChipText, mcqFilterChapterId === ch.id && styles.filterChipTextActive]}>Ch {ch.orderNumber}</Text>
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+                )}
+              </>
+            )}
+
+            {!mcqFilterChapterId ? (
+              <View style={styles.emptyState}>
+                <Ionicons name="help-circle-outline" size={48} color={Colors.light.textMuted} />
+                <Text style={styles.emptyText}>
+                  {!mcqFilterSubjectId ? "Select a course to manage MCQs" : "Select a chapter to view and add MCQs"}
+                </Text>
+              </View>
+            ) : questionsLoading ? (
               <View style={{ paddingTop: 30, alignItems: "center" }}>
                 <ActivityIndicator color={Colors.light.primary} />
               </View>
             ) : !adminQuestions?.length ? (
               <View style={styles.emptyState}>
                 <Ionicons name="help-circle-outline" size={48} color={Colors.light.textMuted} />
-                <Text style={styles.emptyText}>
-                  {filterSubjectId ? "No questions for this paper" : "No questions yet"}
-                </Text>
+                <Text style={styles.emptyText}>No questions for this chapter yet</Text>
               </View>
             ) : (
               <>
