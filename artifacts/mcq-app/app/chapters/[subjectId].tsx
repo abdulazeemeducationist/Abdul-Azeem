@@ -20,7 +20,7 @@ function ChapterCard({ chapter }: { chapter: Chapter }) {
     <Pressable
       style={({ pressed }) => [styles.card, { opacity: pressed ? 0.9 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] }]}
       onPress={() => router.push({
-        pathname: "/topics/[chapterId]",
+        pathname: "/content/[chapterId]",
         params: { chapterId: chapter.id, chapterName: chapter.name }
       })}
     >
@@ -31,13 +31,19 @@ function ChapterCard({ chapter }: { chapter: Chapter }) {
         <Text style={styles.chapterName}>{chapter.name}</Text>
         <View style={styles.statsRow}>
           <View style={styles.statChip}>
-            <Ionicons name="bookmark-outline" size={12} color={Colors.light.textMuted} />
-            <Text style={styles.statChipText}>{chapter.topicCount} Topics</Text>
+            <Ionicons name="play-circle-outline" size={12} color={Colors.light.textMuted} />
+            <Text style={styles.statChipText}>Videos</Text>
           </View>
           <View style={styles.statChip}>
-            <Ionicons name="help-circle-outline" size={12} color={Colors.light.textMuted} />
-            <Text style={styles.statChipText}>{chapter.questionCount} MCQs</Text>
+            <Ionicons name="document-text-outline" size={12} color={Colors.light.textMuted} />
+            <Text style={styles.statChipText}>Notes</Text>
           </View>
+          {chapter.questionCount > 0 && (
+            <View style={styles.statChip}>
+              <Ionicons name="help-circle-outline" size={12} color={Colors.light.textMuted} />
+              <Text style={styles.statChipText}>{chapter.questionCount} MCQs</Text>
+            </View>
+          )}
         </View>
       </View>
       <Ionicons name="chevron-forward" size={18} color={Colors.light.textMuted} />

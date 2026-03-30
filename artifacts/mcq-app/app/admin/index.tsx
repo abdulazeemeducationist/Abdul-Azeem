@@ -19,7 +19,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
-import { api, Student, AdminSubject, Course } from "@/hooks/useApi";
+import { api, Student, AdminSubject, Course, ChapterVideo, ChapterNote } from "@/hooks/useApi";
 import { useAuth } from "@/context/AuthContext";
 
 type TabType = "programs" | "students" | "content";
@@ -79,6 +79,25 @@ export default function AdminScreen() {
   const [savingStudent, setSavingStudent] = useState(false);
   const [studentFormError, setStudentFormError] = useState("");
 
+  // Content sub-tab
+  const [contentSubTab, setContentSubTab] = useState<"mcqs" | "videos" | "notes">("mcqs");
+
+  // Video management state
+  const [videoFilterSubjectId, setVideoFilterSubjectId] = useState<number | null>(null);
+  const [videoFilterChapterId, setVideoFilterChapterId] = useState<number | null>(null);
+  const [showVideoModal, setShowVideoModal] = useState(false);
+  const [editingVideo, setEditingVideo] = useState<ChapterVideo | null>(null);
+  const [videoForm, setVideoForm] = useState({ title: "", youtubeUrl: "", description: "" });
+  const [savingVideo, setSavingVideo] = useState(false);
+
+  // Note management state
+  const [noteFilterSubjectId, setNoteFilterSubjectId] = useState<number | null>(null);
+  const [noteFilterChapterId, setNoteFilterChapterId] = useState<number | null>(null);
+  const [showNoteModal, setShowNoteModal] = useState(false);
+  const [editingNote, setEditingNote] = useState<ChapterNote | null>(null);
+  const [noteForm, setNoteForm] = useState({ title: "", fileUrl: "", description: "" });
+  const [savingNote, setSavingNote] = useState(false);
+
   // Content state
   const [showAddQuestion, setShowAddQuestion] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<any | null>(null);
@@ -115,7 +134,27 @@ export default function AdminScreen() {
   const { data: adminQuestions, isLoading: questionsLoading, refetch: refetchQuestions } = useQuery({
     queryKey: ["adminQuestions", filterSubjectId],
     queryFn: () => api.getAdminQuestions(filterSubjectId ? { subjectId: filterSubjectId } : {}),
-    enabled: activeTab === "content",
+    enabled: activeTab === "content" && contentSubTab === "mcqs",
+  });
+  const { data: videoChapters, isLoading: videoChaptersLoading } = useQuery({
+    queryKey: ["chapters", videoFilterSubjectId],
+    queryFn: () => api.getChapters(Number(videoFilterSubjectId)),
+    enabled: activeTab === "content" && contentSubTab === "videos" && !!videoFilterSubjectId,
+  });
+  const { data: noteChapters, isLoading: noteChaptersLoading } = useQuery({
+    queryKey: ["chapters", noteFilterSubjectId],
+    queryFn: () => api.getChapters(Number(noteFilterSubjectId)),
+    enabled: activeTab === "content" && contentSubTab === "notes" && !!noteFilterSubjectId,
+  });
+  const { data: chapterVideos, isLoading: chapterVideosLoading, refetch: refetchVideos } = useQuery({
+    queryKey: ["admin-chapter-videos", videoFilterChapterId],
+    queryFn: () => api.getChapterVideos(Number(videoFilterChapterId)),
+    enabled: activeTab === "content" && contentSubTab === "videos" && !!videoFilterChapterId,
+  });
+  const { data: chapterNotes, isLoading: chapterNotesLoading, refetch: refetchNotes } = useQuery({
+    queryKey: ["admin-chapter-notes", noteFilterChapterId],
+    queryFn: () => api.getChapterNotes(Number(noteFilterChapterId)),
+    enabled: activeTab === "content" && contentSubTab === "notes" && !!noteFilterChapterId,
   });
 
   if (user?.role !== "admin") {
@@ -573,6 +612,62 @@ export default function AdminScreen() {
     } catch (e: any) { setImportError(e?.message ?? "Import failed"); setImportState("preview"); }
   };
 
+  // --- Videos CRUD ---
+  const openAddVideo = () => { setEditingVideo(null); setVideoForm({ title: "", youtubeUrl: "", description: "" }); setShowVideoModal(true); };
+  const openEditVideo = (v: ChapterVideo) => { setEditingVideo(v); setVideoForm({ title: v.title, youtubeUrl: v.youtubeUrl, description: v.description ?? "" }); setShowVideoModal(true); };
+  const handleSaveVideo = async () => {
+    if (!videoForm.title.trim() || !videoForm.youtubeUrl.trim() || !videoFilterChapterId) return;
+    setSavingVideo(true);
+    try {
+      if (editingVideo) {
+        await api.updateChapterVideo(editingVideo.id, { title: videoForm.title.trim(), youtubeUrl: videoForm.youtubeUrl.trim(), description: videoForm.description.trim() || undefined });
+      } else {
+        await api.createChapterVideo({ chapterId: videoFilterChapterId, title: videoForm.title.trim(), youtubeUrl: videoForm.youtubeUrl.trim(), description: videoForm.description.trim() || undefined });
+      }
+      setShowVideoModal(false);
+      refetchVideos();
+    } catch (e: any) { } finally { setSavingVideo(false); }
+  };
+  const handleDeleteVideo = (id: number) => {
+    setConfirmModal({
+      title: "Delete Video?",
+      message: "This video will be permanently removed.",
+      onConfirm: async () => {
+        setConfirmModal(null);
+        await api.deleteChapterVideo(id);
+        refetchVideos();
+      },
+    });
+  };
+
+  // --- Notes CRUD ---
+  const openAddNote = () => { setEditingNote(null); setNoteForm({ title: "", fileUrl: "", description: "" }); setShowNoteModal(true); };
+  const openEditNote = (n: ChapterNote) => { setEditingNote(n); setNoteForm({ title: n.title, fileUrl: n.fileUrl, description: n.description ?? "" }); setShowNoteModal(true); };
+  const handleSaveNote = async () => {
+    if (!noteForm.title.trim() || !noteForm.fileUrl.trim() || !noteFilterChapterId) return;
+    setSavingNote(true);
+    try {
+      if (editingNote) {
+        await api.updateChapterNote(editingNote.id, { title: noteForm.title.trim(), fileUrl: noteForm.fileUrl.trim(), description: noteForm.description.trim() || undefined });
+      } else {
+        await api.createChapterNote({ chapterId: noteFilterChapterId, title: noteForm.title.trim(), fileUrl: noteForm.fileUrl.trim(), description: noteForm.description.trim() || undefined });
+      }
+      setShowNoteModal(false);
+      refetchNotes();
+    } catch (e: any) { } finally { setSavingNote(false); }
+  };
+  const handleDeleteNote = (id: number) => {
+    setConfirmModal({
+      title: "Delete Note?",
+      message: "This study note will be permanently removed.",
+      onConfirm: async () => {
+        setConfirmModal(null);
+        await api.deleteChapterNote(id);
+        refetchNotes();
+      },
+    });
+  };
+
   const groupedSubjects = (allSubjects ?? []).reduce<Record<string, AdminSubject[]>>((acc, s) => {
     const key = `${s.courseCode} — ${s.courseName}`;
     if (!acc[key]) acc[key] = [];
@@ -698,7 +793,7 @@ export default function AdminScreen() {
                         {prog.description ? <Text style={styles.progDesc} numberOfLines={1}>{prog.description}</Text> : null}
                         <View style={styles.progMetaRow}>
                           <Ionicons name="book-outline" size={11} color={Colors.light.textMuted} />
-                          <Text style={styles.progMeta}>{prog.subjectCount} paper{prog.subjectCount !== 1 ? "s" : ""}</Text>
+                          <Text style={styles.progMeta}>{prog.subjectCount} course{prog.subjectCount !== 1 ? "s" : ""}</Text>
                           <Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={11} color={Colors.light.textMuted} style={{ marginLeft: 4 }} />
                         </View>
                       </Pressable>
@@ -718,19 +813,19 @@ export default function AdminScreen() {
                       </View>
                     </View>
 
-                    {/* Expandable Papers Section */}
+                    {/* Expandable Courses Section */}
                     {isExpanded && (
                       <View style={styles.papersSection}>
                         <View style={styles.papersSectionHeader}>
-                          <Text style={styles.papersSectionTitle}>Papers</Text>
+                          <Text style={styles.papersSectionTitle}>Courses</Text>
                           <Pressable style={styles.addPaperBtn} onPress={() => openAddPaper(prog.id)}>
                             <Ionicons name="add" size={14} color="#FFF" />
-                            <Text style={styles.addPaperBtnText}>Add Paper</Text>
+                            <Text style={styles.addPaperBtnText}>Add Course</Text>
                           </Pressable>
                         </View>
                         {progPapers.length === 0 ? (
                           <View style={styles.papersEmpty}>
-                            <Text style={styles.papersEmptyText}>No papers yet. Tap "Add Paper" to create one.</Text>
+                            <Text style={styles.papersEmptyText}>No courses yet. Tap "Add Course" to create one.</Text>
                           </View>
                         ) : (
                           progPapers.map(paper => (
@@ -799,7 +894,7 @@ export default function AdminScreen() {
                   </View>
                   <View>
                     <Text style={styles.tabSummaryValue}>{students.reduce((a, s) => a + s.purchasedSubjects.length, 0)}</Text>
-                    <Text style={styles.tabSummaryLabel}>Papers Assigned</Text>
+                    <Text style={styles.tabSummaryLabel}>Courses Assigned</Text>
                   </View>
                 </View>
               </View>
@@ -854,7 +949,7 @@ export default function AdminScreen() {
                   <View style={styles.studentPapersRow}>
                     <Ionicons name="book-outline" size={12} color={Colors.light.textMuted} />
                     <Text style={styles.studentPapersLabel}>
-                      {student.purchasedSubjects.length === 0 ? "No papers assigned" : `${student.purchasedSubjects.length} paper${student.purchasedSubjects.length !== 1 ? "s" : ""} assigned`}
+                      {student.purchasedSubjects.length === 0 ? "No courses assigned" : `${student.purchasedSubjects.length} course${student.purchasedSubjects.length !== 1 ? "s" : ""} assigned`}
                     </Text>
                   </View>
                   {student.purchasedSubjects.filter(p => !pendingRevokeIds.some(r => r.studentId === student.id && r.subjectId === p.subjectId)).length > 0 && (
@@ -880,6 +975,27 @@ export default function AdminScreen() {
         {/* CONTENT TAB */}
         {activeTab === "content" && (
           <View style={styles.section}>
+
+            {/* Content sub-tabs */}
+            <View style={styles.contentSubTabs}>
+              {([
+                { key: "mcqs" as const,   label: "MCQs",   icon: "help-circle-outline" },
+                { key: "videos" as const, label: "Videos", icon: "play-circle-outline" },
+                { key: "notes" as const,  label: "Notes",  icon: "document-text-outline" },
+              ]).map(st => (
+                <Pressable
+                  key={st.key}
+                  style={[styles.contentSubTab, contentSubTab === st.key && styles.contentSubTabActive]}
+                  onPress={() => setContentSubTab(st.key)}
+                >
+                  <Ionicons name={st.icon as any} size={14} color={contentSubTab === st.key ? Colors.light.primary : Colors.light.textMuted} />
+                  <Text style={[styles.contentSubTabText, contentSubTab === st.key && styles.contentSubTabTextActive]}>{st.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+
+            {/* MCQs sub-section */}
+            {contentSubTab === "mcqs" && (<>
             <View style={styles.sectionHeaderRow}>
               <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>MCQ Questions</Text>
               <View style={{ flexDirection: "row", gap: 8 }}>
@@ -897,7 +1013,7 @@ export default function AdminScreen() {
             {/* Subject filter */}
             <View style={styles.filterRow}>
               <Ionicons name="funnel-outline" size={14} color={Colors.light.textMuted} />
-              <Text style={styles.filterLabel}>Filter by paper:</Text>
+              <Text style={styles.filterLabel}>Filter by course:</Text>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterChips}>
               <Pressable
@@ -972,6 +1088,164 @@ export default function AdminScreen() {
                 ))}
               </>
             )}
+            </>)}
+
+            {/* Videos sub-section */}
+            {contentSubTab === "videos" && (
+              <>
+                <View style={styles.sectionHeaderRow}>
+                  <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Video Lectures</Text>
+                  {!!videoFilterChapterId && (
+                    <Pressable style={styles.addBtnSmall} onPress={openAddVideo}>
+                      <Ionicons name="add" size={16} color="#FFF" />
+                      <Text style={styles.addBtnText}>Add Video</Text>
+                    </Pressable>
+                  )}
+                </View>
+                <View style={styles.filterRow}>
+                  <Ionicons name="funnel-outline" size={14} color={Colors.light.textMuted} />
+                  <Text style={styles.filterLabel}>Select course:</Text>
+                </View>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterChips}>
+                  {(allSubjects ?? []).map(s => (
+                    <Pressable key={s.id} style={[styles.filterChip, videoFilterSubjectId === s.id && styles.filterChipActive]}
+                      onPress={() => { setVideoFilterSubjectId(s.id); setVideoFilterChapterId(null); }}>
+                      <Text style={[styles.filterChipText, videoFilterSubjectId === s.id && styles.filterChipTextActive]}>{s.code}</Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+                {videoFilterSubjectId && (
+                  <>
+                    <View style={styles.filterRow}>
+                      <Ionicons name="layers-outline" size={14} color={Colors.light.textMuted} />
+                      <Text style={styles.filterLabel}>Select chapter:</Text>
+                    </View>
+                    {videoChaptersLoading ? <ActivityIndicator color={Colors.light.primary} style={{ marginBottom: 8 }} /> : (
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterChips}>
+                        {(videoChapters ?? []).map(ch => (
+                          <Pressable key={ch.id} style={[styles.filterChip, videoFilterChapterId === ch.id && styles.filterChipActive]}
+                            onPress={() => setVideoFilterChapterId(ch.id)}>
+                            <Text style={[styles.filterChipText, videoFilterChapterId === ch.id && styles.filterChipTextActive]}>Ch {ch.orderNumber}</Text>
+                          </Pressable>
+                        ))}
+                      </ScrollView>
+                    )}
+                  </>
+                )}
+                {videoFilterChapterId && (
+                  chapterVideosLoading ? <ActivityIndicator color={Colors.light.primary} style={{ marginTop: 20 }} /> :
+                  !chapterVideos?.length ? (
+                    <View style={styles.emptyState}>
+                      <Ionicons name="play-circle-outline" size={40} color={Colors.light.textMuted} />
+                      <Text style={styles.emptyText}>No videos for this chapter</Text>
+                    </View>
+                  ) : (
+                    chapterVideos.map(v => (
+                      <View key={v.id} style={styles.videoAdminRow}>
+                        <View style={styles.videoAdminIcon}>
+                          <Ionicons name="logo-youtube" size={18} color="#FF0000" />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.videoAdminTitle} numberOfLines={1}>{v.title}</Text>
+                          <Text style={styles.videoAdminUrl} numberOfLines={1}>{v.youtubeUrl}</Text>
+                        </View>
+                        <Pressable style={styles.editIconBtn} onPress={() => openEditVideo(v)}>
+                          <Ionicons name="pencil" size={13} color={Colors.light.primary} />
+                        </Pressable>
+                        <Pressable style={styles.deleteIconBtn} onPress={() => handleDeleteVideo(v.id)}>
+                          <Ionicons name="trash" size={13} color={Colors.light.error} />
+                        </Pressable>
+                      </View>
+                    ))
+                  )
+                )}
+                {!videoFilterSubjectId && (
+                  <View style={styles.emptyState}>
+                    <Ionicons name="play-circle-outline" size={48} color={Colors.light.textMuted} />
+                    <Text style={styles.emptyText}>Select a course to manage videos</Text>
+                  </View>
+                )}
+              </>
+            )}
+
+            {/* Notes sub-section */}
+            {contentSubTab === "notes" && (
+              <>
+                <View style={styles.sectionHeaderRow}>
+                  <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Study Notes</Text>
+                  {!!noteFilterChapterId && (
+                    <Pressable style={styles.addBtnSmall} onPress={openAddNote}>
+                      <Ionicons name="add" size={16} color="#FFF" />
+                      <Text style={styles.addBtnText}>Add Note</Text>
+                    </Pressable>
+                  )}
+                </View>
+                <View style={styles.filterRow}>
+                  <Ionicons name="funnel-outline" size={14} color={Colors.light.textMuted} />
+                  <Text style={styles.filterLabel}>Select course:</Text>
+                </View>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterChips}>
+                  {(allSubjects ?? []).map(s => (
+                    <Pressable key={s.id} style={[styles.filterChip, noteFilterSubjectId === s.id && styles.filterChipActive]}
+                      onPress={() => { setNoteFilterSubjectId(s.id); setNoteFilterChapterId(null); }}>
+                      <Text style={[styles.filterChipText, noteFilterSubjectId === s.id && styles.filterChipTextActive]}>{s.code}</Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+                {noteFilterSubjectId && (
+                  <>
+                    <View style={styles.filterRow}>
+                      <Ionicons name="layers-outline" size={14} color={Colors.light.textMuted} />
+                      <Text style={styles.filterLabel}>Select chapter:</Text>
+                    </View>
+                    {noteChaptersLoading ? <ActivityIndicator color={Colors.light.primary} style={{ marginBottom: 8 }} /> : (
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterChips}>
+                        {(noteChapters ?? []).map(ch => (
+                          <Pressable key={ch.id} style={[styles.filterChip, noteFilterChapterId === ch.id && styles.filterChipActive]}
+                            onPress={() => setNoteFilterChapterId(ch.id)}>
+                            <Text style={[styles.filterChipText, noteFilterChapterId === ch.id && styles.filterChipTextActive]}>Ch {ch.orderNumber}</Text>
+                          </Pressable>
+                        ))}
+                      </ScrollView>
+                    )}
+                  </>
+                )}
+                {noteFilterChapterId && (
+                  chapterNotesLoading ? <ActivityIndicator color={Colors.light.primary} style={{ marginTop: 20 }} /> :
+                  !chapterNotes?.length ? (
+                    <View style={styles.emptyState}>
+                      <Ionicons name="document-text-outline" size={40} color={Colors.light.textMuted} />
+                      <Text style={styles.emptyText}>No notes for this chapter</Text>
+                    </View>
+                  ) : (
+                    chapterNotes.map(n => (
+                      <View key={n.id} style={styles.videoAdminRow}>
+                        <View style={[styles.videoAdminIcon, { backgroundColor: "#FEE2E2" }]}>
+                          <Ionicons name="document-text" size={18} color="#DC2626" />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.videoAdminTitle} numberOfLines={1}>{n.title}</Text>
+                          <Text style={styles.videoAdminUrl} numberOfLines={1}>{n.fileUrl}</Text>
+                        </View>
+                        <Pressable style={styles.editIconBtn} onPress={() => openEditNote(n)}>
+                          <Ionicons name="pencil" size={13} color={Colors.light.primary} />
+                        </Pressable>
+                        <Pressable style={styles.deleteIconBtn} onPress={() => handleDeleteNote(n.id)}>
+                          <Ionicons name="trash" size={13} color={Colors.light.error} />
+                        </Pressable>
+                      </View>
+                    ))
+                  )
+                )}
+                {!noteFilterSubjectId && (
+                  <View style={styles.emptyState}>
+                    <Ionicons name="document-text-outline" size={48} color={Colors.light.textMuted} />
+                    <Text style={styles.emptyText}>Select a course to manage notes</Text>
+                  </View>
+                )}
+              </>
+            )}
+
           </View>
         )}
       </ScrollView>
@@ -1065,11 +1339,11 @@ export default function AdminScreen() {
       </Modal>
 
 
-      {/* ── Assign Paper Modal ── */}
+      {/* ── Assign Course Modal ── */}
       <Modal visible={showEnrollModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => { setShowEnrollModal(false); setSelectedStudent(null); }}>
         <View style={[styles.sheetContainer, { paddingTop: Math.max(insets.top + 8, 20) }]}>
           <View style={styles.sheetHeader}>
-            <Text style={styles.sheetTitle}>Assign Paper Access</Text>
+            <Text style={styles.sheetTitle}>Assign Course Access</Text>
             <Pressable onPress={() => { setShowEnrollModal(false); setSelectedStudent(null); }}>
               <Ionicons name="close" size={24} color={Colors.light.text} />
             </Pressable>
@@ -1428,6 +1702,72 @@ export default function AdminScreen() {
         </View>
       </Modal>
 
+      {/* ── Add / Edit Video Modal ── */}
+      <Modal visible={showVideoModal} transparent animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowVideoModal(false)}>
+        <View style={[styles.sheetContainer, { paddingTop: Math.max(insets.top + 8, 20) }]}>
+          <View style={styles.sheetHeader}>
+            <Text style={styles.sheetTitle}>{editingVideo ? "Edit Video" : "Add Video"}</Text>
+            <Pressable onPress={() => setShowVideoModal(false)}>
+              <Ionicons name="close" size={24} color={Colors.light.text} />
+            </Pressable>
+          </View>
+          <ScrollView style={styles.sheetScroll} contentContainerStyle={{ gap: 14, paddingBottom: Math.max(insets.bottom + 20, 40) }} keyboardShouldPersistTaps="handled">
+            <View style={styles.formField}>
+              <Text style={styles.formLabel}>Title <Text style={styles.required}>*</Text></Text>
+              <TextInput style={styles.formInput} value={videoForm.title} onChangeText={v => setVideoForm(f => ({ ...f, title: v }))} placeholder="e.g. Introduction to Financial Accounting" placeholderTextColor={Colors.light.textMuted} />
+            </View>
+            <View style={styles.formField}>
+              <Text style={styles.formLabel}>YouTube URL <Text style={styles.required}>*</Text></Text>
+              <TextInput style={styles.formInput} value={videoForm.youtubeUrl} onChangeText={v => setVideoForm(f => ({ ...f, youtubeUrl: v }))} placeholder="https://youtube.com/watch?v=..." placeholderTextColor={Colors.light.textMuted} autoCapitalize="none" keyboardType="url" />
+            </View>
+            <View style={styles.formField}>
+              <Text style={styles.formLabel}>Description</Text>
+              <TextInput style={[styles.formInput, styles.formInputMultiline]} value={videoForm.description} onChangeText={v => setVideoForm(f => ({ ...f, description: v }))} placeholder="Optional description..." placeholderTextColor={Colors.light.textMuted} multiline />
+            </View>
+            <Pressable
+              style={[styles.saveBtn, (!videoForm.title.trim() || !videoForm.youtubeUrl.trim()) && styles.saveBtnDisabled, { opacity: savingVideo ? 0.85 : 1 }]}
+              onPress={handleSaveVideo}
+              disabled={savingVideo || !videoForm.title.trim() || !videoForm.youtubeUrl.trim()}
+            >
+              {savingVideo ? <ActivityIndicator color="#FFF" /> : <Text style={styles.saveBtnText}>{editingVideo ? "Save Changes" : "Add Video"}</Text>}
+            </Pressable>
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* ── Add / Edit Note Modal ── */}
+      <Modal visible={showNoteModal} transparent animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowNoteModal(false)}>
+        <View style={[styles.sheetContainer, { paddingTop: Math.max(insets.top + 8, 20) }]}>
+          <View style={styles.sheetHeader}>
+            <Text style={styles.sheetTitle}>{editingNote ? "Edit Note" : "Add Note"}</Text>
+            <Pressable onPress={() => setShowNoteModal(false)}>
+              <Ionicons name="close" size={24} color={Colors.light.text} />
+            </Pressable>
+          </View>
+          <ScrollView style={styles.sheetScroll} contentContainerStyle={{ gap: 14, paddingBottom: Math.max(insets.bottom + 20, 40) }} keyboardShouldPersistTaps="handled">
+            <View style={styles.formField}>
+              <Text style={styles.formLabel}>Title <Text style={styles.required}>*</Text></Text>
+              <TextInput style={styles.formInput} value={noteForm.title} onChangeText={v => setNoteForm(f => ({ ...f, title: v }))} placeholder="e.g. Chapter 1 Study Notes" placeholderTextColor={Colors.light.textMuted} />
+            </View>
+            <View style={styles.formField}>
+              <Text style={styles.formLabel}>PDF / File URL <Text style={styles.required}>*</Text></Text>
+              <TextInput style={styles.formInput} value={noteForm.fileUrl} onChangeText={v => setNoteForm(f => ({ ...f, fileUrl: v }))} placeholder="https://example.com/notes.pdf" placeholderTextColor={Colors.light.textMuted} autoCapitalize="none" keyboardType="url" />
+            </View>
+            <View style={styles.formField}>
+              <Text style={styles.formLabel}>Description</Text>
+              <TextInput style={[styles.formInput, styles.formInputMultiline]} value={noteForm.description} onChangeText={v => setNoteForm(f => ({ ...f, description: v }))} placeholder="Optional description..." placeholderTextColor={Colors.light.textMuted} multiline />
+            </View>
+            <Pressable
+              style={[styles.saveBtn, (!noteForm.title.trim() || !noteForm.fileUrl.trim()) && styles.saveBtnDisabled, { opacity: savingNote ? 0.85 : 1 }]}
+              onPress={handleSaveNote}
+              disabled={savingNote || !noteForm.title.trim() || !noteForm.fileUrl.trim()}
+            >
+              {savingNote ? <ActivityIndicator color="#FFF" /> : <Text style={styles.saveBtnText}>{editingNote ? "Save Changes" : "Add Note"}</Text>}
+            </Pressable>
+          </ScrollView>
+        </View>
+      </Modal>
+
       {/* ── Confirm Delete Modal ── */}
       <Modal visible={!!confirmModal} transparent animationType="fade" onRequestClose={() => setConfirmModal(null)}>
         <View style={styles.overlay}>
@@ -1680,4 +2020,15 @@ const styles = StyleSheet.create({
   studentPhone: { fontSize: 12, fontFamily: "Inter_400Regular", color: Colors.light.textMuted, marginTop: 1 },
   studentPapersRow: { flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 6 },
   studentPapersLabel: { fontSize: 12, fontFamily: "Inter_400Regular", color: Colors.light.textMuted },
+
+  contentSubTabs: { flexDirection: "row", gap: 8, marginBottom: 14 },
+  contentSubTab: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingVertical: 9, borderRadius: 10, backgroundColor: Colors.light.backgroundSecondary, borderWidth: 1, borderColor: Colors.light.border },
+  contentSubTabActive: { backgroundColor: Colors.light.primary + "12", borderColor: Colors.light.primary },
+  contentSubTabText: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: Colors.light.textMuted },
+  contentSubTabTextActive: { color: Colors.light.primary },
+
+  videoAdminRow: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: Colors.light.card, borderRadius: 12, padding: 12, marginBottom: 8, shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 },
+  videoAdminIcon: { width: 36, height: 36, borderRadius: 10, backgroundColor: "#FEE2E2", alignItems: "center", justifyContent: "center" },
+  videoAdminTitle: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: Colors.light.text },
+  videoAdminUrl: { fontSize: 11, fontFamily: "Inter_400Regular", color: Colors.light.textMuted, marginTop: 1 },
 });

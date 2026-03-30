@@ -116,6 +116,26 @@ export const userProgressTable = pgTable("user_progress", {
   lastAttemptAt: timestamp("last_attempt_at").notNull().defaultNow(),
 });
 
+export const chapterVideosTable = pgTable("chapter_videos", {
+  id: serial("id").primaryKey(),
+  chapterId: integer("chapter_id").notNull().references(() => chaptersTable.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  youtubeUrl: text("youtube_url").notNull(),
+  description: text("description"),
+  orderIndex: integer("order_index").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const chapterNotesTable = pgTable("chapter_notes", {
+  id: serial("id").primaryKey(),
+  chapterId: integer("chapter_id").notNull().references(() => chaptersTable.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  fileUrl: text("file_url").notNull(),
+  description: text("description"),
+  orderIndex: integer("order_index").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const insertUserSchema = createInsertSchema(usersTable).omit({ id: true, createdAt: true });
 export const insertCourseSchema = createInsertSchema(coursesTable).omit({ id: true, createdAt: true });
 export const insertLevelSchema = createInsertSchema(levelsTable).omit({ id: true, createdAt: true });
@@ -126,6 +146,8 @@ export const insertQuestionSchema = createInsertSchema(questionsTable).omit({ id
 export const insertProgressSchema = createInsertSchema(userProgressTable).omit({ id: true, lastAttemptAt: true });
 export const insertUserCourseSchema = createInsertSchema(userCoursesTable).omit({ id: true, assignedAt: true });
 export const insertUserSubjectPurchaseSchema = createInsertSchema(userSubjectPurchasesTable).omit({ id: true, assignedAt: true });
+export const insertChapterVideoSchema = createInsertSchema(chapterVideosTable).omit({ id: true, createdAt: true });
+export const insertChapterNoteSchema = createInsertSchema(chapterNotesTable).omit({ id: true, createdAt: true });
 
 export type User = typeof usersTable.$inferSelect;
 export type UserCourse = typeof userCoursesTable.$inferSelect;
@@ -139,3 +161,5 @@ export type Chapter = typeof chaptersTable.$inferSelect;
 export type Topic = typeof topicsTable.$inferSelect;
 export type Question = typeof questionsTable.$inferSelect;
 export type UserProgress = typeof userProgressTable.$inferSelect;
+export type ChapterVideo = typeof chapterVideosTable.$inferSelect;
+export type ChapterNote = typeof chapterNotesTable.$inferSelect;

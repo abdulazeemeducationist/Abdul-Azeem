@@ -81,6 +81,26 @@ export interface UserProgress {
   lastAttemptAt?: string;
 }
 
+export interface ChapterVideo {
+  id: number;
+  chapterId: number;
+  title: string;
+  youtubeUrl: string;
+  description?: string | null;
+  orderIndex: number;
+  createdAt: string;
+}
+
+export interface ChapterNote {
+  id: number;
+  chapterId: number;
+  title: string;
+  fileUrl: string;
+  description?: string | null;
+  orderIndex: number;
+  createdAt: string;
+}
+
 export interface QuizState {
   lastQuestionIndex: number;
   savedAnswers: string[][];
@@ -417,5 +437,48 @@ export const api = {
     const res = await fetch(`${API_BASE}/admin/questions/${id}`, { method: "DELETE" });
     if (!res.ok) throw new Error("Failed to delete question");
     return res.json();
+  },
+
+  getChapterVideos: async (chapterId: number): Promise<ChapterVideo[]> => {
+    const res = await fetch(`${API_BASE}/chapters/${chapterId}/videos`);
+    if (!res.ok) throw new Error("Failed to fetch videos");
+    return res.json();
+  },
+  getChapterNotes: async (chapterId: number): Promise<ChapterNote[]> => {
+    const res = await fetch(`${API_BASE}/chapters/${chapterId}/notes`);
+    if (!res.ok) throw new Error("Failed to fetch notes");
+    return res.json();
+  },
+
+  createChapterVideo: async (data: { chapterId: number; title: string; youtubeUrl: string; description?: string; orderIndex?: number }): Promise<ChapterVideo> => {
+    const res = await fetch(`${API_BASE}/admin/chapter-videos`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Failed to create video");
+    return json;
+  },
+  updateChapterVideo: async (id: number, data: { title: string; youtubeUrl: string; description?: string; orderIndex?: number }): Promise<ChapterVideo> => {
+    const res = await fetch(`${API_BASE}/admin/chapter-videos/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+    if (!res.ok) throw new Error("Failed to update video");
+    return res.json();
+  },
+  deleteChapterVideo: async (id: number): Promise<void> => {
+    const res = await fetch(`${API_BASE}/admin/chapter-videos/${id}`, { method: "DELETE" });
+    if (!res.ok) throw new Error("Failed to delete video");
+  },
+
+  createChapterNote: async (data: { chapterId: number; title: string; fileUrl: string; description?: string; orderIndex?: number }): Promise<ChapterNote> => {
+    const res = await fetch(`${API_BASE}/admin/chapter-notes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Failed to create note");
+    return json;
+  },
+  updateChapterNote: async (id: number, data: { title: string; fileUrl: string; description?: string; orderIndex?: number }): Promise<ChapterNote> => {
+    const res = await fetch(`${API_BASE}/admin/chapter-notes/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+    if (!res.ok) throw new Error("Failed to update note");
+    return res.json();
+  },
+  deleteChapterNote: async (id: number): Promise<void> => {
+    const res = await fetch(`${API_BASE}/admin/chapter-notes/${id}`, { method: "DELETE" });
+    if (!res.ok) throw new Error("Failed to delete note");
   },
 };

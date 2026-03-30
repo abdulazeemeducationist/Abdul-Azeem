@@ -17,7 +17,7 @@ import Colors from "@/constants/colors";
 import { useAuth } from "@/context/AuthContext";
 import { api, Subject } from "@/hooks/useApi";
 
-function PaperCard({ subject, onLockedPress }: { subject: Subject; onLockedPress: () => void }) {
+function CourseCard({ subject, onLockedPress }: { subject: Subject; onLockedPress: () => void }) {
   const handlePress = () => {
     if (!subject.purchased) { onLockedPress(); return; }
     router.push({
@@ -41,7 +41,7 @@ function PaperCard({ subject, onLockedPress }: { subject: Subject; onLockedPress
         </Text>
       </View>
       <View style={styles.cardCenter}>
-        <Text style={[styles.paperName, !subject.purchased && styles.textMuted]} numberOfLines={2}>{subject.name}</Text>
+        <Text style={[styles.courseName, !subject.purchased && styles.textMuted]} numberOfLines={2}>{subject.name}</Text>
         {subject.description ? <Text style={styles.desc} numberOfLines={1}>{subject.description}</Text> : null}
         <View style={styles.statsRow}>
           {subject.purchased ? (
@@ -85,8 +85,6 @@ export default function SubjectsScreen() {
     enabled: !!courseId,
   });
 
-  const label = courseCode === "ACCA" ? "Papers" : "Papers";
-
   return (
     <View style={[styles.container, { paddingTop: topPad }]}>
       <View style={styles.header}>
@@ -95,7 +93,7 @@ export default function SubjectsScreen() {
         </Pressable>
         <View style={styles.headerTitles}>
           <Text style={styles.courseLabel}>{courseCode ?? courseName}</Text>
-          <Text style={styles.screenTitle}>{label}</Text>
+          <Text style={styles.screenTitle}>Courses</Text>
         </View>
       </View>
 
@@ -106,7 +104,7 @@ export default function SubjectsScreen() {
       ) : error ? (
         <View style={styles.center}>
           <Ionicons name="alert-circle-outline" size={48} color={Colors.light.error} />
-          <Text style={styles.errorText}>Failed to load papers</Text>
+          <Text style={styles.errorText}>Failed to load courses</Text>
           <Pressable style={styles.retryBtn} onPress={() => refetch()}>
             <Text style={styles.retryText}>Retry</Text>
           </Pressable>
@@ -116,10 +114,10 @@ export default function SubjectsScreen() {
           data={subjects ?? []}
           keyExtractor={(item) => String(item.id)}
           renderItem={({ item }) => (
-            <PaperCard
+            <CourseCard
               subject={item}
               onLockedPress={() =>
-                Alert.alert("Paper Locked", "This paper is not included in your plan. Please contact your admin to unlock access.", [{ text: "OK" }])
+                Alert.alert("Course Locked", "This course is not included in your plan. Please contact your admin to unlock access.", [{ text: "OK" }])
               }
             />
           )}
@@ -128,7 +126,7 @@ export default function SubjectsScreen() {
           ListEmptyComponent={
             <View style={styles.center}>
               <Ionicons name="library-outline" size={64} color={Colors.light.textMuted} />
-              <Text style={styles.emptyText}>No papers found</Text>
+              <Text style={styles.emptyText}>No courses found</Text>
             </View>
           }
         />
@@ -154,7 +152,7 @@ const styles = StyleSheet.create({
   codeTag: { width: 44, height: 44, borderRadius: 10, alignItems: "center", justifyContent: "center", flexShrink: 0 },
   codeText: { fontSize: 11, fontFamily: "Inter_700Bold" },
   cardCenter: { flex: 1, gap: 4 },
-  paperName: { fontSize: 14, fontFamily: "Inter_600SemiBold", color: Colors.light.text, lineHeight: 19 },
+  courseName: { fontSize: 14, fontFamily: "Inter_600SemiBold", color: Colors.light.text, lineHeight: 19 },
   textMuted: { color: Colors.light.textMuted },
   desc: { fontSize: 12, fontFamily: "Inter_400Regular", color: Colors.light.textSecondary },
   statsRow: { flexDirection: "row", gap: 8, marginTop: 4, flexWrap: "wrap" },

@@ -2,9 +2,10 @@ import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import {
   coursesTable, subjectsTable, chaptersTable, topicsTable, questionsTable,
-  usersTable, userProgressTable, userSubjectPurchasesTable, levelsTable
+  usersTable, userProgressTable, userSubjectPurchasesTable, levelsTable,
+  chapterVideosTable, chapterNotesTable
 } from "@workspace/db";
-import { eq, count, avg, and, inArray, max } from "drizzle-orm";
+import { eq, count, avg, and, inArray, max, asc } from "drizzle-orm";
 import crypto from "crypto";
 
 function hashPassword(p: string) { return crypto.createHash("sha256").update(p + "mcq-salt-2024").digest("hex"); }
@@ -524,6 +525,106 @@ router.patch("/students/:userId/block", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Internal Server Error", message: "Failed to update student status" });
+  }
+});
+
+// ── Chapter Videos ──────────────────────────────────────────────────────
+
+router.get("/chapters/:chapterId/videos", async (req, res) => {
+  try {
+    const chapterId = parseInt(req.params.chapterId);
+    const videos = await db.select().from(chapterVideosTable).where(eq(chapterVideosTable.chapterId, chapterId)).orderBy(asc(chapterVideosTable.orderIndex));
+    res.json(videos);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to get videos" });
+  }
+});
+
+router.post("/chapter-videos", async (req, res) => {
+  try {
+    const { chapterId, title, youtubeUrl, description, orderIndex } = req.body;
+    if (!chapterId || !title || !youtubeUrl) { res.status(400).json({ error: "chapterId, title and youtubeUrl are required" }); return; }
+    const [video] = await db.insert(chapterVideosTable).values({ chapterId, title, youtubeUrl, description: description ?? null, orderIndex: orderIndex ?? 0 }).returning();
+    res.status(201).json(video);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to create video" });
+  }
+});
+
+router.put("/chapter-videos/:videoId", async (req, res) => {
+  try {
+    const id = parseInt(req.params.videoId);
+    const { title, youtubeUrl, description, orderIndex } = req.body;
+    if (!title || !youtubeUrl) { res.status(400).json({ error: "title and youtubeUrl are required" }); return; }
+    const [video] = await db.update(chapterVideosTable).set({ title, youtubeUrl, description: description ?? null, orderIndex: orderIndex ?? 0 }).where(eq(chapterVideosTable.id, id)).returning();
+    if (!video) { res.status(404).json({ error: "Video not found" }); return; }
+    res.json(video);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to update video" });
+  }
+});
+
+router.delete("/chapter-videos/:videoId", async (req, res) => {
+  try {
+    const id = parseInt(req.params.videoId);
+    await db.delete(chapterVideosTable).where(eq(chapterVideosTable.id, id));
+    res.json({ message: "Video deleted" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to delete video" });
+  }
+});
+
+// ── Chapter Notes ──────────────────────────────────────────────────────
+
+router.get("/chapters/:chapterId/notes", async (req, res) => {
+  try {
+    const chapterId = parseInt(req.params.chapterId);
+    const notes = await db.select().from(chapterNotesTable).where(eq(chapterNotesTable.chapterId, chapterId)).orderBy(asc(chapterNotesTable.orderIndex));
+    res.json(notes);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to get notes" });
+  }
+});
+
+router.post("/chapter-notes", async (req, res) => {
+  try {
+    const { chapterId, title, fileUrl, description, orderIndex } = req.body;
+    if (!chapterId || !title || !fileUrl) { res.status(400).json({ error: "chapterId, title and fileUrl are required" }); return; }
+    const [note] = await db.insert(chapterNotesTable).values({ chapterId, title, fileUrl, description: description ?? null, orderIndex: orderIndex ?? 0 }).returning();
+    res.status(201).json(note);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to create note" });
+  }
+});
+
+router.put("/chapter-notes/:noteId", async (req, res) => {
+  try {
+    const id = parseInt(req.params.noteId);
+    const { title, fileUrl, description, orderIndex } = req.body;
+    if (!title || !fileUrl) { res.status(400).json({ error: "title and fileUrl are required" }); return; }
+    const [note] = await db.update(chapterNotesTable).set({ title, fileUrl, description: description ?? null, orderIndex: orderIndex ?? 0 }).where(eq(chapterNotesTable.id, id)).returning();
+    if (!note) { res.status(404).json({ error: "Note not found" }); return; }
+    res.json(note);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to update note" });
+  }
+});
+
+router.delete("/chapter-notes/:noteId", async (req, res) => {
+  try {
+    const id = parseInt(req.params.noteId);
+    await db.delete(chapterNotesTable).where(eq(chapterNotesTable.id, id));
+    res.json({ message: "Note deleted" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to delete note" });
   }
 });
 
