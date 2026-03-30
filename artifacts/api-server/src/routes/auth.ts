@@ -124,7 +124,7 @@ router.post("/signup", async (req, res) => {
     const token = generateToken(user.id, user.email);
     res.status(201).json({
       token,
-      user: { id: user.id, name: user.name, email: user.email, role: user.role, createdAt: user.createdAt },
+      user: { id: user.id, name: user.name, email: user.email, role: user.role, whatsappNumber: user.whatsappNumber ?? null, profilePicture: user.profilePicture ?? null, createdAt: user.createdAt },
     });
   } catch (err) {
     console.error(err);
@@ -147,7 +147,7 @@ router.post("/signin", async (req, res) => {
     const token = generateToken(user.id, user.email);
     res.json({
       token,
-      user: { id: user.id, name: user.name, email: user.email, role: user.role, createdAt: user.createdAt },
+      user: { id: user.id, name: user.name, email: user.email, role: user.role, whatsappNumber: user.whatsappNumber ?? null, profilePicture: user.profilePicture ?? null, createdAt: user.createdAt },
     });
   } catch (err) {
     console.error(err);
