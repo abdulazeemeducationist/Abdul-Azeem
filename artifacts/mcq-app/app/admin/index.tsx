@@ -69,6 +69,7 @@ export default function AdminScreen() {
   const [showEnrollModal, setShowEnrollModal] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [savingEnroll, setSavingEnroll] = useState(false);
+  const [pendingRevokeIds, setPendingRevokeIds] = useState<{ studentId: number; subjectId: number }[]>([]);
 
   // Content state
   const [showAddQuestion, setShowAddQuestion] = useState(false);
@@ -292,12 +293,23 @@ export default function AdminScreen() {
     } catch (e: any) { console.error(e); }
     finally { setSavingEnroll(false); }
   };
-  const handleRevokePaper = async (student: Student, subjectId: number) => {
-    try {
-      await api.revokeSubject(student.id, subjectId);
-      qc.invalidateQueries({ queryKey: ["adminStudents"] });
-      refetchStudents();
-    } catch (e) { console.error(e); }
+  const handleRevokePaper = (student: Student, subjectId: number, subjectCode: string) => {
+    setConfirmModal({
+      title: "Remove Paper Access?",
+      message: `This will remove ${student.name}'s access to ${subjectCode}. You can re-assign it later from the Students tab.`,
+      onConfirm: () => {
+        setConfirmModal(null);
+        setPendingRevokeIds(prev => [...prev, { studentId: student.id, subjectId }]);
+        showUndo(`Access to ${subjectCode} removed.`, async () => {
+          await api.revokeSubject(student.id, subjectId);
+          setPendingRevokeIds(prev => prev.filter(r => !(r.studentId === student.id && r.subjectId === subjectId)));
+          qc.invalidateQueries({ queryKey: ["adminStudents"] });
+          refetchStudents();
+        }, () => {
+          setPendingRevokeIds(prev => prev.filter(r => !(r.studentId === student.id && r.subjectId === subjectId)));
+        });
+      },
+    });
   };
 
   // --- Add / Edit Question ---
@@ -678,12 +690,14 @@ export default function AdminScreen() {
                       {student.purchasedSubjects.length === 0 ? "No papers assigned" : `${student.purchasedSubjects.length} paper${student.purchasedSubjects.length !== 1 ? "s" : ""} assigned`}
                     </Text>
                   </View>
-                  {student.purchasedSubjects.length > 0 && (
+                  {student.purchasedSubjects.filter(p => !pendingRevokeIds.some(r => r.studentId === student.id && r.subjectId === p.subjectId)).length > 0 && (
                     <View style={styles.chipsWrap}>
-                      {student.purchasedSubjects.map(p => (
+                      {student.purchasedSubjects
+                        .filter(p => !pendingRevokeIds.some(r => r.studentId === student.id && r.subjectId === p.subjectId))
+                        .map(p => (
                         <View key={p.subjectId} style={styles.paperChip}>
                           <Text style={styles.paperChipText}>{p.subjectCode}</Text>
-                          <Pressable onPress={() => handleRevokePaper(student, p.subjectId)} hitSlop={8}>
+                          <Pressable onPress={() => handleRevokePaper(student, p.subjectId, p.subjectCode)} hitSlop={8}>
                             <Ionicons name="close-circle" size={15} color="#EF4444" />
                           </Pressable>
                         </View>
