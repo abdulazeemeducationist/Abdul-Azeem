@@ -20,6 +20,7 @@ export const coursesTable = pgTable("courses", {
   color: varchar("color", { length: 20 }),
   logo: text("logo"),
   isActive: boolean("is_active").notNull().default(true),
+  orderNumber: integer("order_number").notNull().default(0),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

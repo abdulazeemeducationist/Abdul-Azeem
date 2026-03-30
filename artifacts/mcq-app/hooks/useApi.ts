@@ -11,6 +11,7 @@ export interface Course {
   color?: string;
   logo?: string;
   isActive: boolean;
+  orderNumber: number;
   subjectCount: number;
   questionCount: number;
 }
@@ -218,6 +219,14 @@ export const api = {
     });
     if (!res.ok) throw new Error("Failed to toggle course status");
     return res.json();
+  },
+  reorderCourse: async (id: number, direction: "up" | "down"): Promise<void> => {
+    const res = await fetch(`${API_BASE}/admin/courses/${id}/order`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ direction }),
+    });
+    if (!res.ok) throw new Error("Failed to reorder course");
   },
   toggleSubjectActive: async (id: number, isActive: boolean): Promise<AdminSubject> => {
     const res = await fetch(`${API_BASE}/admin/subjects/${id}/active`, {

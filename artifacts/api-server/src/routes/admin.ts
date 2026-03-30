@@ -4,7 +4,7 @@ import {
   coursesTable, subjectsTable, chaptersTable, topicsTable, questionsTable,
   usersTable, userProgressTable, userSubjectPurchasesTable, levelsTable
 } from "@workspace/db";
-import { eq, count, avg, and, inArray } from "drizzle-orm";
+import { eq, count, avg, and, inArray, max } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -123,7 +123,7 @@ router.get("/subjects", async (_req, res) => {
 
 router.get("/courses", async (_req, res) => {
   try {
-    const courses = await db.select().from(coursesTable);
+    const courses = await db.select().from(coursesTable).orderBy(coursesTable.orderNumber);
     const result = await Promise.all(courses.map(async (c) => {
       const [{ count: subjectCount }] = await db.select({ count: count() }).from(subjectsTable).where(eq(subjectsTable.courseId, c.id));
       return { ...c, subjectCount: Number(subjectCount) };
@@ -139,11 +139,34 @@ router.post("/courses", async (req, res) => {
   try {
     const { name, code, description, icon, color, logo } = req.body;
     if (!name || !code) { res.status(400).json({ error: "name and code are required" }); return; }
-    const [course] = await db.insert(coursesTable).values({ name, code, description, icon, color, logo }).returning();
+    const [{ maxOrder }] = await db.select({ maxOrder: max(coursesTable.orderNumber) }).from(coursesTable);
+    const nextOrder = (maxOrder ?? 0) + 1;
+    const [course] = await db.insert(coursesTable).values({ name, code, description, icon, color, logo, orderNumber: nextOrder }).returning();
     res.status(201).json({ ...course, subjectCount: 0 });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Internal Server Error", message: "Failed to create course" });
+  }
+});
+
+router.patch("/courses/:courseId/order", async (req, res) => {
+  try {
+    const id = parseInt(req.params.courseId);
+    const { direction } = req.body; // "up" | "down"
+    const allCourses = await db.select({ id: coursesTable.id, orderNumber: coursesTable.orderNumber })
+      .from(coursesTable).orderBy(coursesTable.orderNumber);
+    const idx = allCourses.findIndex(c => c.id === id);
+    if (idx === -1) { res.status(404).json({ error: "Course not found" }); return; }
+    const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (swapIdx < 0 || swapIdx >= allCourses.length) { res.json({ message: "Already at boundary" }); return; }
+    const curr = allCourses[idx];
+    const swap = allCourses[swapIdx];
+    await db.update(coursesTable).set({ orderNumber: swap.orderNumber }).where(eq(coursesTable.id, curr.id));
+    await db.update(coursesTable).set({ orderNumber: curr.orderNumber }).where(eq(coursesTable.id, swap.id));
+    res.json({ message: "Order updated" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to update order" });
   }
 });
 

@@ -187,6 +187,13 @@ export default function AdminScreen() {
       refetchPrograms();
     } catch (e) { console.error(e); }
   };
+  const handleReorderCourse = async (id: number, direction: "up" | "down") => {
+    try {
+      await api.reorderCourse(id, direction);
+      refetchPrograms();
+      qc.invalidateQueries({ queryKey: ["courses"] });
+    } catch (e) { console.error(e); }
+  };
   const handleToggleSubject = async (id: number, current: boolean) => {
     try {
       await api.toggleSubjectActive(id, !current);
@@ -463,6 +470,22 @@ export default function AdminScreen() {
                 const accent = accentColors[idx % accentColors.length];
                 return (
                   <View key={prog.id} style={[styles.programRow, { borderLeftColor: accent, borderLeftWidth: 3 }]}>
+                    <View style={styles.reorderBtns}>
+                      <Pressable
+                        onPress={() => handleReorderCourse(prog.id, "up")}
+                        disabled={idx === 0}
+                        style={({ pressed }) => ({ opacity: idx === 0 ? 0.2 : pressed ? 0.5 : 1 })}
+                      >
+                        <Ionicons name="chevron-up" size={16} color={Colors.light.textMuted} />
+                      </Pressable>
+                      <Pressable
+                        onPress={() => handleReorderCourse(prog.id, "down")}
+                        disabled={idx === programs.length - 1}
+                        style={({ pressed }) => ({ opacity: idx === programs.length - 1 ? 0.2 : pressed ? 0.5 : 1 })}
+                      >
+                        <Ionicons name="chevron-down" size={16} color={Colors.light.textMuted} />
+                      </Pressable>
+                    </View>
                     {prog.logo ? (
                       <Image source={{ uri: prog.logo }} style={styles.progLogoThumb} contentFit="cover" />
                     ) : (
@@ -1061,6 +1084,7 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 24, fontFamily: "Inter_700Bold", color: Colors.light.text },
   statLabel: { fontSize: 12, fontFamily: "Inter_500Medium", color: Colors.light.textMuted },
   statArrow: { position: "absolute", top: 10, right: 10 },
+  reorderBtns: { flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2, marginRight: 6 },
   avgCard: { backgroundColor: Colors.light.primary, borderRadius: 14, padding: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 12 },
   avgLabel: { fontSize: 14, fontFamily: "Inter_500Medium", color: "rgba(255,255,255,0.85)", flex: 1, lineHeight: 18 },
   avgValue: { fontSize: 28, fontFamily: "Inter_700Bold", color: "#FFF" },

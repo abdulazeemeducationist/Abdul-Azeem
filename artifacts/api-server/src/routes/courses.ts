@@ -10,7 +10,7 @@ const router: IRouter = Router();
 
 router.get("/", async (_req, res) => {
   try {
-    const courses = await db.select().from(coursesTable).where(eq(coursesTable.isActive, true));
+    const courses = await db.select().from(coursesTable).where(eq(coursesTable.isActive, true)).orderBy(coursesTable.orderNumber);
     const result = await Promise.all(courses.map(async (c) => {
       const subjects = await db.select({ id: subjectsTable.id }).from(subjectsTable).where(eq(subjectsTable.courseId, c.id));
       const subjectIds = subjects.map(s => s.id);
