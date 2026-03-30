@@ -22,7 +22,7 @@ import Colors from "@/constants/colors";
 import { api, Student, AdminSubject, Course, ChapterVideo, ChapterNote } from "@/hooks/useApi";
 import { useAuth } from "@/context/AuthContext";
 
-type TabType = "programs" | "students" | "content";
+type TabType = "programs" | "courses" | "content" | "students";
 
 interface ProgramForm { name: string; code: string; description: string; logo: string }
 const EMPTY_FORM: ProgramForm = { name: "", code: "", description: "", logo: "" };
@@ -37,13 +37,13 @@ export default function AdminScreen() {
 
   const [activeTab, setActiveTab] = useState<TabType>(() => {
     const t = params.tab;
-    if (t === "students" || t === "content" || t === "programs") return t;
+    if (t === "students" || t === "content" || t === "programs" || t === "courses") return t;
     return "programs";
   });
 
   useEffect(() => {
     const t = params.tab;
-    if (t === "students" || t === "content" || t === "programs") {
+    if (t === "students" || t === "content" || t === "programs" || t === "courses") {
       setActiveTab(t);
     }
   }, [params.tab]);
@@ -62,13 +62,14 @@ export default function AdminScreen() {
   const [savingEnroll, setSavingEnroll] = useState(false);
   const [pendingRevokeIds, setPendingRevokeIds] = useState<{ studentId: number; subjectId: number }[]>([]);
 
-  // Papers state
+  // Papers / Courses state
   const [expandedProgramId, setExpandedProgramId] = useState<number | null>(null);
   const [showPaperModal, setShowPaperModal] = useState(false);
   const [editingPaper, setEditingPaper] = useState<AdminSubject | null>(null);
   const [paperForm, setPaperForm] = useState({ name: "", code: "", description: "" });
   const [savingPaper, setSavingPaper] = useState(false);
   const [pendingPaperDeleteIds, setPendingPaperDeleteIds] = useState<number[]>([]);
+  const [coursesTabProgramId, setCoursesTabProgramId] = useState<number | null>(null);
 
   // Student management state
   const [showStudentModal, setShowStudentModal] = useState(false);
@@ -122,14 +123,14 @@ export default function AdminScreen() {
     queryKey: ["adminStats"], queryFn: api.getAdminStats,
   });
   const { data: programs, isLoading: programsLoading, refetch: refetchPrograms } = useQuery({
-    queryKey: ["adminCourses"], queryFn: api.getAdminCourses, enabled: activeTab === "programs",
+    queryKey: ["adminCourses"], queryFn: api.getAdminCourses, enabled: activeTab === "programs" || activeTab === "courses",
   });
   const { data: students, isLoading: studentsLoading, refetch: refetchStudents } = useQuery({
     queryKey: ["adminStudents"], queryFn: api.getStudents, enabled: activeTab === "students",
   });
   const { data: allSubjects, refetch: refetchSubjects } = useQuery({
     queryKey: ["adminSubjects"], queryFn: api.getAllSubjects,
-    enabled: showEnrollModal || activeTab === "content" || activeTab === "programs",
+    enabled: showEnrollModal || activeTab === "content" || activeTab === "programs" || activeTab === "courses",
   });
   const { data: adminQuestions, isLoading: questionsLoading, refetch: refetchQuestions } = useQuery({
     queryKey: ["adminQuestions", filterSubjectId],
@@ -325,13 +326,13 @@ export default function AdminScreen() {
     try {
       if (wasEditing) {
         await api.updateSubject(wasEditing.id, { name: paperForm.name.trim(), code: paperForm.code.trim().toUpperCase(), description: paperForm.description.trim() || undefined });
-        showUndo("Paper updated.", () => {}, async () => {
+        showUndo("Course updated.", () => {}, async () => {
           await api.updateSubject(wasEditing.id, { name: wasEditing.name, code: wasEditing.code });
           refetchSubjects(); qc.invalidateQueries({ queryKey: ["adminSubjects"] });
         });
       } else {
         const created = await api.createSubject({ courseId: expandedProgramId!, name: paperForm.name.trim(), code: paperForm.code.trim().toUpperCase(), description: paperForm.description.trim() || undefined });
-        showUndo("Paper added.", () => {}, async () => {
+        showUndo("Course added.", () => {}, async () => {
           await api.deleteSubject(created.id);
           refetchSubjects(); qc.invalidateQueries({ queryKey: ["adminSubjects"] }); qc.invalidateQueries({ queryKey: ["adminCourses"] }); refetchPrograms();
         });
@@ -345,12 +346,12 @@ export default function AdminScreen() {
   };
   const confirmDeletePaper = (paper: AdminSubject) => {
     setConfirmModal({
-      title: "Delete Paper?",
+      title: "Delete Course?",
       message: `This will permanently delete "${paper.name}" and all its chapters, topics, and questions.`,
       onConfirm: () => {
         setConfirmModal(null);
         setPendingPaperDeleteIds(prev => [...prev, paper.id]);
-        showUndo("Paper deleted.", async () => {
+        showUndo("Course deleted.", async () => {
           await api.deleteSubject(paper.id);
           setPendingPaperDeleteIds(prev => prev.filter(x => x !== paper.id));
           qc.invalidateQueries({ queryKey: ["adminSubjects"] });
@@ -677,6 +678,7 @@ export default function AdminScreen() {
 
   const tabs: { key: TabType; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
     { key: "programs",  label: "Programs",  icon: "school-outline" },
+    { key: "courses",   label: "Courses",   icon: "book-outline" },
     { key: "content",   label: "Content",   icon: "document-text-outline" },
     { key: "students",  label: "Students",  icon: "people-outline" },
   ];
@@ -861,6 +863,108 @@ export default function AdminScreen() {
               })
             )}
 
+          </View>
+        )}
+
+        {/* COURSES TAB */}
+        {activeTab === "courses" && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Courses</Text>
+              {!!coursesTabProgramId && (
+                <Pressable style={styles.addBtnSmall} onPress={() => openAddPaper(coursesTabProgramId)}>
+                  <Ionicons name="add" size={16} color="#FFF" />
+                  <Text style={styles.addBtnText}>Add Course</Text>
+                </Pressable>
+              )}
+            </View>
+
+            {/* Program filter */}
+            {programsLoading ? <ActivityIndicator color={Colors.light.primary} style={{ marginVertical: 12 }} /> : (
+              <>
+                <View style={styles.filterRow}>
+                  <Ionicons name="funnel-outline" size={14} color={Colors.light.textMuted} />
+                  <Text style={styles.filterLabel}>Filter by program:</Text>
+                </View>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterChips}>
+                  {(programs ?? []).map(p => (
+                    <Pressable key={p.id}
+                      style={[styles.filterChip, coursesTabProgramId === p.id && styles.filterChipActive]}
+                      onPress={() => setCoursesTabProgramId(prev => prev === p.id ? null : p.id)}>
+                      <Text style={[styles.filterChipText, coursesTabProgramId === p.id && styles.filterChipTextActive]}>{p.code}</Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              </>
+            )}
+
+            {/* Course list */}
+            {(() => {
+              const filtered = (allSubjects ?? []).filter(s =>
+                !pendingPaperDeleteIds.includes(s.id) &&
+                (coursesTabProgramId ? s.courseId === coursesTabProgramId : true)
+              );
+              if (!allSubjects) return <ActivityIndicator color={Colors.light.primary} style={{ marginTop: 20 }} />;
+              if (filtered.length === 0) return (
+                <View style={styles.emptyState}>
+                  <Ionicons name="book-outline" size={48} color={Colors.light.textMuted} />
+                  <Text style={styles.emptyText}>
+                    {coursesTabProgramId ? "No courses yet. Tap \"Add Course\" to create one." : "No courses yet. Add programs first, then add courses."}
+                  </Text>
+                </View>
+              );
+              if (!coursesTabProgramId) {
+                return (programs ?? []).map(prog => {
+                  const progCourses = filtered.filter(s => s.courseId === prog.id);
+                  if (!progCourses.length) return null;
+                  return (
+                    <View key={prog.id} style={{ marginBottom: 6 }}>
+                      <Text style={styles.courseGroupHeader}>{prog.name}</Text>
+                      {progCourses.map(paper => (
+                        <View key={paper.id} style={styles.paperRowFull}>
+                          <View style={[styles.paperCodeBadge, { backgroundColor: paper.isActive ? Colors.light.primary + "14" : "#F3F4F6" }]}>
+                            <Text style={[styles.paperCode, { color: paper.isActive ? Colors.light.primary : Colors.light.textMuted }]}>{paper.code}</Text>
+                          </View>
+                          <Text style={[styles.paperName, { flex: 1 }, !paper.isActive && { color: Colors.light.textMuted }]} numberOfLines={1}>{paper.name}</Text>
+                          {!paper.isActive && <View style={styles.inactiveBadge}><Text style={styles.inactiveBadgeText}>Off</Text></View>}
+                          <View style={styles.paperActions}>
+                            <Pressable style={[styles.toggleIconBtn, { backgroundColor: paper.isActive ? "#DCFCE7" : "#FEE2E2" }]} onPress={() => handleToggleSubject(paper.id, paper.isActive)}>
+                              <Ionicons name={paper.isActive ? "eye" : "eye-off"} size={13} color={paper.isActive ? "#059669" : "#DC2626"} />
+                            </Pressable>
+                            <Pressable style={styles.editIconBtn} onPress={() => openEditPaper(paper)}>
+                              <Ionicons name="pencil" size={13} color={Colors.light.primary} />
+                            </Pressable>
+                            <Pressable style={styles.deleteIconBtn} onPress={() => confirmDeletePaper(paper)}>
+                              <Ionicons name="trash" size={13} color={Colors.light.error} />
+                            </Pressable>
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  );
+                });
+              }
+              return filtered.map(paper => (
+                <View key={paper.id} style={styles.paperRowFull}>
+                  <View style={[styles.paperCodeBadge, { backgroundColor: paper.isActive ? Colors.light.primary + "14" : "#F3F4F6" }]}>
+                    <Text style={[styles.paperCode, { color: paper.isActive ? Colors.light.primary : Colors.light.textMuted }]}>{paper.code}</Text>
+                  </View>
+                  <Text style={[styles.paperName, { flex: 1 }, !paper.isActive && { color: Colors.light.textMuted }]} numberOfLines={1}>{paper.name}</Text>
+                  {!paper.isActive && <View style={styles.inactiveBadge}><Text style={styles.inactiveBadgeText}>Off</Text></View>}
+                  <View style={styles.paperActions}>
+                    <Pressable style={[styles.toggleIconBtn, { backgroundColor: paper.isActive ? "#DCFCE7" : "#FEE2E2" }]} onPress={() => handleToggleSubject(paper.id, paper.isActive)}>
+                      <Ionicons name={paper.isActive ? "eye" : "eye-off"} size={13} color={paper.isActive ? "#059669" : "#DC2626"} />
+                    </Pressable>
+                    <Pressable style={styles.editIconBtn} onPress={() => openEditPaper(paper)}>
+                      <Ionicons name="pencil" size={13} color={Colors.light.primary} />
+                    </Pressable>
+                    <Pressable style={styles.deleteIconBtn} onPress={() => confirmDeletePaper(paper)}>
+                      <Ionicons name="trash" size={13} color={Colors.light.error} />
+                    </Pressable>
+                  </View>
+                </View>
+              ));
+            })()}
           </View>
         )}
 
@@ -1397,14 +1501,14 @@ export default function AdminScreen() {
       <Modal visible={showPaperModal} transparent animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowPaperModal(false)}>
         <View style={[styles.sheetContainer, { paddingTop: Math.max(insets.top + 8, 20) }]}>
           <View style={styles.sheetHeader}>
-            <Text style={styles.sheetTitle}>{editingPaper ? "Edit Paper" : "Add Paper"}</Text>
+            <Text style={styles.sheetTitle}>{editingPaper ? "Edit Course" : "Add Course"}</Text>
             <Pressable onPress={() => setShowPaperModal(false)}>
               <Ionicons name="close" size={24} color={Colors.light.text} />
             </Pressable>
           </View>
           <ScrollView style={styles.sheetScroll} contentContainerStyle={{ gap: 14, paddingBottom: Math.max(insets.bottom + 20, 40) }} keyboardShouldPersistTaps="handled">
             <View style={styles.formField}>
-              <Text style={styles.formLabel}>Paper Name <Text style={styles.required}>*</Text></Text>
+              <Text style={styles.formLabel}>Course Name <Text style={styles.required}>*</Text></Text>
               <TextInput
                 style={styles.formInput}
                 value={paperForm.name}
@@ -1445,7 +1549,7 @@ export default function AdminScreen() {
               onPress={handleSavePaper}
               disabled={savingPaper || !paperForm.name.trim() || !paperForm.code.trim()}
             >
-              {savingPaper ? <ActivityIndicator color="#FFF" /> : <Text style={styles.saveBtnText}>{editingPaper ? "Save Changes" : "Add Paper"}</Text>}
+              {savingPaper ? <ActivityIndicator color="#FFF" /> : <Text style={styles.saveBtnText}>{editingPaper ? "Save Changes" : "Add Course"}</Text>}
             </Pressable>
           </ScrollView>
         </View>
@@ -2020,6 +2124,9 @@ const styles = StyleSheet.create({
   studentPhone: { fontSize: 12, fontFamily: "Inter_400Regular", color: Colors.light.textMuted, marginTop: 1 },
   studentPapersRow: { flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 6 },
   studentPapersLabel: { fontSize: 12, fontFamily: "Inter_400Regular", color: Colors.light.textMuted },
+
+  courseGroupHeader: { fontSize: 11, fontFamily: "Inter_700Bold", color: Colors.light.textMuted, textTransform: "uppercase", letterSpacing: 0.8, marginTop: 12, marginBottom: 4, paddingHorizontal: 4 },
+  paperRowFull: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: Colors.light.card, borderRadius: 12, padding: 12, marginBottom: 6, shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 3, elevation: 1 },
 
   contentSubTabs: { flexDirection: "row", gap: 8, marginBottom: 14 },
   contentSubTab: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingVertical: 9, borderRadius: 10, backgroundColor: Colors.light.backgroundSecondary, borderWidth: 1, borderColor: Colors.light.border },
