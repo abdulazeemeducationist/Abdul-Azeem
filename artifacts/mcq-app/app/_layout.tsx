@@ -22,16 +22,17 @@ const queryClient = new QueryClient();
 
 function RootLayoutNav() {
   const { user, isLoading } = useAuth();
+  const isLoggedIn = !!user;
 
   useEffect(() => {
     if (!isLoading) {
-      if (user) {
+      if (isLoggedIn) {
         router.replace("/(tabs)");
       } else {
         router.replace("/auth/signin");
       }
     }
-  }, [user, isLoading]);
+  }, [isLoggedIn, isLoading]);
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
