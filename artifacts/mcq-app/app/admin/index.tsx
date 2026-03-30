@@ -85,9 +85,9 @@ export default function AdminScreen() {
   const { data: students, isLoading: studentsLoading, refetch: refetchStudents } = useQuery({
     queryKey: ["adminStudents"], queryFn: api.getStudents, enabled: activeTab === "students",
   });
-  const { data: allSubjects } = useQuery({
+  const { data: allSubjects, refetch: refetchSubjects } = useQuery({
     queryKey: ["adminSubjects"], queryFn: api.getAllSubjects,
-    enabled: showEnrollModal || activeTab === "content",
+    enabled: showEnrollModal || activeTab === "content" || activeTab === "programs",
   });
   const { data: adminQuestions, isLoading: questionsLoading, refetch: refetchQuestions } = useQuery({
     queryKey: ["adminQuestions", filterSubjectId],
@@ -169,6 +169,22 @@ export default function AdminScreen() {
     } finally {
       setSavingProgram(false);
     }
+  };
+  const handleToggleCourse = async (id: number, current: boolean) => {
+    try {
+      await api.toggleCourseActive(id, !current);
+      qc.invalidateQueries({ queryKey: ["adminCourses"] });
+      qc.invalidateQueries({ queryKey: ["courses"] });
+      refetchPrograms();
+    } catch (e) { console.error(e); }
+  };
+  const handleToggleSubject = async (id: number, current: boolean) => {
+    try {
+      await api.toggleSubjectActive(id, !current);
+      qc.invalidateQueries({ queryKey: ["adminSubjects"] });
+      qc.invalidateQueries({ queryKey: ["subjects"] });
+      refetchSubjects();
+    } catch (e) { console.error(e); }
   };
   const confirmDelete = (id: number) => { setDeletingId(id); setShowDeleteConfirm(true); };
   const handleDeleteProgram = async () => {
@@ -454,6 +470,12 @@ export default function AdminScreen() {
                       </View>
                     </View>
                     <View style={styles.rowActions}>
+                      <Pressable
+                        style={[styles.toggleIconBtn, { backgroundColor: prog.isActive ? "#DCFCE7" : "#FEE2E2" }]}
+                        onPress={() => handleToggleCourse(prog.id, prog.isActive)}
+                      >
+                        <Ionicons name={prog.isActive ? "eye" : "eye-off"} size={15} color={prog.isActive ? "#059669" : "#DC2626"} />
+                      </Pressable>
                       <Pressable style={styles.editIconBtn} onPress={() => openEditProgram(prog)}>
                         <Ionicons name="pencil" size={15} color={Colors.light.primary} />
                       </Pressable>
@@ -464,6 +486,30 @@ export default function AdminScreen() {
                   </View>
                 );
               })
+            )}
+
+            {/* Papers Visibility */}
+            {!programsLoading && !!programs?.length && (
+              <>
+                <Text style={[styles.sectionTitle, { marginTop: 18, marginBottom: 10 }]}>Paper Visibility</Text>
+                {(allSubjects ?? []).map(s => (
+                  <View key={s.id} style={styles.paperVisRow}>
+                    <View style={[styles.progCodeBox, { backgroundColor: Colors.light.primary + "14" }]}>
+                      <Text style={[styles.progCode, { color: Colors.light.primary }]}>{s.code}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.progName} numberOfLines={1}>{s.name}</Text>
+                      <Text style={styles.progMeta}>{s.courseName}</Text>
+                    </View>
+                    <Pressable
+                      style={[styles.toggleIconBtn, { backgroundColor: s.isActive ? "#DCFCE7" : "#FEE2E2" }]}
+                      onPress={() => handleToggleSubject(s.id, s.isActive)}
+                    >
+                      <Ionicons name={s.isActive ? "eye" : "eye-off"} size={15} color={s.isActive ? "#059669" : "#DC2626"} />
+                    </Pressable>
+                  </View>
+                ))}
+              </>
             )}
           </View>
         )}
@@ -1059,6 +1105,12 @@ const styles = StyleSheet.create({
   rowActions: { flexDirection: "row", gap: 6 },
   editIconBtn: { width: 34, height: 34, borderRadius: 10, backgroundColor: Colors.light.primary + "12", alignItems: "center", justifyContent: "center" },
   deleteIconBtn: { width: 34, height: 34, borderRadius: 10, backgroundColor: Colors.light.error + "12", alignItems: "center", justifyContent: "center" },
+  toggleIconBtn: { width: 34, height: 34, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  paperVisRow: {
+    flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: Colors.light.card,
+    borderRadius: 12, padding: 12, marginBottom: 6,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
+  },
   actionGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   actionCard: { width: "47%", backgroundColor: Colors.light.card, borderRadius: 14, padding: 16, alignItems: "center", gap: 8, shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
   actionIcon: { width: 52, height: 52, borderRadius: 14, alignItems: "center", justifyContent: "center" },

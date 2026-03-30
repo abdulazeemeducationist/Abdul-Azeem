@@ -10,7 +10,7 @@ const router: IRouter = Router();
 
 router.get("/", async (_req, res) => {
   try {
-    const courses = await db.select().from(coursesTable);
+    const courses = await db.select().from(coursesTable).where(eq(coursesTable.isActive, true));
     const result = await Promise.all(courses.map(async (c) => {
       const subjects = await db.select({ id: subjectsTable.id }).from(subjectsTable).where(eq(subjectsTable.courseId, c.id));
       const subjectIds = subjects.map(s => s.id);
@@ -50,7 +50,7 @@ router.get("/:courseId/levels", async (req, res) => {
       .orderBy(levelsTable.orderNumber);
     const result = await Promise.all(levels.map(async (lv) => {
       const subjects = await db.select({ id: subjectsTable.id }).from(subjectsTable)
-        .where(eq(subjectsTable.levelId, lv.id));
+        .where(and(eq(subjectsTable.levelId, lv.id), eq(subjectsTable.isActive, true)));
       return { ...lv, subjectCount: subjects.length };
     }));
     res.json(result);
@@ -75,6 +75,7 @@ router.get("/:courseId/subjects", async (req, res) => {
   try {
     const courseId = parseInt(req.params.courseId);
     const userId = req.query.userId ? parseInt(req.query.userId as string) : null;
+    const isAdmin = req.query.admin === "true";
 
     let purchasedIds = new Set<number>();
     if (userId) {
@@ -84,7 +85,11 @@ router.get("/:courseId/subjects", async (req, res) => {
       purchasedIds = new Set(purchases.map(p => p.subjectId));
     }
 
-    const subjects = await db.select().from(subjectsTable).where(eq(subjectsTable.courseId, courseId));
+    const whereClause = isAdmin
+      ? eq(subjectsTable.courseId, courseId)
+      : and(eq(subjectsTable.courseId, courseId), eq(subjectsTable.isActive, true));
+
+    const subjects = await db.select().from(subjectsTable).where(whereClause);
     const result = await Promise.all(subjects.map(async (s) => {
       const chapters = await db.select({ id: chaptersTable.id }).from(chaptersTable).where(eq(chaptersTable.subjectId, s.id));
       const chapterIds = chapters.map(c => c.id);

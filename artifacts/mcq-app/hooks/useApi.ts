@@ -10,6 +10,7 @@ export interface Course {
   icon?: string;
   color?: string;
   logo?: string;
+  isActive: boolean;
   subjectCount: number;
   questionCount: number;
 }
@@ -29,6 +30,7 @@ export interface Subject {
   name: string;
   code: string;
   description?: string;
+  isActive: boolean;
   chapterCount: number;
   questionCount: number;
   purchased: boolean;
@@ -93,6 +95,7 @@ export interface AdminSubject {
   levelId?: number;
   courseName: string;
   courseCode: string;
+  isActive: boolean;
 }
 
 export interface StudentPurchasedSubject {
@@ -206,6 +209,24 @@ export const api = {
   deleteCourse: async (id: number): Promise<void> => {
     const res = await fetch(`${API_BASE}/admin/courses/${id}`, { method: "DELETE" });
     if (!res.ok) throw new Error("Failed to delete course");
+  },
+  toggleCourseActive: async (id: number, isActive: boolean): Promise<Course> => {
+    const res = await fetch(`${API_BASE}/admin/courses/${id}/active`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isActive }),
+    });
+    if (!res.ok) throw new Error("Failed to toggle course status");
+    return res.json();
+  },
+  toggleSubjectActive: async (id: number, isActive: boolean): Promise<AdminSubject> => {
+    const res = await fetch(`${API_BASE}/admin/subjects/${id}/active`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isActive }),
+    });
+    if (!res.ok) throw new Error("Failed to toggle subject status");
+    return res.json();
   },
   getAdminStats: async () => {
     const res = await fetch(`${API_BASE}/admin/stats`);

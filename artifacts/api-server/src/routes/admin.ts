@@ -4,7 +4,7 @@ import {
   coursesTable, subjectsTable, chaptersTable, topicsTable, questionsTable,
   usersTable, userProgressTable, userSubjectPurchasesTable, levelsTable
 } from "@workspace/db";
-import { eq, count, avg, and } from "drizzle-orm";
+import { eq, count, avg, and, inArray } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -108,6 +108,7 @@ router.get("/subjects", async (_req, res) => {
         code: subjectsTable.code,
         courseId: subjectsTable.courseId,
         levelId: subjectsTable.levelId,
+        isActive: subjectsTable.isActive,
         courseName: coursesTable.name,
         courseCode: coursesTable.code,
       })
@@ -156,6 +157,32 @@ router.put("/courses/:courseId", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Internal Server Error", message: "Failed to update course" });
+  }
+});
+
+router.patch("/courses/:courseId/active", async (req, res) => {
+  try {
+    const id = parseInt(req.params.courseId);
+    const { isActive } = req.body;
+    const [course] = await db.update(coursesTable).set({ isActive }).where(eq(coursesTable.id, id)).returning();
+    if (!course) { res.status(404).json({ error: "Course not found" }); return; }
+    res.json(course);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to update course status" });
+  }
+});
+
+router.patch("/subjects/:subjectId/active", async (req, res) => {
+  try {
+    const id = parseInt(req.params.subjectId);
+    const { isActive } = req.body;
+    const [subject] = await db.update(subjectsTable).set({ isActive }).where(eq(subjectsTable.id, id)).returning();
+    if (!subject) { res.status(404).json({ error: "Subject not found" }); return; }
+    res.json(subject);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to update subject status" });
   }
 });
 

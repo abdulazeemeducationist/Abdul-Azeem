@@ -19,6 +19,7 @@ export const coursesTable = pgTable("courses", {
   icon: varchar("icon", { length: 100 }),
   color: varchar("color", { length: 20 }),
   logo: text("logo"),
+  isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -37,6 +38,7 @@ export const subjectsTable = pgTable("subjects", {
   name: text("name").notNull(),
   code: varchar("code", { length: 50 }).notNull(),
   description: text("description"),
+  isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
