@@ -6,35 +6,95 @@ import React, { useState } from "react";
 import {
   ActivityIndicator,
   Linking,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { WebView } from "react-native-webview";
 import Colors from "@/constants/colors";
 import { api, ChapterVideo, ChapterNote, Topic } from "@/hooks/useApi";
 
 type ContentTab = "videos" | "notes" | "practice";
 
-function VideoCard({ video }: { video: ChapterVideo }) {
-  const handleOpen = () => {
-    Linking.openURL(video.youtubeUrl).catch(() => {});
-  };
+function getVideoId(url: string): string | null {
+  const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/))([a-zA-Z0-9_-]{11})/);
+  return match ? match[1] : null;
+}
 
-  const getThumbnail = (url: string) => {
-    const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/))([a-zA-Z0-9_-]{11})/);
-    return match ? `https://img.youtube.com/vi/${match[1]}/mqdefault.jpg` : null;
-  };
+function VideoPlayerModal({ video, onClose }: { video: ChapterVideo; onClose: () => void }) {
+  const insets = useSafeAreaInsets();
+  const videoId = getVideoId(video.youtubeUrl);
+  const embedUrl = videoId
+    ? `https://www.youtube.com/embed/${videoId}?autoplay=1&modestbranding=1&rel=0`
+    : video.youtubeUrl;
 
-  const thumb = getThumbnail(video.youtubeUrl);
+  const html = `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"><style>*{margin:0;padding:0;box-sizing:border-box;background:#000}body{display:flex;align-items:center;justify-content:center;height:100vh;width:100vw}iframe{width:100%;height:100%;border:none}</style></head><body><iframe src="${embedUrl}" allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture;fullscreen" allowfullscreen></iframe></body></html>`;
+
+  return (
+    <Modal visible animationType="slide" statusBarTranslucent onRequestClose={onClose}>
+      <StatusBar barStyle="light-content" backgroundColor="#000" />
+      <View style={playerStyles.container}>
+        {/* Header */}
+        <View style={[playerStyles.header, { paddingTop: Math.max(insets.top, 16) }]}>
+          <Pressable style={playerStyles.closeBtn} onPress={onClose}>
+            <Ionicons name="arrow-back" size={22} color="#FFF" />
+          </Pressable>
+          <Text style={playerStyles.headerTitle} numberOfLines={2}>{video.title}</Text>
+          <View style={{ width: 38 }} />
+        </View>
+
+        {/* Embedded player */}
+        <View style={playerStyles.playerBox}>
+          <WebView
+            source={{ html }}
+            style={playerStyles.webview}
+            allowsFullscreenVideo
+            allowsInlineMediaPlayback
+            mediaPlaybackRequiresUserAction={false}
+            javaScriptEnabled
+            scrollEnabled={false}
+          />
+        </View>
+
+        {/* Description */}
+        {video.description ? (
+          <ScrollView style={playerStyles.descScroll} contentContainerStyle={playerStyles.descContent}>
+            <Text style={playerStyles.descTitle}>{video.title}</Text>
+            <Text style={playerStyles.descText}>{video.description}</Text>
+          </ScrollView>
+        ) : null}
+      </View>
+    </Modal>
+  );
+}
+
+const playerStyles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#000" },
+  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingBottom: 12, gap: 10 },
+  closeBtn: { width: 38, height: 38, borderRadius: 10, backgroundColor: "rgba(255,255,255,0.12)", alignItems: "center", justifyContent: "center" },
+  headerTitle: { flex: 1, fontSize: 14, fontFamily: "Inter_600SemiBold", color: "#FFF", lineHeight: 19 },
+  playerBox: { width: "100%", aspectRatio: 16 / 9, backgroundColor: "#000" },
+  webview: { flex: 1, backgroundColor: "#000" },
+  descScroll: { flex: 1, backgroundColor: "#111" },
+  descContent: { padding: 16, gap: 8 },
+  descTitle: { fontSize: 15, fontFamily: "Inter_700Bold", color: "#FFF", lineHeight: 21 },
+  descText: { fontSize: 13, fontFamily: "Inter_400Regular", color: "#AAA", lineHeight: 20 },
+});
+
+function VideoCard({ video, onPlay }: { video: ChapterVideo; onPlay: () => void }) {
+  const videoId = getVideoId(video.youtubeUrl);
+  const thumb = videoId ? `https://img.youtube.com/vi/${videoId}/mqdefault.jpg` : null;
 
   return (
     <Pressable
-      style={({ pressed }) => [styles.videoCard, { opacity: pressed ? 0.9 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] }]}
-      onPress={handleOpen}
+      style={({ pressed }) => [styles.videoCard, { opacity: pressed ? 0.92 : 1, transform: [{ scale: pressed ? 0.985 : 1 }] }]}
+      onPress={onPlay}
     >
       <View style={styles.thumbnailBox}>
         {thumb ? (
@@ -45,20 +105,22 @@ function VideoCard({ video }: { video: ChapterVideo }) {
           </View>
         )}
         <View style={styles.playOverlay}>
-          <Ionicons name="play-circle" size={28} color="#FFF" />
+          <View style={styles.playCircle}>
+            <Ionicons name="play" size={16} color="#FFF" style={{ marginLeft: 2 }} />
+          </View>
         </View>
       </View>
       <View style={styles.videoInfo}>
         <Text style={styles.videoTitle} numberOfLines={2}>{video.title}</Text>
         {video.description ? (
-          <Text style={styles.videoDesc} numberOfLines={2}>{video.description}</Text>
+          <Text style={styles.videoDesc} numberOfLines={1}>{video.description}</Text>
         ) : null}
         <View style={styles.watchRow}>
-          <Ionicons name="logo-youtube" size={13} color="#FF0000" />
-          <Text style={styles.watchText}>Watch on YouTube</Text>
+          <Ionicons name="play-circle" size={12} color={Colors.light.primary} />
+          <Text style={styles.watchText}>Tap to watch</Text>
         </View>
       </View>
-      <Ionicons name="open-outline" size={18} color={Colors.light.textMuted} />
+      <Ionicons name="chevron-forward" size={18} color={Colors.light.textMuted} />
     </Pressable>
   );
 }
@@ -133,6 +195,7 @@ export default function ContentScreen() {
   const topPad = isWeb ? Math.max(insets.top, 67) : insets.top;
 
   const [activeTab, setActiveTab] = useState<ContentTab>("videos");
+  const [playingVideo, setPlayingVideo] = useState<ChapterVideo | null>(null);
 
   const { data: videos, isLoading: videosLoading } = useQuery({
     queryKey: ["chapter-videos", chapterId],
@@ -168,7 +231,7 @@ export default function ContentScreen() {
           <Text style={styles.emptySubtitle}>Video lectures for this chapter will appear here</Text>
         </View>
       );
-      return videos.map(v => <VideoCard key={v.id} video={v} />);
+      return videos.map(v => <VideoCard key={v.id} video={v} onPlay={() => setPlayingVideo(v)} />);
     }
 
     if (activeTab === "notes") {
@@ -200,6 +263,9 @@ export default function ContentScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: topPad }]}>
+      {playingVideo && (
+        <VideoPlayerModal video={playingVideo} onClose={() => setPlayingVideo(null)} />
+      )}
       <View style={styles.header}>
         <Pressable style={styles.backBtn} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={22} color={Colors.light.text} />
@@ -271,12 +337,13 @@ const styles = StyleSheet.create({
   thumbnailBox: { width: 80, height: 56, borderRadius: 10, overflow: "hidden", position: "relative", backgroundColor: "#000" },
   thumbImageBox: { width: "100%", height: "100%" },
   thumbFallback: { alignItems: "center", justifyContent: "center", backgroundColor: "#F3F4F6" },
-  playOverlay: { position: "absolute", inset: 0, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.3)" } as any,
+  playOverlay: { position: "absolute", inset: 0, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.35)" } as any,
+  playCircle: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.light.primary, alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.4, shadowRadius: 6, elevation: 6 },
   videoInfo: { flex: 1, gap: 3 },
   videoTitle: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: Colors.light.text, lineHeight: 18 },
   videoDesc: { fontSize: 11, fontFamily: "Inter_400Regular", color: Colors.light.textSecondary },
   watchRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
-  watchText: { fontSize: 11, fontFamily: "Inter_500Medium", color: Colors.light.textMuted },
+  watchText: { fontSize: 11, fontFamily: "Inter_500Medium", color: Colors.light.primary },
 
   noteCard: {
     backgroundColor: Colors.light.card, borderRadius: 14, flexDirection: "row", alignItems: "center", gap: 12, padding: 14,
