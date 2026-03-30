@@ -81,7 +81,14 @@ export default function AdminScreen() {
   const [studentFormError, setStudentFormError] = useState("");
 
   // Content sub-tab
-  const [contentSubTab, setContentSubTab] = useState<"mcqs" | "videos" | "notes">("mcqs");
+  const [contentSubTab, setContentSubTab] = useState<"chapters" | "mcqs" | "videos" | "notes">("chapters");
+
+  // Chapter management state
+  const [chapFilterSubjectId, setChapFilterSubjectId] = useState<number | null>(null);
+  const [showChapterModal, setShowChapterModal] = useState(false);
+  const [editingChapter, setEditingChapter] = useState<any | null>(null);
+  const [chapterForm, setChapterForm] = useState({ name: "", orderNumber: "1" });
+  const [savingChapter, setSavingChapter] = useState(false);
 
   // Video management state
   const [videoFilterSubjectId, setVideoFilterSubjectId] = useState<number | null>(null);
@@ -156,6 +163,11 @@ export default function AdminScreen() {
     queryKey: ["admin-chapter-notes", noteFilterChapterId],
     queryFn: () => api.getChapterNotes(Number(noteFilterChapterId)),
     enabled: activeTab === "content" && contentSubTab === "notes" && !!noteFilterChapterId,
+  });
+  const { data: adminChapters, isLoading: adminChaptersLoading, refetch: refetchAdminChapters } = useQuery({
+    queryKey: ["admin-chapters", chapFilterSubjectId],
+    queryFn: () => api.getAdminChapters(Number(chapFilterSubjectId)),
+    enabled: activeTab === "content" && contentSubTab === "chapters" && !!chapFilterSubjectId,
   });
 
   if (user?.role !== "admin") {
@@ -552,6 +564,74 @@ export default function AdminScreen() {
         });
       },
     });
+  };
+
+  // --- Chapter Management ---
+  const openAddChapter = () => {
+    setEditingChapter(null);
+    setChapterForm({ name: "", orderNumber: String((adminChapters?.length ?? 0) + 1) });
+    setShowChapterModal(true);
+  };
+  const openEditChapter = (ch: any) => {
+    setEditingChapter(ch);
+    setChapterForm({ name: ch.name, orderNumber: String(ch.orderNumber) });
+    setShowChapterModal(true);
+  };
+  const handleSaveChapter = async () => {
+    if (!chapterForm.name.trim() || !chapFilterSubjectId) return;
+    setSavingChapter(true);
+    const wasEditing = editingChapter;
+    try {
+      if (wasEditing) {
+        await api.updateChapter(wasEditing.id, { name: chapterForm.name.trim(), orderNumber: parseInt(chapterForm.orderNumber) || wasEditing.orderNumber });
+        showUndo("Chapter updated.", () => {}, async () => {
+          await api.updateChapter(wasEditing.id, { name: wasEditing.name, orderNumber: wasEditing.orderNumber });
+          refetchAdminChapters();
+        });
+      } else {
+        const created = await api.createChapter({ subjectId: chapFilterSubjectId, name: chapterForm.name.trim(), orderNumber: parseInt(chapterForm.orderNumber) || (adminChapters?.length ?? 0) + 1 });
+        showUndo("Chapter created.", () => {}, async () => {
+          await api.deleteChapter(created.id);
+          refetchAdminChapters();
+          qc.invalidateQueries({ queryKey: ["adminStats"] });
+          refetchStats();
+        });
+      }
+      qc.invalidateQueries({ queryKey: ["admin-chapters", chapFilterSubjectId] });
+      qc.invalidateQueries({ queryKey: ["adminStats"] });
+      refetchAdminChapters();
+      refetchStats();
+      setShowChapterModal(false);
+      setEditingChapter(null);
+    } catch (e) { console.error(e); }
+    finally { setSavingChapter(false); }
+  };
+  const handleDeleteChapter = (ch: any) => {
+    setConfirmModal({
+      title: "Delete Chapter?",
+      message: `"${ch.name}" and all its content (videos, notes, MCQs) will be permanently deleted.`,
+      onConfirm: () => {
+        setConfirmModal(null);
+        showUndo(`Chapter "${ch.name}" deleted.`, async () => {
+          await api.deleteChapter(ch.id);
+          qc.invalidateQueries({ queryKey: ["admin-chapters", chapFilterSubjectId] });
+          qc.invalidateQueries({ queryKey: ["adminStats"] });
+          refetchAdminChapters();
+          refetchStats();
+        }, () => {});
+      },
+    });
+  };
+  const handleToggleChapter = async (ch: any) => {
+    try {
+      await api.toggleChapterActive(ch.id, !ch.isActive);
+      qc.invalidateQueries({ queryKey: ["admin-chapters", chapFilterSubjectId] });
+      refetchAdminChapters();
+      showUndo(`Chapter ${!ch.isActive ? "published" : "hidden"}.`, () => {}, async () => {
+        await api.toggleChapterActive(ch.id, ch.isActive);
+        refetchAdminChapters();
+      });
+    } catch (e) { console.error(e); }
   };
 
   // --- Import MCQs ---
@@ -1081,22 +1161,113 @@ export default function AdminScreen() {
           <View style={styles.section}>
 
             {/* Content sub-tabs */}
-            <View style={styles.contentSubTabs}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[styles.contentSubTabs, { gap: 8, paddingHorizontal: 0 }]}>
               {([
-                { key: "mcqs" as const,   label: "MCQs",   icon: "help-circle-outline" },
-                { key: "videos" as const, label: "Videos", icon: "play-circle-outline" },
-                { key: "notes" as const,  label: "Notes",  icon: "document-text-outline" },
+                { key: "chapters" as const, label: "Chapters", icon: "list-outline" },
+                { key: "mcqs" as const,     label: "MCQs",     icon: "help-circle-outline" },
+                { key: "videos" as const,   label: "Videos",   icon: "play-circle-outline" },
+                { key: "notes" as const,    label: "Notes",    icon: "document-text-outline" },
               ]).map(st => (
                 <Pressable
                   key={st.key}
-                  style={[styles.contentSubTab, contentSubTab === st.key && styles.contentSubTabActive]}
+                  style={[styles.contentSubTab, { minWidth: 80 }, contentSubTab === st.key && styles.contentSubTabActive]}
                   onPress={() => setContentSubTab(st.key)}
                 >
                   <Ionicons name={st.icon as any} size={14} color={contentSubTab === st.key ? Colors.light.primary : Colors.light.textMuted} />
                   <Text style={[styles.contentSubTabText, contentSubTab === st.key && styles.contentSubTabTextActive]}>{st.label}</Text>
                 </Pressable>
               ))}
-            </View>
+            </ScrollView>
+
+            {/* Chapters sub-section */}
+            {contentSubTab === "chapters" && (
+              <>
+                <View style={styles.sectionHeaderRow}>
+                  <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Chapter Management</Text>
+                  {!!chapFilterSubjectId && (
+                    <Pressable style={styles.addBtnSmall} onPress={openAddChapter}>
+                      <Ionicons name="add" size={16} color="#FFF" />
+                      <Text style={styles.addBtnText}>Add Chapter</Text>
+                    </Pressable>
+                  )}
+                </View>
+
+                {/* Course filter */}
+                <View style={styles.filterRow}>
+                  <Ionicons name="funnel-outline" size={14} color={Colors.light.textMuted} />
+                  <Text style={styles.filterLabel}>Select a course to manage chapters:</Text>
+                </View>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterChips}>
+                  {(allSubjects ?? []).map(s => (
+                    <Pressable
+                      key={s.id}
+                      style={[styles.filterChip, chapFilterSubjectId === s.id && styles.filterChipActive]}
+                      onPress={() => setChapFilterSubjectId(s.id)}
+                    >
+                      <Text style={[styles.filterChipText, chapFilterSubjectId === s.id && styles.filterChipTextActive]}>{s.code}</Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+
+                {!chapFilterSubjectId ? (
+                  <View style={styles.emptyState}>
+                    <Ionicons name="list-outline" size={48} color={Colors.light.textMuted} />
+                    <Text style={styles.emptyText}>Select a course above to view and manage its chapters</Text>
+                  </View>
+                ) : adminChaptersLoading ? (
+                  <View style={{ paddingTop: 30, alignItems: "center" }}>
+                    <ActivityIndicator color={Colors.light.primary} />
+                  </View>
+                ) : !adminChapters?.length ? (
+                  <View style={styles.emptyState}>
+                    <Ionicons name="book-outline" size={48} color={Colors.light.textMuted} />
+                    <Text style={styles.emptyText}>No chapters yet. Add the first chapter.</Text>
+                  </View>
+                ) : (
+                  <>
+                    <Text style={styles.qCount}>{adminChapters.length} chapter{adminChapters.length !== 1 ? "s" : ""}</Text>
+                    {adminChapters.map((ch: any, idx: number) => (
+                      <View key={ch.id} style={[styles.chapterAdminRow, !ch.isActive && styles.chapterAdminRowInactive]}>
+                        <View style={styles.chapterAdminLeft}>
+                          <View style={styles.chapterOrderBadge}>
+                            <Text style={styles.chapterOrderText}>{idx + 1}</Text>
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                              <Text style={[styles.chapterAdminName, !ch.isActive && { color: Colors.light.textMuted }]} numberOfLines={1}>{ch.name}</Text>
+                              {!ch.isActive && (
+                                <View style={styles.hiddenBadge}><Text style={styles.hiddenBadgeText}>Hidden</Text></View>
+                              )}
+                            </View>
+                            <Text style={styles.chapterAdminMeta}>{ch.topicCount ?? 0} topic{ch.topicCount !== 1 ? "s" : ""}</Text>
+                          </View>
+                        </View>
+                        <View style={styles.chapterAdminActions}>
+                          <Pressable
+                            style={[styles.previewIconBtn]}
+                            onPress={() => router.push({ pathname: "/content/[chapterId]", params: { chapterId: String(ch.id) } } as any)}
+                          >
+                            <Ionicons name="eye-outline" size={15} color="#7C3AED" />
+                          </Pressable>
+                          <Pressable
+                            style={[styles.toggleIconBtn, { backgroundColor: ch.isActive ? "#FEF9C3" : "#DCFCE7" }]}
+                            onPress={() => handleToggleChapter(ch)}
+                          >
+                            <Ionicons name={ch.isActive ? "eye-off-outline" : "eye-outline"} size={14} color={ch.isActive ? "#D97706" : "#059669"} />
+                          </Pressable>
+                          <Pressable style={styles.editIconBtn} onPress={() => openEditChapter(ch)}>
+                            <Ionicons name="pencil" size={13} color={Colors.light.primary} />
+                          </Pressable>
+                          <Pressable style={styles.deleteIconBtn} onPress={() => handleDeleteChapter(ch)}>
+                            <Ionicons name="trash" size={13} color={Colors.light.error} />
+                          </Pressable>
+                        </View>
+                      </View>
+                    ))}
+                  </>
+                )}
+              </>
+            )}
 
             {/* MCQs sub-section */}
             {contentSubTab === "mcqs" && (<>
@@ -1872,6 +2043,48 @@ export default function AdminScreen() {
         </View>
       </Modal>
 
+      {/* ── Add / Edit Chapter Modal ── */}
+      <Modal visible={showChapterModal} transparent animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowChapterModal(false)}>
+        <View style={[styles.sheetContainer, { paddingTop: Math.max(insets.top + 8, 20) }]}>
+          <View style={styles.sheetHeader}>
+            <Text style={styles.sheetTitle}>{editingChapter ? "Edit Chapter" : "Add Chapter"}</Text>
+            <Pressable onPress={() => setShowChapterModal(false)}>
+              <Ionicons name="close" size={24} color={Colors.light.text} />
+            </Pressable>
+          </View>
+          <ScrollView style={styles.sheetScroll} contentContainerStyle={{ gap: 14, paddingBottom: Math.max(insets.bottom + 20, 40) }} keyboardShouldPersistTaps="handled">
+            <View style={styles.formField}>
+              <Text style={styles.formLabel}>Chapter Name <Text style={styles.required}>*</Text></Text>
+              <TextInput
+                style={styles.formInput}
+                value={chapterForm.name}
+                onChangeText={v => setChapterForm(f => ({ ...f, name: v }))}
+                placeholder="e.g. Introduction to Financial Accounting"
+                placeholderTextColor={Colors.light.textMuted}
+              />
+            </View>
+            <View style={styles.formField}>
+              <Text style={styles.formLabel}>Order Number</Text>
+              <TextInput
+                style={styles.formInput}
+                value={chapterForm.orderNumber}
+                onChangeText={v => setChapterForm(f => ({ ...f, orderNumber: v }))}
+                placeholder="1"
+                placeholderTextColor={Colors.light.textMuted}
+                keyboardType="numeric"
+              />
+            </View>
+            <Pressable
+              style={[styles.saveBtn, !chapterForm.name.trim() && styles.saveBtnDisabled, { opacity: savingChapter ? 0.85 : 1 }]}
+              onPress={handleSaveChapter}
+              disabled={savingChapter || !chapterForm.name.trim()}
+            >
+              {savingChapter ? <ActivityIndicator color="#FFF" /> : <Text style={styles.saveBtnText}>{editingChapter ? "Save Changes" : "Create Chapter"}</Text>}
+            </Pressable>
+          </ScrollView>
+        </View>
+      </Modal>
+
       {/* ── Confirm Delete Modal ── */}
       <Modal visible={!!confirmModal} transparent animationType="fade" onRequestClose={() => setConfirmModal(null)}>
         <View style={styles.overlay}>
@@ -2140,4 +2353,17 @@ const styles = StyleSheet.create({
   videoAdminIcon: { width: 36, height: 36, borderRadius: 10, backgroundColor: "#FEE2E2", alignItems: "center", justifyContent: "center" },
   videoAdminTitle: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: Colors.light.text },
   videoAdminUrl: { fontSize: 11, fontFamily: "Inter_400Regular", color: Colors.light.textMuted, marginTop: 1 },
+
+  // Chapter admin row
+  chapterAdminRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: Colors.light.card, borderRadius: 14, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: Colors.light.border, shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 },
+  chapterAdminRowInactive: { backgroundColor: Colors.light.backgroundSecondary, borderStyle: "dashed" },
+  chapterAdminLeft: { flex: 1, flexDirection: "row", alignItems: "center", gap: 10, marginRight: 8 },
+  chapterOrderBadge: { width: 30, height: 30, borderRadius: 8, backgroundColor: Colors.light.primary + "18", alignItems: "center", justifyContent: "center" },
+  chapterOrderText: { fontSize: 13, fontFamily: "Inter_700Bold", color: Colors.light.primary },
+  chapterAdminName: { fontSize: 14, fontFamily: "Inter_600SemiBold", color: Colors.light.text, flexShrink: 1 },
+  chapterAdminMeta: { fontSize: 11, fontFamily: "Inter_400Regular", color: Colors.light.textMuted, marginTop: 1 },
+  chapterAdminActions: { flexDirection: "row", alignItems: "center", gap: 5 },
+  hiddenBadge: { backgroundColor: "#FEF9C3", paddingHorizontal: 7, paddingVertical: 2, borderRadius: 20 },
+  hiddenBadgeText: { fontSize: 9, fontFamily: "Inter_600SemiBold", color: "#92400E" },
+  previewIconBtn: { width: 30, height: 30, borderRadius: 8, backgroundColor: "#7C3AED18", alignItems: "center", justifyContent: "center" },
 });

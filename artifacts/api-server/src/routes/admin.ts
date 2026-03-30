@@ -270,6 +270,77 @@ router.post("/chapters", async (req, res) => {
   }
 });
 
+router.get("/subjects/:subjectId/chapters", async (req, res) => {
+  try {
+    const subjectId = parseInt(req.params.subjectId);
+    const chapters = await db
+      .select({
+        id: chaptersTable.id,
+        subjectId: chaptersTable.subjectId,
+        name: chaptersTable.name,
+        orderNumber: chaptersTable.orderNumber,
+        isActive: chaptersTable.isActive,
+        createdAt: chaptersTable.createdAt,
+        topicCount: count(topicsTable.id),
+      })
+      .from(chaptersTable)
+      .leftJoin(topicsTable, eq(topicsTable.chapterId, chaptersTable.id))
+      .where(eq(chaptersTable.subjectId, subjectId))
+      .groupBy(chaptersTable.id)
+      .orderBy(asc(chaptersTable.orderNumber));
+    res.json(chapters);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to get chapters" });
+  }
+});
+
+router.put("/chapters/:chapterId", async (req, res) => {
+  try {
+    const id = parseInt(req.params.chapterId);
+    const { name, orderNumber } = req.body;
+    if (!name) { res.status(400).json({ error: "name is required" }); return; }
+    const [chapter] = await db.update(chaptersTable).set({ name, orderNumber }).where(eq(chaptersTable.id, id)).returning();
+    if (!chapter) { res.status(404).json({ error: "Chapter not found" }); return; }
+    res.json(chapter);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to update chapter" });
+  }
+});
+
+router.patch("/chapters/:chapterId/active", async (req, res) => {
+  try {
+    const id = parseInt(req.params.chapterId);
+    const { isActive } = req.body;
+    const [chapter] = await db.update(chaptersTable).set({ isActive }).where(eq(chaptersTable.id, id)).returning();
+    if (!chapter) { res.status(404).json({ error: "Chapter not found" }); return; }
+    res.json(chapter);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to toggle chapter" });
+  }
+});
+
+router.delete("/chapters/:chapterId", async (req, res) => {
+  try {
+    const id = parseInt(req.params.chapterId);
+    const topics = await db.select({ id: topicsTable.id }).from(topicsTable).where(eq(topicsTable.chapterId, id));
+    const topicIds = topics.map(t => t.id);
+    if (topicIds.length > 0) {
+      await db.delete(questionsTable).where(inArray(questionsTable.topicId, topicIds));
+      await db.delete(topicsTable).where(inArray(topicsTable.id, topicIds));
+    }
+    await db.delete(chapterVideosTable).where(eq(chapterVideosTable.chapterId, id));
+    await db.delete(chapterNotesTable).where(eq(chapterNotesTable.chapterId, id));
+    await db.delete(chaptersTable).where(eq(chaptersTable.id, id));
+    res.json({ message: "Chapter deleted" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to delete chapter" });
+  }
+});
+
 router.post("/topics", async (req, res) => {
   try {
     const { chapterId, name, orderNumber } = req.body;
@@ -285,64 +356,39 @@ router.get("/questions", async (req, res) => {
   try {
     const topicId = req.query.topicId ? parseInt(req.query.topicId as string) : null;
     const subjectId = req.query.subjectId ? parseInt(req.query.subjectId as string) : null;
+    const chapterId = req.query.chapterId ? parseInt(req.query.chapterId as string) : null;
+
+    const selectFields = {
+      id: questionsTable.id,
+      topicId: questionsTable.topicId,
+      topicName: topicsTable.name,
+      questionText: questionsTable.questionText,
+      optionA: questionsTable.optionA,
+      optionB: questionsTable.optionB,
+      optionC: questionsTable.optionC,
+      optionD: questionsTable.optionD,
+      correctAnswers: questionsTable.correctAnswers,
+      explanation: questionsTable.explanation,
+      questionType: questionsTable.questionType,
+      difficulty: questionsTable.difficulty,
+    };
 
     let rows;
     if (topicId) {
-      rows = await db
-        .select({
-          id: questionsTable.id,
-          topicId: questionsTable.topicId,
-          topicName: topicsTable.name,
-          questionText: questionsTable.questionText,
-          optionA: questionsTable.optionA,
-          optionB: questionsTable.optionB,
-          optionC: questionsTable.optionC,
-          optionD: questionsTable.optionD,
-          correctAnswers: questionsTable.correctAnswers,
-          explanation: questionsTable.explanation,
-          questionType: questionsTable.questionType,
-          difficulty: questionsTable.difficulty,
-        })
-        .from(questionsTable)
+      rows = await db.select(selectFields).from(questionsTable)
         .innerJoin(topicsTable, eq(topicsTable.id, questionsTable.topicId))
         .where(eq(questionsTable.topicId, topicId));
+    } else if (chapterId) {
+      rows = await db.select(selectFields).from(questionsTable)
+        .innerJoin(topicsTable, eq(topicsTable.id, questionsTable.topicId))
+        .where(eq(topicsTable.chapterId, chapterId));
     } else if (subjectId) {
-      rows = await db
-        .select({
-          id: questionsTable.id,
-          topicId: questionsTable.topicId,
-          topicName: topicsTable.name,
-          questionText: questionsTable.questionText,
-          optionA: questionsTable.optionA,
-          optionB: questionsTable.optionB,
-          optionC: questionsTable.optionC,
-          optionD: questionsTable.optionD,
-          correctAnswers: questionsTable.correctAnswers,
-          explanation: questionsTable.explanation,
-          questionType: questionsTable.questionType,
-          difficulty: questionsTable.difficulty,
-        })
-        .from(questionsTable)
+      rows = await db.select(selectFields).from(questionsTable)
         .innerJoin(topicsTable, eq(topicsTable.id, questionsTable.topicId))
         .innerJoin(chaptersTable, eq(chaptersTable.id, topicsTable.chapterId))
         .where(eq(chaptersTable.subjectId, subjectId));
     } else {
-      rows = await db
-        .select({
-          id: questionsTable.id,
-          topicId: questionsTable.topicId,
-          topicName: topicsTable.name,
-          questionText: questionsTable.questionText,
-          optionA: questionsTable.optionA,
-          optionB: questionsTable.optionB,
-          optionC: questionsTable.optionC,
-          optionD: questionsTable.optionD,
-          correctAnswers: questionsTable.correctAnswers,
-          explanation: questionsTable.explanation,
-          questionType: questionsTable.questionType,
-          difficulty: questionsTable.difficulty,
-        })
-        .from(questionsTable)
+      rows = await db.select(selectFields).from(questionsTable)
         .innerJoin(topicsTable, eq(topicsTable.id, questionsTable.topicId))
         .limit(200);
     }

@@ -356,6 +356,46 @@ export const api = {
     if (!res.ok) throw new Error("Failed to create chapter");
     return res.json();
   },
+  getAdminChapters: async (subjectId: number) => {
+    const res = await fetch(`${API_BASE}/admin/subjects/${subjectId}/chapters`);
+    if (!res.ok) throw new Error("Failed to fetch chapters");
+    return res.json() as Promise<Array<{ id: number; subjectId: number; name: string; orderNumber: number; isActive: boolean; createdAt: string; topicCount: number }>>;
+  },
+  updateChapter: async (id: number, data: { name: string; orderNumber?: number }) => {
+    const res = await fetch(`${API_BASE}/admin/chapters/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error("Failed to update chapter");
+    return res.json();
+  },
+  deleteChapter: async (id: number) => {
+    const res = await fetch(`${API_BASE}/admin/chapters/${id}`, { method: "DELETE" });
+    if (!res.ok) throw new Error("Failed to delete chapter");
+  },
+  toggleChapterActive: async (id: number, isActive: boolean) => {
+    const res = await fetch(`${API_BASE}/admin/chapters/${id}/active`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isActive }),
+    });
+    if (!res.ok) throw new Error("Failed to toggle chapter");
+    return res.json();
+  },
+  bulkImportMCQs: async (questions: Array<{
+    topicId: number; questionText: string; optionA: string; optionB: string;
+    optionC: string; optionD: string; correctAnswers: string[]; explanation: string;
+    questionType?: string; difficulty?: string;
+  }>) => {
+    const res = await fetch(`${API_BASE}/admin/questions/import`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ questions }),
+    });
+    if (!res.ok) throw new Error("Failed to import MCQs");
+    return res.json() as Promise<{ imported: number }>;
+  },
   createTopic: async (data: { chapterId: number; name: string; orderNumber: number }) => {
     const res = await fetch(`${API_BASE}/admin/topics`, {
       method: "POST",

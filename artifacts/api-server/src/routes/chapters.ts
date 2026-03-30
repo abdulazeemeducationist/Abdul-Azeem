@@ -1,14 +1,14 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { chaptersTable, topicsTable, questionsTable, chapterVideosTable, chapterNotesTable } from "@workspace/db";
-import { eq, count, sql, asc } from "drizzle-orm";
+import { eq, count, sql, asc, and } from "drizzle-orm";
 
 const router: IRouter = Router();
 
 router.get("/:subjectId/chapters", async (req, res) => {
   try {
     const subjectId = parseInt(req.params.subjectId);
-    const chapters = await db.select().from(chaptersTable).where(eq(chaptersTable.subjectId, subjectId));
+    const chapters = await db.select().from(chaptersTable).where(and(eq(chaptersTable.subjectId, subjectId), eq(chaptersTable.isActive, true))).orderBy(asc(chaptersTable.orderNumber));
     const result = await Promise.all(chapters.map(async (ch) => {
       const topics = await db.select({ id: topicsTable.id }).from(topicsTable).where(eq(topicsTable.chapterId, ch.id));
       const topicIds = topics.map(t => t.id);

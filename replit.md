@@ -108,12 +108,23 @@ Utility scripts package. Each script is a `.ts` file in `src/` with a correspond
 - **Quiz**: Exit saves state (question index + answers), Resume on re-entry
 - **Results**: Score screen after quiz completion; progress saved to DB
 - **Admin Home Screen**: When signed in as admin, the Home tab shows the Dashboard (live stats: Students, Programs, Papers, Chapters, Topics, MCQs + Average Score + quick-action links to manage Programs/Students/Content)
-- **Admin Panel** (3 tabs — Programs, Students, Content): Programs tab has expandable paper rows (add/edit/delete/toggle per paper); Students tab has Add Student, edit, and block/unblock; Content tab for chapters/topics/MCQ import
+- **Admin Panel** (4 tabs — Programs, Courses, Content, Students):
+  - Programs: expandable course rows (add/edit/delete/toggle)
+  - Courses: all courses grouped/filtered by program
+  - Content (4 sub-tabs — Chapters, MCQs, Videos, Notes):
+    - **Chapters**: select course → list chapters with order badge, topic count, visibility toggle (publish/unpublish), edit, delete, preview-as-student button; Add/Edit chapter modal
+    - **MCQs**: filter by course → questions with explanation field; Import (JSON/CSV); Add/Edit with explanation + difficulty
+    - **Videos**: filter by course → chapter → YouTube links; Add/Edit
+    - **Notes**: filter by course → chapter → PDF links; Add/Edit
+  - Students: Add Student, edit, block/unblock, assign course access
 
 ### API (`artifacts/api-server`)
 - Routes: `/courses`, `/courses/:id/levels`, `/levels/:id/subjects`, `/subjects/:id/chapters`, `/chapters/:id/topics`, `/topics/:id/questions`, `/progress`, `/progress/quiz-state`, `/progress/save`, `/progress/save-quiz-state`, `/admin/...`
+- Admin chapter routes: `GET /admin/subjects/:subjectId/chapters`, `POST /admin/chapters`, `PUT /admin/chapters/:id`, `DELETE /admin/chapters/:id`, `PATCH /admin/chapters/:id/active`
+- Student chapters route filters out `isActive=false` chapters
 - Auth via POST `/auth/login`, `/auth/register`
 
 ### DB Schema Tables
-- `courses`, `levels` (ACCA only), `subjects` (has `level_id` nullable), `chapters`, `topics`, `questions`
+- `courses`, `levels` (ACCA only), `subjects` (has `level_id` nullable), `chapters` (has `isActive` boolean), `topics`, `questions` (has `explanation` text)
 - `users`, `user_subject_purchases` (paper access), `user_progress` (with `lastQuestionIndex`, `savedAnswers`)
+- `chapter_videos`, `chapter_notes`
