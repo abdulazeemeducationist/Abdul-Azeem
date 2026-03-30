@@ -36,6 +36,25 @@ function VideoPlayerModal({ video, onClose }: { video: ChapterVideo; onClose: ()
 
   const html = `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"><style>*{margin:0;padding:0;box-sizing:border-box;background:#000}body{display:flex;align-items:center;justify-content:center;height:100vh;width:100vw}iframe{width:100%;height:100%;border:none}</style></head><body><iframe src="${embedUrl}" allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture;fullscreen" allowfullscreen></iframe></body></html>`;
 
+  const player = Platform.OS === "web"
+    ? React.createElement("iframe", {
+        src: embedUrl,
+        style: { width: "100%", height: "100%", border: "none" } as any,
+        allow: "accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture;fullscreen",
+        allowFullScreen: true,
+      })
+    : (
+        <WebView
+          source={{ html }}
+          style={playerStyles.webview}
+          allowsFullscreenVideo
+          allowsInlineMediaPlayback
+          mediaPlaybackRequiresUserAction={false}
+          javaScriptEnabled
+          scrollEnabled={false}
+        />
+      );
+
   return (
     <Modal visible animationType="slide" statusBarTranslucent onRequestClose={onClose}>
       <StatusBar barStyle="light-content" backgroundColor="#000" />
@@ -51,15 +70,7 @@ function VideoPlayerModal({ video, onClose }: { video: ChapterVideo; onClose: ()
 
         {/* Embedded player */}
         <View style={playerStyles.playerBox}>
-          <WebView
-            source={{ html }}
-            style={playerStyles.webview}
-            allowsFullscreenVideo
-            allowsInlineMediaPlayback
-            mediaPlaybackRequiresUserAction={false}
-            javaScriptEnabled
-            scrollEnabled={false}
-          />
+          {player}
         </View>
 
         {/* Description */}
