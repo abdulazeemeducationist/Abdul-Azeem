@@ -107,7 +107,8 @@ Utility scripts package. Each script is a `.ts` file in `src/` with a correspond
 - **Access Control**: All programs are free; paper/subject access via `user_subject_purchases` table
 - **Quiz**: Exit saves state (question index + answers), Resume on re-entry
 - **Results**: Score screen after quiz completion; progress saved to DB
-- **Admin Panel** (3 tabs): Overview stats, Students (assign/revoke papers per student), Content (add MCQs)
+- **Admin Home Screen**: When signed in as admin, the Home tab shows the Dashboard (live stats: Students, Programs, Papers, Chapters, Topics, MCQs + Average Score + quick-action links to manage Programs/Students/Content)
+- **Admin Panel** (3 tabs — Programs, Students, Content): Programs tab has expandable paper rows (add/edit/delete/toggle per paper); Students tab has Add Student, edit, and block/unblock; Content tab for chapters/topics/MCQ import
 
 ### API (`artifacts/api-server`)
 - Routes: `/courses`, `/courses/:id/levels`, `/levels/:id/subjects`, `/subjects/:id/chapters`, `/chapters/:id/topics`, `/topics/:id/questions`, `/progress`, `/progress/quiz-state`, `/progress/save`, `/progress/save-quiz-state`, `/admin/...`

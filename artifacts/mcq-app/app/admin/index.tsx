@@ -21,29 +21,7 @@ import Colors from "@/constants/colors";
 import { api, Student, AdminSubject, Course } from "@/hooks/useApi";
 import { useAuth } from "@/context/AuthContext";
 
-interface StatCardProps { label: string; value: number; icon: keyof typeof Ionicons.glyphMap; color: string; onPress?: () => void }
-function StatCard({ label, value, icon, color, onPress }: StatCardProps) {
-  return (
-    <Pressable
-      style={({ pressed }) => [styles.statCard, { borderLeftColor: color, opacity: pressed ? 0.85 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}
-      onPress={onPress}
-      disabled={!onPress}
-    >
-      <View style={[styles.statIcon, { backgroundColor: color + "18" }]}>
-        <Ionicons name={icon} size={20} color={color} />
-      </View>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-      {onPress && (
-        <View style={styles.statArrow}>
-          <Ionicons name="chevron-forward" size={12} color={color} />
-        </View>
-      )}
-    </Pressable>
-  );
-}
-
-type TabType = "overview" | "students" | "programs" | "content";
+type TabType = "programs" | "students" | "content";
 
 interface ProgramForm { name: string; code: string; description: string; logo: string }
 const EMPTY_FORM: ProgramForm = { name: "", code: "", description: "", logo: "" };
@@ -55,7 +33,7 @@ export default function AdminScreen() {
   const topPad = isWeb ? Math.max(insets.top, 67) : insets.top;
   const qc = useQueryClient();
 
-  const [activeTab, setActiveTab] = useState<TabType>("overview");
+  const [activeTab, setActiveTab] = useState<TabType>("programs");
 
   // Programs state
   const [showProgramModal, setShowProgramModal] = useState(false);
@@ -106,7 +84,7 @@ export default function AdminScreen() {
   const [importError, setImportError] = useState("");
   const [importResult, setImportResult] = useState(0);
 
-  const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useQuery({
+  const { data: stats, refetch: refetchStats } = useQuery({
     queryKey: ["adminStats"], queryFn: api.getAdminStats,
   });
   const { data: programs, isLoading: programsLoading, refetch: refetchPrograms } = useQuery({
@@ -577,7 +555,6 @@ export default function AdminScreen() {
   }, {});
 
   const tabs: { key: TabType; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-    { key: "overview",  label: "Dashboard",  icon: "grid-outline" },
     { key: "programs",  label: "Programs",  icon: "school-outline" },
     { key: "students",  label: "Students",  icon: "people-outline" },
     { key: "content",   label: "Content",   icon: "document-text-outline" },
@@ -612,29 +589,6 @@ export default function AdminScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: Math.max(insets.bottom + 20, 40) }}>
-
-        {/* OVERVIEW TAB */}
-        {activeTab === "overview" && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Dashboard</Text>
-            {statsLoading ? <ActivityIndicator color={Colors.light.primary} /> : (
-              <View style={styles.statsGrid}>
-                <StatCard label="Users"    value={stats?.totalUsers ?? 0}     icon="people"         color="#3B82F6" onPress={() => setActiveTab("students")} />
-                <StatCard label="Programs" value={stats?.totalCourses ?? 0}   icon="school"         color="#059669" onPress={() => setActiveTab("programs")} />
-                <StatCard label="Papers"   value={stats?.totalSubjects ?? 0}  icon="book"           color="#7C3AED" onPress={() => setActiveTab("programs")} />
-                <StatCard label="Chapters" value={stats?.totalChapters ?? 0}  icon="layers"         color="#D97706" onPress={() => setActiveTab("content")} />
-                <StatCard label="Topics"   value={stats?.totalTopics ?? 0}    icon="bookmark"       color="#DC2626" onPress={() => setActiveTab("content")} />
-                <StatCard label="MCQs"     value={stats?.totalQuestions ?? 0} icon="help-circle"    color="#0891B2" onPress={() => setActiveTab("content")} />
-              </View>
-            )}
-            {stats && (
-              <View style={styles.avgCard}>
-                <Text style={styles.avgLabel}>Average Score Across All Students</Text>
-                <Text style={styles.avgValue}>{Number(stats.averageScore).toFixed(1)}%</Text>
-              </View>
-            )}
-          </View>
-        )}
 
         {/* PROGRAMS TAB */}
         {activeTab === "programs" && (
@@ -1489,7 +1443,6 @@ const styles = StyleSheet.create({
   sectionSubtitle: { fontSize: 13, fontFamily: "Inter_400Regular", color: Colors.light.textSecondary, marginBottom: 14, marginTop: -8 },
   addBtnSmall: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: Colors.light.primary, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20 },
   addBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#FFF" },
-  statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   tabSummaryCard: {
     flexDirection: "row", alignItems: "center", backgroundColor: Colors.light.card, borderRadius: 14, padding: 16,
     marginBottom: 14, shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
@@ -1500,19 +1453,7 @@ const styles = StyleSheet.create({
   tabSummaryLabel: { fontSize: 11, fontFamily: "Inter_500Medium", color: Colors.light.textMuted, marginTop: 1 },
   tabSummaryDivider: { width: 1, height: 36, backgroundColor: Colors.light.border, marginHorizontal: 12 },
   progMetaRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 },
-  statCard: {
-    width: "47%", backgroundColor: Colors.light.card, borderRadius: 12, padding: 14,
-    borderLeftWidth: 3, gap: 4,
-    shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
-  },
-  statIcon: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center", marginBottom: 4 },
-  statValue: { fontSize: 24, fontFamily: "Inter_700Bold", color: Colors.light.text },
-  statLabel: { fontSize: 12, fontFamily: "Inter_500Medium", color: Colors.light.textMuted },
-  statArrow: { position: "absolute", top: 10, right: 10 },
   reorderBtns: { flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2, marginRight: 6 },
-  avgCard: { backgroundColor: Colors.light.primary, borderRadius: 14, padding: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 12 },
-  avgLabel: { fontSize: 14, fontFamily: "Inter_500Medium", color: "rgba(255,255,255,0.85)", flex: 1, lineHeight: 18 },
-  avgValue: { fontSize: 28, fontFamily: "Inter_700Bold", color: "#FFF" },
   programRow: {
     flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: Colors.light.card,
     borderRadius: 14, padding: 14, marginBottom: 8,

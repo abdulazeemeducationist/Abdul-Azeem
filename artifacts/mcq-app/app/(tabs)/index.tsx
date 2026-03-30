@@ -9,6 +9,7 @@ import {
   Platform,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -90,20 +91,135 @@ function ProgramCard({ course }: { course: Course }) {
   );
 }
 
+// ── Admin Dashboard ──────────────────────────────────────────────────────────
+
+interface StatTileProps { label: string; value: number; icon: keyof typeof Ionicons.glyphMap; color: string; route: string }
+function StatTile({ label, value, icon, color, route }: StatTileProps) {
+  return (
+    <Pressable
+      style={({ pressed }) => [styles.statTile, { borderLeftColor: color, opacity: pressed ? 0.85 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}
+      onPress={() => router.push(route as any)}
+    >
+      <View style={[styles.statTileIcon, { backgroundColor: color + "18" }]}>
+        <Ionicons name={icon} size={18} color={color} />
+      </View>
+      <Text style={styles.statTileValue}>{value}</Text>
+      <Text style={styles.statTileLabel}>{label}</Text>
+    </Pressable>
+  );
+}
+
+interface QuickActionProps { label: string; sub: string; icon: keyof typeof Ionicons.glyphMap; color: string; route: string }
+function QuickAction({ label, sub, icon, color, route }: QuickActionProps) {
+  return (
+    <Pressable
+      style={({ pressed }) => [styles.quickAction, { opacity: pressed ? 0.88 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] }]}
+      onPress={() => router.push(route as any)}
+    >
+      <View style={[styles.quickActionIcon, { backgroundColor: color + "18" }]}>
+        <Ionicons name={icon} size={22} color={color} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.quickActionLabel}>{label}</Text>
+        <Text style={styles.quickActionSub}>{sub}</Text>
+      </View>
+      <Ionicons name="chevron-forward" size={16} color={Colors.light.textMuted} />
+    </Pressable>
+  );
+}
+
+function AdminDashboard({ userName, avatar, initial }: { userName: string; avatar?: string | null; initial: string }) {
+  const insets = useSafeAreaInsets();
+  const isWeb = Platform.OS === "web";
+  const topPad = isWeb ? Math.max(insets.top, 67) : insets.top;
+
+  const { data: stats, isLoading, refetch } = useQuery({
+    queryKey: ["adminStats"],
+    queryFn: api.getAdminStats,
+  });
+
+  return (
+    <View style={[styles.container, { paddingTop: topPad }]}>
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.avatarCircle}>
+          {avatar ? (
+            <Image source={{ uri: avatar }} style={styles.avatarCircleImg} contentFit="cover" />
+          ) : (
+            <Text style={styles.avatarText}>{initial}</Text>
+          )}
+        </View>
+        <View style={styles.headerText}>
+          <Text style={styles.welcomeLabel}>Welcome back,</Text>
+          <Text style={styles.fullName}>{userName}</Text>
+        </View>
+        <View style={[styles.adminBadge]}>
+          <Ionicons name="shield-checkmark" size={14} color={Colors.light.primary} />
+          <Text style={styles.adminBadgeText}>Admin</Text>
+        </View>
+      </View>
+
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: isWeb ? 34 + 84 : 100 }}>
+        {/* Stats */}
+        <Text style={styles.sectionTitle}>Overview</Text>
+        {isLoading ? (
+          <ActivityIndicator color={Colors.light.primary} style={{ marginTop: 20, marginBottom: 20 }} />
+        ) : (
+          <>
+            <View style={styles.statsGrid}>
+              <StatTile label="Students"  value={stats?.totalUsers ?? 0}     icon="people"          color="#3B82F6" route="/admin" />
+              <StatTile label="Programs"  value={stats?.totalCourses ?? 0}   icon="school"          color="#059669" route="/admin" />
+              <StatTile label="Papers"    value={stats?.totalSubjects ?? 0}  icon="book"            color="#7C3AED" route="/admin" />
+              <StatTile label="Chapters"  value={stats?.totalChapters ?? 0}  icon="layers"          color="#D97706" route="/admin" />
+              <StatTile label="Topics"    value={stats?.totalTopics ?? 0}    icon="bookmark"        color="#DC2626" route="/admin" />
+              <StatTile label="MCQs"      value={stats?.totalQuestions ?? 0} icon="help-circle"     color="#0891B2" route="/admin" />
+            </View>
+
+            {stats && (
+              <View style={styles.avgCard}>
+                <View style={styles.avgCardLeft}>
+                  <Ionicons name="trending-up" size={20} color={Colors.light.primary} />
+                  <Text style={styles.avgLabel}>Average Score</Text>
+                </View>
+                <Text style={styles.avgValue}>{Number(stats.averageScore).toFixed(1)}%</Text>
+              </View>
+            )}
+          </>
+        )}
+
+        {/* Quick Actions */}
+        <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Manage</Text>
+        <View style={styles.quickActions}>
+          <QuickAction label="Programs"  sub="Add, edit, or remove programs and papers" icon="school-outline"         color="#059669" route="/admin" />
+          <QuickAction label="Students"  sub="Manage accounts and paper access"          icon="people-outline"        color="#3B82F6" route="/admin" />
+          <QuickAction label="Content"   sub="Chapters, topics, and MCQ questions"       icon="document-text-outline" color="#7C3AED" route="/admin" />
+        </View>
+      </ScrollView>
+    </View>
+  );
+}
+
+// ── Student Home ─────────────────────────────────────────────────────────────
+
 export default function HomeScreen() {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
   const topPad = isWeb ? Math.max(insets.top, 67) : insets.top;
 
+  const isAdmin = user?.role === "admin";
+  const initial = user?.name?.charAt(0)?.toUpperCase() ?? "?";
+  const firstName = user?.name?.split(" ")[0] ?? "Student";
+
   const { data: courses, isLoading, error, refetch } = useQuery({
     queryKey: ["courses"],
     queryFn: api.getCourses,
-    enabled: !!user,
+    enabled: !!user && !isAdmin,
   });
 
-  const initial = user?.name?.charAt(0)?.toUpperCase() ?? "?";
-  const firstName = user?.name?.split(" ")[0] ?? "Student";
+  if (isAdmin) {
+    return <AdminDashboard userName={user!.name} avatar={user!.profilePicture} initial={initial} />;
+  }
 
   return (
     <View style={[styles.container, { paddingTop: topPad }]}>
@@ -123,11 +239,6 @@ export default function HomeScreen() {
           <Text style={styles.welcomeLabel}>Welcome back,</Text>
           <Text style={styles.fullName}>{user?.name ?? firstName}</Text>
         </View>
-        {user?.role === "admin" && (
-          <Pressable style={styles.adminBtn} onPress={() => router.push("/admin")}>
-            <Ionicons name="settings-outline" size={20} color={Colors.light.primary} />
-          </Pressable>
-        )}
       </View>
 
       <Text style={styles.sectionTitle}>Programs</Text>
@@ -189,11 +300,12 @@ const styles = StyleSheet.create({
   headerText: { flex: 1 },
   welcomeLabel: { fontSize: 12, fontFamily: "Inter_400Regular", color: Colors.light.textSecondary },
   fullName: { fontSize: 18, fontFamily: "Inter_700Bold", color: Colors.light.text },
-  adminBtn: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: Colors.light.backgroundSecondary,
-    alignItems: "center", justifyContent: "center",
+  adminBadge: {
+    flexDirection: "row", alignItems: "center", gap: 5,
+    backgroundColor: Colors.light.primary + "14",
+    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20,
   },
+  adminBadgeText: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: Colors.light.primary },
   sectionTitle: {
     fontSize: 13, fontFamily: "Inter_600SemiBold", color: Colors.light.textMuted,
     textTransform: "uppercase", letterSpacing: 1.2,
@@ -248,4 +360,32 @@ const styles = StyleSheet.create({
   retryBtn: { paddingHorizontal: 20, paddingVertical: 10, backgroundColor: Colors.light.primary, borderRadius: 10, marginTop: 4 },
   retryText: { color: "#FFF", fontFamily: "Inter_600SemiBold", fontSize: 14 },
   emptyText: { fontSize: 16, fontFamily: "Inter_500Medium", color: Colors.light.textMuted },
+
+  // Admin dashboard
+  statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, paddingHorizontal: 16, marginBottom: 12 },
+  statTile: {
+    width: "30.5%", backgroundColor: Colors.light.card, borderRadius: 12, padding: 12,
+    borderLeftWidth: 3, gap: 4,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
+  },
+  statTileIcon: { width: 32, height: 32, borderRadius: 8, alignItems: "center", justifyContent: "center", marginBottom: 4 },
+  statTileValue: { fontSize: 22, fontFamily: "Inter_700Bold", color: Colors.light.text },
+  statTileLabel: { fontSize: 11, fontFamily: "Inter_500Medium", color: Colors.light.textMuted },
+  avgCard: {
+    marginHorizontal: 16, backgroundColor: Colors.light.card, borderRadius: 14, padding: 16,
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
+  },
+  avgCardLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
+  avgLabel: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: Colors.light.text },
+  avgValue: { fontSize: 26, fontFamily: "Inter_700Bold", color: Colors.light.primary },
+  quickActions: { paddingHorizontal: 16, gap: 10, marginBottom: 16 },
+  quickAction: {
+    flexDirection: "row", alignItems: "center", gap: 14,
+    backgroundColor: Colors.light.card, borderRadius: 14, padding: 14,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
+  },
+  quickActionIcon: { width: 44, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  quickActionLabel: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: Colors.light.text },
+  quickActionSub: { fontSize: 12, fontFamily: "Inter_400Regular", color: Colors.light.textMuted, marginTop: 2 },
 });
