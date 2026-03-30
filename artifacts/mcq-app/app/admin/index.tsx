@@ -71,6 +71,21 @@ export default function AdminScreen() {
   const [savingEnroll, setSavingEnroll] = useState(false);
   const [pendingRevokeIds, setPendingRevokeIds] = useState<{ studentId: number; subjectId: number }[]>([]);
 
+  // Papers state
+  const [expandedProgramId, setExpandedProgramId] = useState<number | null>(null);
+  const [showPaperModal, setShowPaperModal] = useState(false);
+  const [editingPaper, setEditingPaper] = useState<AdminSubject | null>(null);
+  const [paperForm, setPaperForm] = useState({ name: "", code: "", description: "" });
+  const [savingPaper, setSavingPaper] = useState(false);
+  const [pendingPaperDeleteIds, setPendingPaperDeleteIds] = useState<number[]>([]);
+
+  // Student management state
+  const [showStudentModal, setShowStudentModal] = useState(false);
+  const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+  const [studentForm, setStudentForm] = useState({ name: "", email: "", password: "", whatsappNumber: "" });
+  const [savingStudent, setSavingStudent] = useState(false);
+  const [studentFormError, setStudentFormError] = useState("");
+
   // Content state
   const [showAddQuestion, setShowAddQuestion] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<any | null>(null);
@@ -102,7 +117,7 @@ export default function AdminScreen() {
   });
   const { data: allSubjects, refetch: refetchSubjects } = useQuery({
     queryKey: ["adminSubjects"], queryFn: api.getAllSubjects,
-    enabled: showEnrollModal || activeTab === "content",
+    enabled: showEnrollModal || activeTab === "content" || activeTab === "programs",
   });
   const { data: adminQuestions, isLoading: questionsLoading, refetch: refetchQuestions } = useQuery({
     queryKey: ["adminQuestions", filterSubjectId],
@@ -256,6 +271,102 @@ export default function AdminScreen() {
       qc.invalidateQueries({ queryKey: ["adminSubjects"] });
       qc.invalidateQueries({ queryKey: ["subjects"] });
       refetchSubjects();
+    } catch (e) { console.error(e); }
+  };
+
+  // ── Paper (Subject) CRUD ──
+  const openAddPaper = (courseId: number) => {
+    setEditingPaper(null);
+    setPaperForm({ name: "", code: "", description: "" });
+    setExpandedProgramId(courseId);
+    setShowPaperModal(true);
+  };
+  const openEditPaper = (paper: AdminSubject) => {
+    setEditingPaper(paper);
+    setPaperForm({ name: paper.name, code: paper.code, description: "" });
+    setShowPaperModal(true);
+  };
+  const handleSavePaper = async () => {
+    if (!paperForm.name.trim() || !paperForm.code.trim()) return;
+    setSavingPaper(true);
+    const wasEditing = editingPaper;
+    try {
+      if (wasEditing) {
+        await api.updateSubject(wasEditing.id, { name: paperForm.name.trim(), code: paperForm.code.trim().toUpperCase(), description: paperForm.description.trim() || undefined });
+        showUndo("Paper updated.", () => {}, async () => {
+          await api.updateSubject(wasEditing.id, { name: wasEditing.name, code: wasEditing.code });
+          refetchSubjects(); qc.invalidateQueries({ queryKey: ["adminSubjects"] });
+        });
+      } else {
+        const created = await api.createSubject({ courseId: expandedProgramId!, name: paperForm.name.trim(), code: paperForm.code.trim().toUpperCase(), description: paperForm.description.trim() || undefined });
+        showUndo("Paper added.", () => {}, async () => {
+          await api.deleteSubject(created.id);
+          refetchSubjects(); qc.invalidateQueries({ queryKey: ["adminSubjects"] }); qc.invalidateQueries({ queryKey: ["adminCourses"] }); refetchPrograms();
+        });
+      }
+      qc.invalidateQueries({ queryKey: ["adminSubjects"] });
+      qc.invalidateQueries({ queryKey: ["adminCourses"] });
+      refetchSubjects(); refetchPrograms();
+      setShowPaperModal(false);
+    } catch (e) { console.error(e); }
+    finally { setSavingPaper(false); }
+  };
+  const confirmDeletePaper = (paper: AdminSubject) => {
+    setConfirmModal({
+      title: "Delete Paper?",
+      message: `This will permanently delete "${paper.name}" and all its chapters, topics, and questions.`,
+      onConfirm: () => {
+        setConfirmModal(null);
+        setPendingPaperDeleteIds(prev => [...prev, paper.id]);
+        showUndo("Paper deleted.", async () => {
+          await api.deleteSubject(paper.id);
+          setPendingPaperDeleteIds(prev => prev.filter(x => x !== paper.id));
+          qc.invalidateQueries({ queryKey: ["adminSubjects"] });
+          qc.invalidateQueries({ queryKey: ["adminCourses"] });
+          refetchSubjects(); refetchPrograms();
+        }, () => {
+          setPendingPaperDeleteIds(prev => prev.filter(x => x !== paper.id));
+        });
+      },
+    });
+  };
+
+  // ── Student CRUD ──
+  const openAddStudent = () => {
+    setEditingStudent(null);
+    setStudentForm({ name: "", email: "", password: "", whatsappNumber: "" });
+    setStudentFormError("");
+    setShowStudentModal(true);
+  };
+  const openEditStudent = (s: Student) => {
+    setEditingStudent(s);
+    setStudentForm({ name: s.name, email: s.email, password: "", whatsappNumber: s.whatsappNumber ? `+${s.whatsappNumber}` : "" });
+    setStudentFormError("");
+    setShowStudentModal(true);
+  };
+  const handleSaveStudent = async () => {
+    setStudentFormError("");
+    if (!studentForm.name.trim() || !studentForm.email.trim()) { setStudentFormError("Name and email are required"); return; }
+    if (!editingStudent && !studentForm.password) { setStudentFormError("Password is required for new students"); return; }
+    setSavingStudent(true);
+    try {
+      const whatsapp = studentForm.whatsappNumber ? studentForm.whatsappNumber.replace(/\D/g, "") : undefined;
+      if (editingStudent) {
+        await api.updateStudent(editingStudent.id, { name: studentForm.name.trim(), email: studentForm.email.trim(), whatsappNumber: whatsapp });
+        qc.invalidateQueries({ queryKey: ["adminStudents"] }); refetchStudents();
+      } else {
+        await api.createStudent({ name: studentForm.name.trim(), email: studentForm.email.trim(), password: studentForm.password, whatsappNumber: whatsapp });
+        qc.invalidateQueries({ queryKey: ["adminStudents"] }); qc.invalidateQueries({ queryKey: ["adminStats"] }); refetchStudents(); refetchStats();
+      }
+      setShowStudentModal(false);
+    } catch (e: any) {
+      setStudentFormError(e.message || "Failed to save student");
+    } finally { setSavingStudent(false); }
+  };
+  const handleToggleBlockStudent = async (s: Student) => {
+    try {
+      await api.toggleBlockStudent(s.id, !s.isBlocked);
+      qc.invalidateQueries({ queryKey: ["adminStudents"] }); refetchStudents();
     } catch (e) { console.error(e); }
   };
   const confirmDelete = (id: number) => {
@@ -574,53 +685,102 @@ export default function AdminScreen() {
               programs.filter(p => !pendingProgDeleteIds.includes(p.id)).map((prog, idx) => {
                 const accentColors = ["#059669", "#7C3AED", "#3B82F6", "#D97706", "#DC2626", "#0891B2"];
                 const accent = accentColors[idx % accentColors.length];
+                const isExpanded = expandedProgramId === prog.id;
+                const progPapers = (allSubjects ?? []).filter(s => s.courseId === prog.id && !pendingPaperDeleteIds.includes(s.id));
                 return (
-                  <View key={prog.id} style={[styles.programRow, { borderLeftColor: accent, borderLeftWidth: 3 }]}>
-                    <View style={styles.reorderBtns}>
-                      <Pressable
-                        onPress={() => handleReorderCourse(prog.id, "up")}
-                        disabled={idx === 0}
-                        style={({ pressed }) => ({ opacity: idx === 0 ? 0.2 : pressed ? 0.5 : 1 })}
-                      >
-                        <Ionicons name="chevron-up" size={16} color={Colors.light.textMuted} />
+                  <View key={prog.id} style={{ marginBottom: 4 }}>
+                    <View style={[styles.programRow, { borderLeftColor: accent, borderLeftWidth: 3, marginBottom: 0 }]}>
+                      <View style={styles.reorderBtns}>
+                        <Pressable
+                          onPress={() => handleReorderCourse(prog.id, "up")}
+                          disabled={idx === 0}
+                          style={({ pressed }) => ({ opacity: idx === 0 ? 0.2 : pressed ? 0.5 : 1 })}
+                        >
+                          <Ionicons name="chevron-up" size={16} color={Colors.light.textMuted} />
+                        </Pressable>
+                        <Pressable
+                          onPress={() => handleReorderCourse(prog.id, "down")}
+                          disabled={idx === programs.filter(p => !pendingProgDeleteIds.includes(p.id)).length - 1}
+                          style={({ pressed }) => ({ opacity: idx === programs.filter(p => !pendingProgDeleteIds.includes(p.id)).length - 1 ? 0.2 : pressed ? 0.5 : 1 })}
+                        >
+                          <Ionicons name="chevron-down" size={16} color={Colors.light.textMuted} />
+                        </Pressable>
+                      </View>
+                      {prog.logo ? (
+                        <Image source={{ uri: prog.logo }} style={styles.progLogoThumb} contentFit="cover" />
+                      ) : (
+                        <View style={[styles.progCodeBox, { backgroundColor: accent + "18" }]}>
+                          <Text style={[styles.progCode, { color: accent }]}>{prog.code}</Text>
+                        </View>
+                      )}
+                      <Pressable style={{ flex: 1 }} onPress={() => setExpandedProgramId(isExpanded ? null : prog.id)}>
+                        <Text style={styles.progName} numberOfLines={1}>{prog.name}</Text>
+                        {prog.description ? <Text style={styles.progDesc} numberOfLines={1}>{prog.description}</Text> : null}
+                        <View style={styles.progMetaRow}>
+                          <Ionicons name="book-outline" size={11} color={Colors.light.textMuted} />
+                          <Text style={styles.progMeta}>{prog.subjectCount} paper{prog.subjectCount !== 1 ? "s" : ""}</Text>
+                          <Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={11} color={Colors.light.textMuted} style={{ marginLeft: 4 }} />
+                        </View>
                       </Pressable>
-                      <Pressable
-                        onPress={() => handleReorderCourse(prog.id, "down")}
-                        disabled={idx === programs.length - 1}
-                        style={({ pressed }) => ({ opacity: idx === programs.length - 1 ? 0.2 : pressed ? 0.5 : 1 })}
-                      >
-                        <Ionicons name="chevron-down" size={16} color={Colors.light.textMuted} />
-                      </Pressable>
+                      <View style={styles.rowActions}>
+                        <Pressable
+                          style={[styles.toggleIconBtn, { backgroundColor: prog.isActive ? "#DCFCE7" : "#FEE2E2" }]}
+                          onPress={() => handleToggleCourse(prog.id, prog.isActive)}
+                        >
+                          <Ionicons name={prog.isActive ? "eye" : "eye-off"} size={15} color={prog.isActive ? "#059669" : "#DC2626"} />
+                        </Pressable>
+                        <Pressable style={styles.editIconBtn} onPress={() => openEditProgram(prog)}>
+                          <Ionicons name="pencil" size={15} color={Colors.light.primary} />
+                        </Pressable>
+                        <Pressable style={styles.deleteIconBtn} onPress={() => confirmDelete(prog.id)}>
+                          <Ionicons name="trash" size={15} color={Colors.light.error} />
+                        </Pressable>
+                      </View>
                     </View>
-                    {prog.logo ? (
-                      <Image source={{ uri: prog.logo }} style={styles.progLogoThumb} contentFit="cover" />
-                    ) : (
-                      <View style={[styles.progCodeBox, { backgroundColor: accent + "18" }]}>
-                        <Text style={[styles.progCode, { color: accent }]}>{prog.code}</Text>
+
+                    {/* Expandable Papers Section */}
+                    {isExpanded && (
+                      <View style={styles.papersSection}>
+                        <View style={styles.papersSectionHeader}>
+                          <Text style={styles.papersSectionTitle}>Papers</Text>
+                          <Pressable style={styles.addPaperBtn} onPress={() => openAddPaper(prog.id)}>
+                            <Ionicons name="add" size={14} color="#FFF" />
+                            <Text style={styles.addPaperBtnText}>Add Paper</Text>
+                          </Pressable>
+                        </View>
+                        {progPapers.length === 0 ? (
+                          <View style={styles.papersEmpty}>
+                            <Text style={styles.papersEmptyText}>No papers yet. Tap "Add Paper" to create one.</Text>
+                          </View>
+                        ) : (
+                          progPapers.map(paper => (
+                            <View key={paper.id} style={styles.paperRow}>
+                              <View style={[styles.paperCodeBadge, { backgroundColor: paper.isActive ? Colors.light.primary + "14" : "#F3F4F6" }]}>
+                                <Text style={[styles.paperCode, { color: paper.isActive ? Colors.light.primary : Colors.light.textMuted }]}>{paper.code}</Text>
+                              </View>
+                              <Text style={[styles.paperName, !paper.isActive && { color: Colors.light.textMuted }]} numberOfLines={1}>{paper.name}</Text>
+                              {!paper.isActive && (
+                                <View style={styles.inactiveBadge}><Text style={styles.inactiveBadgeText}>Off</Text></View>
+                              )}
+                              <View style={styles.paperActions}>
+                                <Pressable
+                                  style={[styles.toggleIconBtn, { backgroundColor: paper.isActive ? "#DCFCE7" : "#FEE2E2" }]}
+                                  onPress={() => handleToggleSubject(paper.id, paper.isActive)}
+                                >
+                                  <Ionicons name={paper.isActive ? "eye" : "eye-off"} size={13} color={paper.isActive ? "#059669" : "#DC2626"} />
+                                </Pressable>
+                                <Pressable style={styles.editIconBtn} onPress={() => openEditPaper(paper)}>
+                                  <Ionicons name="pencil" size={13} color={Colors.light.primary} />
+                                </Pressable>
+                                <Pressable style={styles.deleteIconBtn} onPress={() => confirmDeletePaper(paper)}>
+                                  <Ionicons name="trash" size={13} color={Colors.light.error} />
+                                </Pressable>
+                              </View>
+                            </View>
+                          ))
+                        )}
                       </View>
                     )}
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.progName} numberOfLines={1}>{prog.name}</Text>
-                      {prog.description ? <Text style={styles.progDesc} numberOfLines={1}>{prog.description}</Text> : null}
-                      <View style={styles.progMetaRow}>
-                        <Ionicons name="book-outline" size={11} color={Colors.light.textMuted} />
-                        <Text style={styles.progMeta}>{prog.subjectCount} papers</Text>
-                      </View>
-                    </View>
-                    <View style={styles.rowActions}>
-                      <Pressable
-                        style={[styles.toggleIconBtn, { backgroundColor: prog.isActive ? "#DCFCE7" : "#FEE2E2" }]}
-                        onPress={() => handleToggleCourse(prog.id, prog.isActive)}
-                      >
-                        <Ionicons name={prog.isActive ? "eye" : "eye-off"} size={15} color={prog.isActive ? "#059669" : "#DC2626"} />
-                      </Pressable>
-                      <Pressable style={styles.editIconBtn} onPress={() => openEditProgram(prog)}>
-                        <Ionicons name="pencil" size={15} color={Colors.light.primary} />
-                      </Pressable>
-                      <Pressable style={styles.deleteIconBtn} onPress={() => confirmDelete(prog.id)}>
-                        <Ionicons name="trash" size={15} color={Colors.light.error} />
-                      </Pressable>
-                    </View>
                   </View>
                 );
               })
@@ -632,7 +792,13 @@ export default function AdminScreen() {
         {/* STUDENTS TAB */}
         {activeTab === "students" && (
           <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { marginBottom: 12 }]}>Students</Text>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Students</Text>
+              <Pressable style={styles.addBtnSmall} onPress={openAddStudent}>
+                <Ionicons name="add" size={16} color="#FFF" />
+                <Text style={styles.addBtnText}>Add Student</Text>
+              </Pressable>
+            </View>
 
             {/* Summary banner */}
             {!studentsLoading && !!students?.length && (
@@ -670,19 +836,40 @@ export default function AdminScreen() {
               </View>
             ) : (
               students.map(student => (
-                <View key={student.id} style={[styles.studentCard, { borderLeftWidth: 3, borderLeftColor: Colors.light.primary }]}>
+                <View key={student.id} style={[styles.studentCard, { borderLeftWidth: 3, borderLeftColor: student.isBlocked ? Colors.light.error : Colors.light.primary }]}>
                   <View style={styles.studentHeader}>
-                    <View style={styles.avatarCircle}>
-                      <Text style={styles.avatarText}>{student.name.charAt(0).toUpperCase()}</Text>
+                    <View style={[styles.avatarCircle, student.isBlocked && { backgroundColor: Colors.light.error + "20" }]}>
+                      <Text style={[styles.avatarText, student.isBlocked && { color: Colors.light.error }]}>{student.name.charAt(0).toUpperCase()}</Text>
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.studentName}>{student.name}</Text>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                        <Text style={styles.studentName}>{student.name}</Text>
+                        {student.isBlocked && (
+                          <View style={styles.blockedBadge}><Text style={styles.blockedBadgeText}>Blocked</Text></View>
+                        )}
+                      </View>
                       <Text style={styles.studentEmail}>{student.email}</Text>
+                      {student.whatsappNumber && (
+                        <Text style={styles.studentPhone}>+{student.whatsappNumber}</Text>
+                      )}
                     </View>
-                    <Pressable style={styles.assignBtn} onPress={() => { setSelectedStudent(student); setShowEnrollModal(true); }}>
-                      <Ionicons name="add" size={16} color="#FFF" />
-                      <Text style={styles.assignBtnText}>Assign</Text>
-                    </Pressable>
+                    <View style={{ flexDirection: "column", gap: 4 }}>
+                      <Pressable style={styles.assignBtn} onPress={() => { setSelectedStudent(student); setShowEnrollModal(true); }}>
+                        <Ionicons name="add" size={14} color="#FFF" />
+                        <Text style={styles.assignBtnText}>Assign</Text>
+                      </Pressable>
+                      <View style={{ flexDirection: "row", gap: 4 }}>
+                        <Pressable style={styles.editIconBtn} onPress={() => openEditStudent(student)}>
+                          <Ionicons name="pencil" size={13} color={Colors.light.primary} />
+                        </Pressable>
+                        <Pressable
+                          style={[styles.toggleIconBtn, { backgroundColor: student.isBlocked ? "#DCFCE7" : "#FEE2E2" }]}
+                          onPress={() => handleToggleBlockStudent(student)}
+                        >
+                          <Ionicons name={student.isBlocked ? "lock-open" : "ban"} size={13} color={student.isBlocked ? "#059669" : Colors.light.error} />
+                        </Pressable>
+                      </View>
+                    </View>
                   </View>
                   <View style={styles.studentPapersRow}>
                     <Ionicons name="book-outline" size={12} color={Colors.light.textMuted} />
@@ -952,6 +1139,137 @@ export default function AdminScreen() {
       </Modal>
 
 
+      {/* ── Add / Edit Paper Modal ── */}
+      <Modal visible={showPaperModal} transparent animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowPaperModal(false)}>
+        <View style={[styles.sheetContainer, { paddingTop: Math.max(insets.top + 8, 20) }]}>
+          <View style={styles.sheetHeader}>
+            <Text style={styles.sheetTitle}>{editingPaper ? "Edit Paper" : "Add Paper"}</Text>
+            <Pressable onPress={() => setShowPaperModal(false)}>
+              <Ionicons name="close" size={24} color={Colors.light.text} />
+            </Pressable>
+          </View>
+          <ScrollView style={styles.sheetScroll} contentContainerStyle={{ gap: 14, paddingBottom: Math.max(insets.bottom + 20, 40) }} keyboardShouldPersistTaps="handled">
+            <View style={styles.formField}>
+              <Text style={styles.formLabel}>Paper Name <Text style={styles.required}>*</Text></Text>
+              <TextInput
+                style={styles.formInput}
+                value={paperForm.name}
+                onChangeText={v => setPaperForm(f => ({ ...f, name: v }))}
+                placeholder="e.g. Financial Accounting"
+                placeholderTextColor={Colors.light.textMuted}
+              />
+            </View>
+            <View style={styles.formField}>
+              <Text style={styles.formLabel}>Code <Text style={styles.required}>*</Text></Text>
+              <TextInput
+                style={styles.formInput}
+                value={paperForm.code}
+                onChangeText={v => setPaperForm(f => ({ ...f, code: v.toUpperCase() }))}
+                placeholder="e.g. F3"
+                placeholderTextColor={Colors.light.textMuted}
+                autoCapitalize="characters"
+                maxLength={15}
+              />
+            </View>
+            <View style={styles.formField}>
+              <Text style={styles.formLabel}>Description</Text>
+              <TextInput
+                style={[styles.formInput, styles.formInputMultiline]}
+                value={paperForm.description}
+                onChangeText={v => setPaperForm(f => ({ ...f, description: v }))}
+                placeholder="Brief description..."
+                placeholderTextColor={Colors.light.textMuted}
+                multiline
+              />
+            </View>
+            <Pressable
+              style={({ pressed }) => [
+                styles.saveBtn,
+                (!paperForm.name.trim() || !paperForm.code.trim()) && styles.saveBtnDisabled,
+                { opacity: pressed || savingPaper ? 0.85 : 1 }
+              ]}
+              onPress={handleSavePaper}
+              disabled={savingPaper || !paperForm.name.trim() || !paperForm.code.trim()}
+            >
+              {savingPaper ? <ActivityIndicator color="#FFF" /> : <Text style={styles.saveBtnText}>{editingPaper ? "Save Changes" : "Add Paper"}</Text>}
+            </Pressable>
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* ── Add / Edit Student Modal ── */}
+      <Modal visible={showStudentModal} transparent animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowStudentModal(false)}>
+        <View style={[styles.sheetContainer, { paddingTop: Math.max(insets.top + 8, 20) }]}>
+          <View style={styles.sheetHeader}>
+            <Text style={styles.sheetTitle}>{editingStudent ? "Edit Student" : "Add Student"}</Text>
+            <Pressable onPress={() => setShowStudentModal(false)}>
+              <Ionicons name="close" size={24} color={Colors.light.text} />
+            </Pressable>
+          </View>
+          <ScrollView style={styles.sheetScroll} contentContainerStyle={{ gap: 14, paddingBottom: Math.max(insets.bottom + 20, 40) }} keyboardShouldPersistTaps="handled">
+            {!!studentFormError && (
+              <View style={[styles.formField, { backgroundColor: Colors.light.error + "10", borderRadius: 8, padding: 10 }]}>
+                <Text style={{ fontSize: 13, color: Colors.light.error, fontFamily: "Inter_400Regular" }}>{studentFormError}</Text>
+              </View>
+            )}
+            <View style={styles.formField}>
+              <Text style={styles.formLabel}>Full Name <Text style={styles.required}>*</Text></Text>
+              <TextInput
+                style={styles.formInput}
+                value={studentForm.name}
+                onChangeText={v => setStudentForm(f => ({ ...f, name: v }))}
+                placeholder="Student's full name"
+                placeholderTextColor={Colors.light.textMuted}
+                autoCapitalize="words"
+              />
+            </View>
+            <View style={styles.formField}>
+              <Text style={styles.formLabel}>Email Address <Text style={styles.required}>*</Text></Text>
+              <TextInput
+                style={styles.formInput}
+                value={studentForm.email}
+                onChangeText={v => setStudentForm(f => ({ ...f, email: v }))}
+                placeholder="student@example.com"
+                placeholderTextColor={Colors.light.textMuted}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
+            {!editingStudent && (
+              <View style={styles.formField}>
+                <Text style={styles.formLabel}>Password <Text style={styles.required}>*</Text></Text>
+                <TextInput
+                  style={styles.formInput}
+                  value={studentForm.password}
+                  onChangeText={v => setStudentForm(f => ({ ...f, password: v }))}
+                  placeholder="Minimum 6 characters"
+                  placeholderTextColor={Colors.light.textMuted}
+                  secureTextEntry
+                />
+              </View>
+            )}
+            <View style={styles.formField}>
+              <Text style={styles.formLabel}>WhatsApp Number</Text>
+              <TextInput
+                style={styles.formInput}
+                value={studentForm.whatsappNumber}
+                onChangeText={v => setStudentForm(f => ({ ...f, whatsappNumber: v }))}
+                placeholder="+923001234567"
+                placeholderTextColor={Colors.light.textMuted}
+                keyboardType="phone-pad"
+              />
+            </View>
+            <Pressable
+              style={({ pressed }) => [styles.saveBtn, { opacity: pressed || savingStudent ? 0.85 : 1 }]}
+              onPress={handleSaveStudent}
+              disabled={savingStudent}
+            >
+              {savingStudent ? <ActivityIndicator color="#FFF" /> : <Text style={styles.saveBtnText}>{editingStudent ? "Save Changes" : "Create Student"}</Text>}
+            </Pressable>
+          </ScrollView>
+        </View>
+      </Modal>
+
       {/* ── Import MCQs Modal ── */}
       <Modal visible={showImportModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowImportModal(false)}>
         <View style={[styles.sheetContainer, { paddingTop: Math.max(insets.top + 8, 20) }]}>
@@ -1182,8 +1500,6 @@ const styles = StyleSheet.create({
   tabSummaryLabel: { fontSize: 11, fontFamily: "Inter_500Medium", color: Colors.light.textMuted, marginTop: 1 },
   tabSummaryDivider: { width: 1, height: 36, backgroundColor: Colors.light.border, marginHorizontal: 12 },
   progMetaRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 },
-  studentPapersRow: { flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 8 },
-  studentPapersLabel: { fontSize: 12, fontFamily: "Inter_500Medium", color: Colors.light.textMuted },
   statCard: {
     width: "47%", backgroundColor: Colors.light.card, borderRadius: 12, padding: 14,
     borderLeftWidth: 3, gap: 4,
@@ -1351,4 +1667,27 @@ const styles = StyleSheet.create({
   snackMessage: { fontSize: 14, fontFamily: "Inter_500Medium", color: "#F8FAFC", flex: 1 },
   snackUndoBtn: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "#FFF", borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
   snackUndoText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: Colors.light.primary },
+
+  // Papers section inside program row
+  papersSection: { marginLeft: 12, marginTop: 0, backgroundColor: Colors.light.backgroundSecondary, borderBottomLeftRadius: 12, borderBottomRightRadius: 12, padding: 10, borderWidth: 1, borderTopWidth: 0, borderColor: Colors.light.border },
+  papersSectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
+  papersSectionTitle: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: Colors.light.textMuted, textTransform: "uppercase", letterSpacing: 0.7 },
+  addPaperBtn: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: Colors.light.primary, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
+  addPaperBtnText: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: "#FFF" },
+  papersEmpty: { paddingVertical: 12, alignItems: "center" },
+  papersEmptyText: { fontSize: 12, fontFamily: "Inter_400Regular", color: Colors.light.textMuted, fontStyle: "italic" },
+  paperRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 7, borderTopWidth: 1, borderTopColor: Colors.light.border },
+  paperCodeBadge: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6 },
+  paperCode: { fontSize: 11, fontFamily: "Inter_700Bold" },
+  paperName: { flex: 1, fontSize: 13, fontFamily: "Inter_500Medium", color: Colors.light.text },
+  inactiveBadge: { backgroundColor: "#FEE2E2", paddingHorizontal: 7, paddingVertical: 3, borderRadius: 20 },
+  inactiveBadgeText: { fontSize: 10, fontFamily: "Inter_600SemiBold", color: Colors.light.error },
+  paperActions: { flexDirection: "row", gap: 4 },
+
+  // Student badges
+  blockedBadge: { backgroundColor: Colors.light.error + "18", paddingHorizontal: 7, paddingVertical: 2, borderRadius: 20 },
+  blockedBadgeText: { fontSize: 10, fontFamily: "Inter_700Bold", color: Colors.light.error },
+  studentPhone: { fontSize: 12, fontFamily: "Inter_400Regular", color: Colors.light.textMuted, marginTop: 1 },
+  studentPapersRow: { flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 6 },
+  studentPapersLabel: { fontSize: 12, fontFamily: "Inter_400Regular", color: Colors.light.textMuted },
 });

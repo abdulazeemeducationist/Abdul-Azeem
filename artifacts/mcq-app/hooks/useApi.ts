@@ -110,6 +110,8 @@ export interface Student {
   id: number;
   name: string;
   email: string;
+  isBlocked: boolean;
+  whatsappNumber?: string | null;
   createdAt: string;
   purchasedSubjects: StudentPurchasedSubject[];
 }
@@ -268,6 +270,44 @@ export const api = {
       method: "DELETE",
     });
     if (!res.ok) throw new Error("Failed to revoke paper");
+  },
+  createStudent: async (data: { name: string; email: string; password: string; whatsappNumber?: string }): Promise<Student> => {
+    const res = await fetch(`${API_BASE}/admin/students`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Failed to create student");
+    return json;
+  },
+  updateStudent: async (id: number, data: { name: string; email: string; whatsappNumber?: string }): Promise<void> => {
+    const res = await fetch(`${API_BASE}/admin/students/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error("Failed to update student");
+  },
+  toggleBlockStudent: async (id: number, isBlocked: boolean): Promise<void> => {
+    const res = await fetch(`${API_BASE}/admin/students/${id}/block`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isBlocked }),
+    });
+    if (!res.ok) throw new Error("Failed to update student status");
+  },
+  updateSubject: async (id: number, data: { name: string; code: string; description?: string }): Promise<void> => {
+    const res = await fetch(`${API_BASE}/admin/subjects/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error("Failed to update subject");
+  },
+  deleteSubject: async (id: number): Promise<void> => {
+    const res = await fetch(`${API_BASE}/admin/subjects/${id}`, { method: "DELETE" });
+    if (!res.ok) throw new Error("Failed to delete subject");
   },
   createCourse: async (data: { name: string; code: string; description?: string; logo?: string }) => {
     const res = await fetch(`${API_BASE}/admin/courses`, {

@@ -5,6 +5,9 @@ import {
   usersTable, userProgressTable, userSubjectPurchasesTable, levelsTable
 } from "@workspace/db";
 import { eq, count, avg, and, inArray, max } from "drizzle-orm";
+import crypto from "crypto";
+
+function hashPassword(p: string) { return crypto.createHash("sha256").update(p + "mcq-salt-2024").digest("hex"); }
 
 const router: IRouter = Router();
 
@@ -37,7 +40,7 @@ router.get("/stats", async (_req, res) => {
 router.get("/students", async (_req, res) => {
   try {
     const students = await db
-      .select({ id: usersTable.id, name: usersTable.name, email: usersTable.email, createdAt: usersTable.createdAt })
+      .select({ id: usersTable.id, name: usersTable.name, email: usersTable.email, isBlocked: usersTable.isBlocked, whatsappNumber: usersTable.whatsappNumber, createdAt: usersTable.createdAt })
       .from(usersTable)
       .where(eq(usersTable.role, "student"));
 
@@ -426,6 +429,101 @@ router.delete("/questions/:questionId", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Internal Server Error", message: "Failed to delete question" });
+  }
+});
+
+// ── Subject (Paper) edit & delete ──────────────────────────────────────
+
+router.put("/subjects/:subjectId", async (req, res) => {
+  try {
+    const id = parseInt(req.params.subjectId);
+    const { name, code, description } = req.body;
+    if (!name || !code) { res.status(400).json({ error: "name and code are required" }); return; }
+    const [subject] = await db.update(subjectsTable)
+      .set({ name, code, description: description ?? null })
+      .where(eq(subjectsTable.id, id))
+      .returning();
+    if (!subject) { res.status(404).json({ error: "Subject not found" }); return; }
+    res.json(subject);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to update subject" });
+  }
+});
+
+router.delete("/subjects/:subjectId", async (req, res) => {
+  try {
+    const id = parseInt(req.params.subjectId);
+    const chapters = await db.select({ id: chaptersTable.id }).from(chaptersTable).where(eq(chaptersTable.subjectId, id));
+    const chapterIds = chapters.map(c => c.id);
+    if (chapterIds.length > 0) {
+      const topics = await db.select({ id: topicsTable.id }).from(topicsTable).where(inArray(topicsTable.chapterId, chapterIds));
+      const topicIds = topics.map(t => t.id);
+      if (topicIds.length > 0) {
+        await db.delete(questionsTable).where(inArray(questionsTable.topicId, topicIds));
+        await db.delete(userProgressTable).where(inArray(userProgressTable.topicId, topicIds));
+        await db.delete(topicsTable).where(inArray(topicsTable.id, topicIds));
+      }
+      await db.delete(chaptersTable).where(inArray(chaptersTable.id, chapterIds));
+    }
+    await db.delete(userSubjectPurchasesTable).where(eq(userSubjectPurchasesTable.subjectId, id));
+    await db.delete(subjectsTable).where(eq(subjectsTable.id, id));
+    res.json({ message: "Paper deleted" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to delete subject" });
+  }
+});
+
+// ── Student management ─────────────────────────────────────────────────
+
+router.post("/students", async (req, res) => {
+  try {
+    const { name, email, password, whatsappNumber } = req.body;
+    if (!name || !email || !password) { res.status(400).json({ error: "name, email and password are required" }); return; }
+    const existing = await db.select().from(usersTable).where(eq(usersTable.email, email.toLowerCase())).limit(1);
+    if (existing.length > 0) { res.status(409).json({ error: "Email already registered" }); return; }
+    const [user] = await db.insert(usersTable).values({
+      name: name.trim(),
+      email: email.trim().toLowerCase(),
+      passwordHash: hashPassword(password),
+      role: "student",
+      whatsappNumber: whatsappNumber ? whatsappNumber.replace(/\D/g, "") : null,
+    }).returning();
+    res.status(201).json({ id: user.id, name: user.name, email: user.email, isBlocked: user.isBlocked, whatsappNumber: user.whatsappNumber, createdAt: user.createdAt, purchasedSubjects: [] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to create student" });
+  }
+});
+
+router.put("/students/:userId", async (req, res) => {
+  try {
+    const id = parseInt(req.params.userId);
+    const { name, email, whatsappNumber } = req.body;
+    if (!name || !email) { res.status(400).json({ error: "name and email are required" }); return; }
+    const [user] = await db.update(usersTable)
+      .set({ name: name.trim(), email: email.trim().toLowerCase(), whatsappNumber: whatsappNumber ? whatsappNumber.replace(/\D/g, "") : null })
+      .where(eq(usersTable.id, id))
+      .returning();
+    if (!user) { res.status(404).json({ error: "Student not found" }); return; }
+    res.json({ id: user.id, name: user.name, email: user.email, isBlocked: user.isBlocked, whatsappNumber: user.whatsappNumber, createdAt: user.createdAt });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to update student" });
+  }
+});
+
+router.patch("/students/:userId/block", async (req, res) => {
+  try {
+    const id = parseInt(req.params.userId);
+    const { isBlocked } = req.body;
+    const [user] = await db.update(usersTable).set({ isBlocked }).where(eq(usersTable.id, id)).returning();
+    if (!user) { res.status(404).json({ error: "Student not found" }); return; }
+    res.json({ id: user.id, isBlocked: user.isBlocked });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to update student status" });
   }
 });
 

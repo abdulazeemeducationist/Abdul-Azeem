@@ -144,6 +144,10 @@ router.post("/signin", async (req, res) => {
       res.status(401).json({ error: "Unauthorized", message: "Invalid email or password" });
       return;
     }
+    if (user.isBlocked) {
+      res.status(403).json({ error: "Forbidden", message: "Your account has been blocked. Please contact support." });
+      return;
+    }
     const token = generateToken(user.id, user.email);
     res.json({
       token,

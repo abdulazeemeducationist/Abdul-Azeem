@@ -11,6 +11,7 @@ export const usersTable = pgTable("users", {
   whatsappNumber: varchar("whatsapp_number", { length: 20 }),
   whatsappVerified: boolean("whatsapp_verified").notNull().default(false),
   profilePicture: text("profile_picture"),
+  isBlocked: boolean("is_blocked").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
