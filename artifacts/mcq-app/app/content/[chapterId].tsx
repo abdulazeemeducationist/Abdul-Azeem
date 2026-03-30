@@ -34,8 +34,10 @@ function VideoPlayerModal({ video, onClose }: { video: ChapterVideo; onClose: ()
     ? `https://www.youtube.com/embed/${videoId}?autoplay=1&modestbranding=1&rel=0`
     : video.youtubeUrl;
 
-  const html = `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"><style>*{margin:0;padding:0;box-sizing:border-box;background:#000}body{display:flex;align-items:center;justify-content:center;height:100vh;width:100vw}iframe{width:100%;height:100%;border:none}</style></head><body><iframe src="${embedUrl}" allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture;fullscreen" allowfullscreen></iframe></body></html>`;
+  // Chrome user-agent so YouTube doesn't block WebView playback on Android
+  const androidUserAgent = "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36";
 
+  // Web: plain iframe (no WebView); Native: WebView with Chrome UA to avoid YouTube blocking
   const player = Platform.OS === "web"
     ? React.createElement("iframe", {
         src: embedUrl,
@@ -45,13 +47,16 @@ function VideoPlayerModal({ video, onClose }: { video: ChapterVideo; onClose: ()
       })
     : (
         <WebView
-          source={{ html }}
+          source={{ uri: embedUrl }}
           style={playerStyles.webview}
+          userAgent={androidUserAgent}
           allowsFullscreenVideo
           allowsInlineMediaPlayback
           mediaPlaybackRequiresUserAction={false}
           javaScriptEnabled
+          domStorageEnabled
           scrollEnabled={false}
+          originWhitelist={["*"]}
         />
       );
 
@@ -90,7 +95,7 @@ const playerStyles = StyleSheet.create({
   header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingBottom: 12, gap: 10 },
   closeBtn: { width: 38, height: 38, borderRadius: 10, backgroundColor: "rgba(255,255,255,0.12)", alignItems: "center", justifyContent: "center" },
   headerTitle: { flex: 1, fontSize: 14, fontFamily: "Inter_600SemiBold", color: "#FFF", lineHeight: 19 },
-  playerBox: { width: "100%", aspectRatio: 16 / 9, backgroundColor: "#000" },
+  playerBox: { width: "100%", aspectRatio: 16 / 9, backgroundColor: "#000", overflow: "hidden" },
   webview: { flex: 1, backgroundColor: "#000" },
   descScroll: { flex: 1, backgroundColor: "#111" },
   descContent: { padding: 16, gap: 8 },
