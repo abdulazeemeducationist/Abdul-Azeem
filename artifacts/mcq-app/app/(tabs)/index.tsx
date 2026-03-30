@@ -173,15 +173,6 @@ function AdminDashboard({ userName, avatar, initial }: { userName: string; avata
               <StatTile label="Students"  value={stats?.totalUsers ?? 0}      icon="people"                color="#3B82F6" route={{ pathname: "/admin", params: { tab: "students" } }} />
             </View>
 
-            {stats && (
-              <View style={styles.avgCard}>
-                <View style={styles.avgCardLeft}>
-                  <Ionicons name="trending-up" size={20} color={Colors.light.primary} />
-                  <Text style={styles.avgLabel}>Average Score</Text>
-                </View>
-                <Text style={styles.avgValue}>{Number(stats.averageScore).toFixed(1)}%</Text>
-              </View>
-            )}
           </>
         )}
 
