@@ -4,7 +4,7 @@ import { router } from "expo-router";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system";
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   ActivityIndicator,
   Modal,
@@ -61,9 +61,8 @@ export default function AdminScreen() {
   const [showProgramModal, setShowProgramModal] = useState(false);
   const [editingProgram, setEditingProgram] = useState<(Course & { subjectCount: number }) | null>(null);
   const [programForm, setProgramForm] = useState<ProgramForm>(EMPTY_FORM);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [savingProgram, setSavingProgram] = useState(false);
+  const [pendingProgDeleteIds, setPendingProgDeleteIds] = useState<number[]>([]);
 
   // Students state
   const [showEnrollModal, setShowEnrollModal] = useState(false);
@@ -73,10 +72,15 @@ export default function AdminScreen() {
   // Content state
   const [showAddQuestion, setShowAddQuestion] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<any | null>(null);
-  const [deletingQId, setDeletingQId] = useState<number | null>(null);
-  const [showDeleteQConfirm, setShowDeleteQConfirm] = useState(false);
   const [filterSubjectId, setFilterSubjectId] = useState<number | null>(null);
   const [savingQ, setSavingQ] = useState(false);
+  const [pendingQDeleteIds, setPendingQDeleteIds] = useState<number[]>([]);
+
+  // Undo snackbar
+  const [snackbar, setSnackbar] = useState<{ message: string; countdown: number } | null>(null);
+  const snackUndoRef = useRef<(() => void) | null>(null);
+  const snackCommitRef = useRef<(() => Promise<void> | void) | null>(null);
+  const snackIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const EMPTY_Q = { topicId: "", questionText: "", optionA: "", optionB: "", optionC: "", optionD: "", correctAnswers: "", explanation: "", difficulty: "medium" };
   const [qForm, setQForm] = useState(EMPTY_Q);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -155,6 +159,10 @@ export default function AdminScreen() {
   const handleSaveProgram = async () => {
     if (!programForm.name.trim() || !programForm.code.trim()) return;
     setSavingProgram(true);
+    const wasEditing = editingProgram;
+    const oldValues = wasEditing
+      ? { name: wasEditing.name, code: wasEditing.code, description: wasEditing.description ?? "", logo: wasEditing.logo ?? "" }
+      : null;
     try {
       const payload = {
         name: programForm.name.trim(),
@@ -162,10 +170,12 @@ export default function AdminScreen() {
         description: programForm.description.trim() || undefined,
         logo: programForm.logo || undefined,
       };
-      if (editingProgram) {
-        await api.updateCourse(editingProgram.id, payload);
+      let newId: number | null = null;
+      if (wasEditing) {
+        await api.updateCourse(wasEditing.id, payload);
       } else {
-        await api.createCourse(payload);
+        const created = await api.createCourse(payload);
+        newId = created.id;
       }
       qc.invalidateQueries({ queryKey: ["adminCourses"] });
       qc.invalidateQueries({ queryKey: ["courses"] });
@@ -173,12 +183,56 @@ export default function AdminScreen() {
       refetchPrograms();
       refetchStats();
       setShowProgramModal(false);
+      if (wasEditing && oldValues) {
+        showUndo("Changes saved.", () => {}, async () => {
+          await api.updateCourse(wasEditing.id, { name: oldValues.name, code: oldValues.code, description: oldValues.description || undefined, logo: oldValues.logo || undefined });
+          refetchPrograms();
+          qc.invalidateQueries({ queryKey: ["courses"] });
+        });
+      } else if (newId) {
+        showUndo("Program created.", () => {}, async () => {
+          await api.deleteCourse(newId!);
+          refetchPrograms();
+          qc.invalidateQueries({ queryKey: ["adminStats"] });
+          refetchStats();
+        });
+      }
     } catch (e: any) {
       console.error(e);
     } finally {
       setSavingProgram(false);
     }
   };
+  // ── Undo snackbar helpers ──
+  const clearSnack = () => {
+    if (snackIntervalRef.current) clearInterval(snackIntervalRef.current);
+    snackUndoRef.current = null;
+    snackCommitRef.current = null;
+    setSnackbar(null);
+  };
+  const showUndo = (message: string, commitFn: () => Promise<void> | void, undoFn: () => void) => {
+    clearSnack();
+    snackUndoRef.current = undoFn;
+    snackCommitRef.current = commitFn;
+    setSnackbar({ message, countdown: 5 });
+    let count = 5;
+    snackIntervalRef.current = setInterval(() => {
+      count -= 1;
+      if (count <= 0) {
+        const commit = snackCommitRef.current;
+        clearSnack();
+        if (commit) commit();
+      } else {
+        setSnackbar({ message, countdown: count });
+      }
+    }, 1000);
+  };
+  const handleUndo = () => {
+    const undoFn = snackUndoRef.current;
+    clearSnack();
+    if (undoFn) undoFn();
+  };
+
   const handleToggleCourse = async (id: number, current: boolean) => {
     try {
       await api.toggleCourseActive(id, !current);
@@ -202,24 +256,19 @@ export default function AdminScreen() {
       refetchSubjects();
     } catch (e) { console.error(e); }
   };
-  const confirmDelete = (id: number) => { setDeletingId(id); setShowDeleteConfirm(true); };
-  const handleDeleteProgram = async () => {
-    if (!deletingId) return;
-    setSavingProgram(true);
-    try {
-      await api.deleteCourse(deletingId);
+  const confirmDelete = (id: number) => {
+    setPendingProgDeleteIds(prev => [...prev, id]);
+    showUndo("Program deleted.", async () => {
+      await api.deleteCourse(id);
+      setPendingProgDeleteIds(prev => prev.filter(x => x !== id));
       qc.invalidateQueries({ queryKey: ["adminCourses"] });
       qc.invalidateQueries({ queryKey: ["courses"] });
       qc.invalidateQueries({ queryKey: ["adminStats"] });
       refetchPrograms();
       refetchStats();
-    } catch (e: any) {
-      console.error(e);
-    } finally {
-      setSavingProgram(false);
-      setShowDeleteConfirm(false);
-      setDeletingId(null);
-    }
+    }, () => {
+      setPendingProgDeleteIds(prev => prev.filter(x => x !== id));
+    });
   };
 
   // --- Enroll ---
@@ -262,6 +311,8 @@ export default function AdminScreen() {
     const answers = qForm.correctAnswers.toUpperCase().split(",").map(a => a.trim()).filter(a => ["A","B","C","D"].includes(a));
     if (!answers.length) return;
     setSavingQ(true);
+    const wasEditing = editingQuestion;
+    const oldQ = wasEditing ? { ...wasEditing } : null;
     try {
       const payload = {
         topicId: parseInt(qForm.topicId),
@@ -271,10 +322,12 @@ export default function AdminScreen() {
         questionType: answers.length > 1 ? "multiple" as const : "single" as const,
         difficulty: qForm.difficulty,
       };
-      if (editingQuestion) {
-        await api.updateQuestion(editingQuestion.id, payload);
+      let newQId: number | null = null;
+      if (wasEditing) {
+        await api.updateQuestion(wasEditing.id, payload);
       } else {
-        await api.createQuestion(payload);
+        const created = await api.createQuestion(payload);
+        newQId = created.id;
       }
       qc.invalidateQueries({ queryKey: ["adminStats"] });
       qc.invalidateQueries({ queryKey: ["adminQuestions"] });
@@ -283,21 +336,40 @@ export default function AdminScreen() {
       setShowAddQuestion(false);
       setQForm(EMPTY_Q);
       setEditingQuestion(null);
+      if (wasEditing && oldQ) {
+        showUndo("Changes saved.", () => {}, async () => {
+          await api.updateQuestion(wasEditing.id, {
+            topicId: oldQ.topicId, questionText: oldQ.questionText,
+            optionA: oldQ.optionA, optionB: oldQ.optionB, optionC: oldQ.optionC, optionD: oldQ.optionD,
+            correctAnswers: oldQ.correctAnswers, explanation: oldQ.explanation,
+            questionType: oldQ.questionType, difficulty: oldQ.difficulty,
+          });
+          refetchQuestions();
+          qc.invalidateQueries({ queryKey: ["adminQuestions"] });
+        });
+      } else if (newQId) {
+        showUndo("Question added.", () => {}, async () => {
+          await api.deleteQuestion(newQId!);
+          refetchQuestions();
+          qc.invalidateQueries({ queryKey: ["adminStats"] });
+          refetchStats();
+        });
+      }
     } catch (e) { console.error(e); }
     finally { setSavingQ(false); }
   };
-  const confirmDeleteQ = (id: number) => { setDeletingQId(id); setShowDeleteQConfirm(true); };
-  const handleDeleteQuestion = async () => {
-    if (!deletingQId) return;
-    setSavingQ(true);
-    try {
-      await api.deleteQuestion(deletingQId);
+  const confirmDeleteQ = (id: number) => {
+    setPendingQDeleteIds(prev => [...prev, id]);
+    showUndo("Question deleted.", async () => {
+      await api.deleteQuestion(id);
+      setPendingQDeleteIds(prev => prev.filter(x => x !== id));
       qc.invalidateQueries({ queryKey: ["adminStats"] });
       qc.invalidateQueries({ queryKey: ["adminQuestions"] });
       refetchStats();
       refetchQuestions();
-    } catch (e) { console.error(e); }
-    finally { setSavingQ(false); setShowDeleteQConfirm(false); setDeletingQId(null); }
+    }, () => {
+      setPendingQDeleteIds(prev => prev.filter(x => x !== id));
+    });
   };
 
   // --- Import MCQs ---
@@ -465,7 +537,7 @@ export default function AdminScreen() {
                 <Text style={styles.emptyText}>No programs yet</Text>
               </View>
             ) : (
-              programs.map((prog, idx) => {
+              programs.filter(p => !pendingProgDeleteIds.includes(p.id)).map((prog, idx) => {
                 const accentColors = ["#059669", "#7C3AED", "#3B82F6", "#D97706", "#DC2626", "#0891B2"];
                 const accent = accentColors[idx % accentColors.length];
                 return (
@@ -655,8 +727,8 @@ export default function AdminScreen() {
               </View>
             ) : (
               <>
-                <Text style={styles.qCount}>{adminQuestions.length} question{adminQuestions.length !== 1 ? "s" : ""}</Text>
-                {adminQuestions.map((q, idx) => (
+                <Text style={styles.qCount}>{adminQuestions.filter((q: any) => !pendingQDeleteIds.includes(q.id)).length} question{adminQuestions.filter((q: any) => !pendingQDeleteIds.includes(q.id)).length !== 1 ? "s" : ""}</Text>
+                {adminQuestions.filter((q: any) => !pendingQDeleteIds.includes(q.id)).map((q, idx) => (
                   <View key={q.id} style={styles.qCard}>
                     <View style={styles.qCardHeader}>
                       <View style={styles.qNumBadge}>
@@ -789,26 +861,6 @@ export default function AdminScreen() {
         </View>
       </Modal>
 
-      {/* ── Delete Confirm Modal ── */}
-      <Modal visible={showDeleteConfirm} transparent animationType="fade" onRequestClose={() => setShowDeleteConfirm(false)}>
-        <View style={styles.overlay}>
-          <View style={styles.confirmCard}>
-            <View style={styles.confirmIconBox}>
-              <Ionicons name="trash-outline" size={30} color={Colors.light.error} />
-            </View>
-            <Text style={styles.confirmTitle}>Delete Program?</Text>
-            <Text style={styles.confirmMsg}>This will permanently delete the program and cannot be undone.</Text>
-            <View style={styles.confirmActions}>
-              <Pressable style={styles.cancelBtn2} onPress={() => setShowDeleteConfirm(false)} disabled={savingProgram}>
-                <Text style={styles.cancelBtn2Text}>Cancel</Text>
-              </Pressable>
-              <Pressable style={[styles.deleteBtn, { opacity: savingProgram ? 0.7 : 1 }]} onPress={handleDeleteProgram} disabled={savingProgram}>
-                {savingProgram ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={styles.deleteBtnText}>Delete</Text>}
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
 
       {/* ── Assign Paper Modal ── */}
       <Modal visible={showEnrollModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => { setShowEnrollModal(false); setSelectedStudent(null); }}>
@@ -863,26 +915,6 @@ export default function AdminScreen() {
         </View>
       </Modal>
 
-      {/* ── Delete Question Confirm ── */}
-      <Modal visible={showDeleteQConfirm} transparent animationType="fade" onRequestClose={() => setShowDeleteQConfirm(false)}>
-        <View style={styles.overlay}>
-          <View style={styles.confirmCard}>
-            <View style={styles.confirmIconBox}>
-              <Ionicons name="trash-outline" size={30} color={Colors.light.error} />
-            </View>
-            <Text style={styles.confirmTitle}>Delete Question?</Text>
-            <Text style={styles.confirmMsg}>This will permanently remove the question and cannot be undone.</Text>
-            <View style={styles.confirmActions}>
-              <Pressable style={styles.cancelBtn2} onPress={() => setShowDeleteQConfirm(false)} disabled={savingQ}>
-                <Text style={styles.cancelBtn2Text}>Cancel</Text>
-              </Pressable>
-              <Pressable style={[styles.deleteBtn, { opacity: savingQ ? 0.7 : 1 }]} onPress={handleDeleteQuestion} disabled={savingQ}>
-                {savingQ ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={styles.deleteBtnText}>Delete</Text>}
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
 
       {/* ── Import MCQs Modal ── */}
       <Modal visible={showImportModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowImportModal(false)}>
@@ -1042,6 +1074,24 @@ export default function AdminScreen() {
           </ScrollView>
         </View>
       </Modal>
+
+      {/* ── Undo Snackbar ── */}
+      {snackbar && (
+        <View style={styles.snackbar} pointerEvents="box-none">
+          <View style={styles.snackbarInner}>
+            <View style={styles.snackbarLeft}>
+              <View style={styles.snackCountdown}>
+                <Text style={styles.snackCountdownText}>{snackbar.countdown}</Text>
+              </View>
+              <Text style={styles.snackMessage}>{snackbar.message}</Text>
+            </View>
+            <Pressable style={styles.snackUndoBtn} onPress={handleUndo}>
+              <Ionicons name="arrow-undo" size={14} color={Colors.light.primary} />
+              <Text style={styles.snackUndoText}>Undo</Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -1230,4 +1280,16 @@ const styles = StyleSheet.create({
   noAccessText: { fontSize: 18, fontFamily: "Inter_600SemiBold", color: Colors.light.text },
   retryBtn: { backgroundColor: Colors.light.primary, borderRadius: 14, paddingHorizontal: 24, paddingVertical: 12 },
   retryText: { color: "#FFF", fontFamily: "Inter_600SemiBold", fontSize: 15 },
+  snackbar: { position: "absolute", bottom: 0, left: 0, right: 0, paddingHorizontal: 16, paddingBottom: 28, zIndex: 999 },
+  snackbarInner: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    backgroundColor: "#1E293B", borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.18, shadowRadius: 12, elevation: 8,
+  },
+  snackbarLeft: { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
+  snackCountdown: { width: 26, height: 26, borderRadius: 13, backgroundColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center" },
+  snackCountdownText: { fontSize: 12, fontFamily: "Inter_700Bold", color: "#FFF" },
+  snackMessage: { fontSize: 14, fontFamily: "Inter_500Medium", color: "#F8FAFC", flex: 1 },
+  snackUndoBtn: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "#FFF", borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
+  snackUndoText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: Colors.light.primary },
 });
