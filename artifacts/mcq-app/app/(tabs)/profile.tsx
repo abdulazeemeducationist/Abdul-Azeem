@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
+import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
 import React, { useState } from "react";
@@ -75,6 +76,7 @@ export default function ProfileScreen() {
 
   // Picture upload
   const [uploadingPic, setUploadingPic] = useState(false);
+  const [picError, setPicError] = useState("");
 
   const initials = user?.name
     ? user.name.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase()
@@ -138,22 +140,39 @@ export default function ProfileScreen() {
   };
 
   const handlePickImage = async () => {
+    setPicError("");
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") return;
+    if (status !== "granted") {
+      setPicError("Gallery permission denied. Please allow access in your device settings.");
+      return;
+    }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.4,
-      base64: true,
+      quality: 1,
     });
-    if (result.canceled || !result.assets?.[0]?.base64) return;
+    if (result.canceled || !result.assets?.[0]?.uri) return;
     setUploadingPic(true);
     try {
-      const dataUri = `data:image/jpeg;base64,${result.assets[0].base64}`;
+      const resized = await ImageManipulator.manipulateAsync(
+        result.assets[0].uri,
+        [{ resize: { width: 300, height: 300 } }],
+        { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true },
+      );
+      if (!resized.base64) {
+        setPicError("Could not process image. Please try a different photo.");
+        return;
+      }
+      const sizeKb = Math.round((resized.base64.length * 3) / 4 / 1024);
+      if (sizeKb > 500) {
+        setPicError(`Image is still too large (${sizeKb} KB). Please choose a smaller photo.`);
+        return;
+      }
+      const dataUri = `data:image/jpeg;base64,${resized.base64}`;
       await updateProfilePicture(dataUri);
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      setPicError(e?.message || "Failed to upload picture. Please try again.");
     } finally {
       setUploadingPic(false);
     }
@@ -199,6 +218,12 @@ export default function ProfileScreen() {
               <Text style={styles.roleText}>Admin</Text>
             </View>
           )}
+          {picError ? (
+            <View style={styles.picErrorBox}>
+              <Ionicons name="alert-circle" size={14} color={Colors.light.error} />
+              <Text style={styles.picErrorText}>{picError}</Text>
+            </View>
+          ) : null}
         </View>
 
         {/* Account section */}
@@ -414,6 +439,8 @@ const styles = StyleSheet.create({
   whatsappText: { fontSize: 13, fontFamily: "Inter_400Regular", color: Colors.light.textSecondary },
   roleBadge: { backgroundColor: Colors.light.primary + "18", paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20, marginTop: 4 },
   roleText: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: Colors.light.primary },
+  picErrorBox: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: Colors.light.error + "12", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, marginTop: 4, maxWidth: 300 },
+  picErrorText: { flex: 1, fontSize: 12, fontFamily: "Inter_400Regular", color: Colors.light.error, lineHeight: 18 },
 
   section: { marginBottom: 8, paddingHorizontal: 16 },
   sectionTitle: {
