@@ -1,10 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system";
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
+import CountryCodePicker, { DEFAULT_COUNTRY, detectCountry, type Country } from "@/components/CountryCodePicker";
 import {
   ActivityIndicator,
   Modal,
@@ -32,8 +33,20 @@ export default function AdminScreen() {
   const isWeb = Platform.OS === "web";
   const topPad = isWeb ? Math.max(insets.top, 67) : insets.top;
   const qc = useQueryClient();
+  const params = useLocalSearchParams<{ tab?: string }>();
 
-  const [activeTab, setActiveTab] = useState<TabType>("programs");
+  const [activeTab, setActiveTab] = useState<TabType>(() => {
+    const t = params.tab;
+    if (t === "students" || t === "content" || t === "programs") return t;
+    return "programs";
+  });
+
+  useEffect(() => {
+    const t = params.tab;
+    if (t === "students" || t === "content" || t === "programs") {
+      setActiveTab(t);
+    }
+  }, [params.tab]);
 
   // Programs state
   const [showProgramModal, setShowProgramModal] = useState(false);
@@ -60,7 +73,9 @@ export default function AdminScreen() {
   // Student management state
   const [showStudentModal, setShowStudentModal] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
-  const [studentForm, setStudentForm] = useState({ name: "", email: "", password: "", whatsappNumber: "" });
+  const [studentForm, setStudentForm] = useState({ name: "", email: "", password: "", showPassword: false });
+  const [studentCountry, setStudentCountry] = useState<Country>(DEFAULT_COUNTRY);
+  const [studentLocalNumber, setStudentLocalNumber] = useState("");
   const [savingStudent, setSavingStudent] = useState(false);
   const [studentFormError, setStudentFormError] = useState("");
 
@@ -312,13 +327,23 @@ export default function AdminScreen() {
   // ── Student CRUD ──
   const openAddStudent = () => {
     setEditingStudent(null);
-    setStudentForm({ name: "", email: "", password: "", whatsappNumber: "" });
+    setStudentForm({ name: "", email: "", password: "", showPassword: false });
+    setStudentCountry(DEFAULT_COUNTRY);
+    setStudentLocalNumber("");
     setStudentFormError("");
     setShowStudentModal(true);
   };
   const openEditStudent = (s: Student) => {
     setEditingStudent(s);
-    setStudentForm({ name: s.name, email: s.email, password: "", whatsappNumber: s.whatsappNumber ? `+${s.whatsappNumber}` : "" });
+    setStudentForm({ name: s.name, email: s.email, password: "", showPassword: false });
+    if (s.whatsappNumber) {
+      const { country, local } = detectCountry(s.whatsappNumber);
+      setStudentCountry(country ?? DEFAULT_COUNTRY);
+      setStudentLocalNumber(local ?? "");
+    } else {
+      setStudentCountry(DEFAULT_COUNTRY);
+      setStudentLocalNumber("");
+    }
     setStudentFormError("");
     setShowStudentModal(true);
   };
@@ -328,7 +353,8 @@ export default function AdminScreen() {
     if (!editingStudent && !studentForm.password) { setStudentFormError("Password is required for new students"); return; }
     setSavingStudent(true);
     try {
-      const whatsapp = studentForm.whatsappNumber ? studentForm.whatsappNumber.replace(/\D/g, "") : undefined;
+      const localClean = studentLocalNumber.replace(/\D/g, "").replace(/^0+/, "");
+      const whatsapp = localClean.length >= 7 ? studentCountry.code + localClean : undefined;
       if (editingStudent) {
         await api.updateStudent(editingStudent.id, { name: studentForm.name.trim(), email: studentForm.email.trim(), whatsappNumber: whatsapp });
         qc.invalidateQueries({ queryKey: ["adminStudents"] }); refetchStudents();
@@ -1168,50 +1194,69 @@ export default function AdminScreen() {
             )}
             <View style={styles.formField}>
               <Text style={styles.formLabel}>Full Name <Text style={styles.required}>*</Text></Text>
-              <TextInput
-                style={styles.formInput}
-                value={studentForm.name}
-                onChangeText={v => setStudentForm(f => ({ ...f, name: v }))}
-                placeholder="Student's full name"
-                placeholderTextColor={Colors.light.textMuted}
-                autoCapitalize="words"
-              />
+              <View style={styles.formInputRow}>
+                <Ionicons name="person-outline" size={17} color={Colors.light.textMuted} style={styles.formInputIcon} />
+                <TextInput
+                  style={[styles.formInput, styles.formInputFlex, { borderWidth: 0, backgroundColor: "transparent" }]}
+                  value={studentForm.name}
+                  onChangeText={v => setStudentForm(f => ({ ...f, name: v }))}
+                  placeholder="Student's full name"
+                  placeholderTextColor={Colors.light.textMuted}
+                  autoCapitalize="words"
+                />
+              </View>
             </View>
             <View style={styles.formField}>
               <Text style={styles.formLabel}>Email Address <Text style={styles.required}>*</Text></Text>
-              <TextInput
-                style={styles.formInput}
-                value={studentForm.email}
-                onChangeText={v => setStudentForm(f => ({ ...f, email: v }))}
-                placeholder="student@example.com"
-                placeholderTextColor={Colors.light.textMuted}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
+              <View style={styles.formInputRow}>
+                <Ionicons name="mail-outline" size={17} color={Colors.light.textMuted} style={styles.formInputIcon} />
+                <TextInput
+                  style={[styles.formInput, styles.formInputFlex, { borderWidth: 0, backgroundColor: "transparent" }]}
+                  value={studentForm.email}
+                  onChangeText={v => setStudentForm(f => ({ ...f, email: v }))}
+                  placeholder="student@example.com"
+                  placeholderTextColor={Colors.light.textMuted}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+              </View>
             </View>
             {!editingStudent && (
               <View style={styles.formField}>
                 <Text style={styles.formLabel}>Password <Text style={styles.required}>*</Text></Text>
-                <TextInput
-                  style={styles.formInput}
-                  value={studentForm.password}
-                  onChangeText={v => setStudentForm(f => ({ ...f, password: v }))}
-                  placeholder="Minimum 6 characters"
-                  placeholderTextColor={Colors.light.textMuted}
-                  secureTextEntry
-                />
+                <View style={styles.formInputRow}>
+                  <Ionicons name="lock-closed-outline" size={17} color={Colors.light.textMuted} style={styles.formInputIcon} />
+                  <TextInput
+                    style={[styles.formInput, styles.formInputFlex, { borderWidth: 0, backgroundColor: "transparent" }]}
+                    value={studentForm.password}
+                    onChangeText={v => setStudentForm(f => ({ ...f, password: v }))}
+                    placeholder="Minimum 6 characters"
+                    placeholderTextColor={Colors.light.textMuted}
+                    secureTextEntry={!studentForm.showPassword}
+                    autoCapitalize="none"
+                  />
+                  <Pressable onPress={() => setStudentForm(f => ({ ...f, showPassword: !f.showPassword }))} style={styles.formEyeBtn}>
+                    <Ionicons name={studentForm.showPassword ? "eye" : "eye-off"} size={17} color={Colors.light.textMuted} />
+                  </Pressable>
+                </View>
               </View>
             )}
             <View style={styles.formField}>
               <Text style={styles.formLabel}>WhatsApp Number</Text>
-              <TextInput
-                style={styles.formInput}
-                value={studentForm.whatsappNumber}
-                onChangeText={v => setStudentForm(f => ({ ...f, whatsappNumber: v }))}
-                placeholder="+923001234567"
-                placeholderTextColor={Colors.light.textMuted}
-                keyboardType="phone-pad"
-              />
+              <View style={styles.formInputRow}>
+                <CountryCodePicker
+                  selected={studentCountry}
+                  onSelect={c => setStudentCountry(c)}
+                />
+                <TextInput
+                  style={[styles.formInput, styles.formInputFlex, { borderWidth: 0, backgroundColor: "transparent" }]}
+                  value={studentLocalNumber}
+                  onChangeText={setStudentLocalNumber}
+                  placeholder="3001234567"
+                  placeholderTextColor={Colors.light.textMuted}
+                  keyboardType="phone-pad"
+                />
+              </View>
             </View>
             <Pressable
               style={({ pressed }) => [styles.saveBtn, { opacity: pressed || savingStudent ? 0.85 : 1 }]}
@@ -1559,6 +1604,10 @@ const styles = StyleSheet.create({
   paperChipText: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: "#1D4ED8" },
   emptyState: { paddingTop: 40, alignItems: "center", gap: 8 },
   emptyText: { fontSize: 15, fontFamily: "Inter_500Medium", color: Colors.light.textMuted },
+  formInputRow: { flexDirection: "row", alignItems: "center", backgroundColor: Colors.light.backgroundSecondary, borderRadius: 10, borderWidth: 1, borderColor: Colors.light.border, overflow: "hidden" },
+  formInputIcon: { marginLeft: 12, marginRight: 2 },
+  formInputFlex: { flex: 1, borderRadius: 0 },
+  formEyeBtn: { paddingHorizontal: 12 },
   sheetContainer: { flex: 1, backgroundColor: Colors.light.background },
   sheetHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingBottom: 12 },
   sheetTitle: { fontSize: 20, fontFamily: "Inter_700Bold", color: Colors.light.text },

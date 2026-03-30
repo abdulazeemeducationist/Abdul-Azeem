@@ -93,12 +93,12 @@ function ProgramCard({ course }: { course: Course }) {
 
 // ── Admin Dashboard ──────────────────────────────────────────────────────────
 
-interface StatTileProps { label: string; value: number; icon: keyof typeof Ionicons.glyphMap; color: string; route: string }
+interface StatTileProps { label: string; value: number; icon: keyof typeof Ionicons.glyphMap; color: string; route: any }
 function StatTile({ label, value, icon, color, route }: StatTileProps) {
   return (
     <Pressable
       style={({ pressed }) => [styles.statTile, { borderLeftColor: color, opacity: pressed ? 0.85 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}
-      onPress={() => router.push(route as any)}
+      onPress={() => router.push(route)}
     >
       <View style={[styles.statTileIcon, { backgroundColor: color + "18" }]}>
         <Ionicons name={icon} size={18} color={color} />
@@ -109,12 +109,12 @@ function StatTile({ label, value, icon, color, route }: StatTileProps) {
   );
 }
 
-interface QuickActionProps { label: string; sub: string; icon: keyof typeof Ionicons.glyphMap; color: string; route: string }
-function QuickAction({ label, sub, icon, color, route }: QuickActionProps) {
+interface QuickActionProps { label: string; sub: string; icon: keyof typeof Ionicons.glyphMap; color: string; tab: string }
+function QuickAction({ label, sub, icon, color, tab }: QuickActionProps) {
   return (
     <Pressable
       style={({ pressed }) => [styles.quickAction, { opacity: pressed ? 0.88 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] }]}
-      onPress={() => router.push(route as any)}
+      onPress={() => router.push({ pathname: "/admin", params: { tab } } as any)}
     >
       <View style={[styles.quickActionIcon, { backgroundColor: color + "18" }]}>
         <Ionicons name={icon} size={22} color={color} />
@@ -167,12 +167,12 @@ function AdminDashboard({ userName, avatar, initial }: { userName: string; avata
         ) : (
           <>
             <View style={styles.statsGrid}>
-              <StatTile label="Students"  value={stats?.totalUsers ?? 0}     icon="people"          color="#3B82F6" route="/admin" />
-              <StatTile label="Programs"  value={stats?.totalCourses ?? 0}   icon="school"          color="#059669" route="/admin" />
-              <StatTile label="Papers"    value={stats?.totalSubjects ?? 0}  icon="book"            color="#7C3AED" route="/admin" />
-              <StatTile label="Chapters"  value={stats?.totalChapters ?? 0}  icon="layers"          color="#D97706" route="/admin" />
-              <StatTile label="Topics"    value={stats?.totalTopics ?? 0}    icon="bookmark"        color="#DC2626" route="/admin" />
-              <StatTile label="MCQs"      value={stats?.totalQuestions ?? 0} icon="help-circle"     color="#0891B2" route="/admin" />
+              <StatTile label="Students"  value={stats?.totalUsers ?? 0}     icon="people"          color="#3B82F6" route={{ pathname: "/admin", params: { tab: "students" } }} />
+              <StatTile label="Programs"  value={stats?.totalCourses ?? 0}   icon="school"          color="#059669" route={{ pathname: "/admin", params: { tab: "programs" } }} />
+              <StatTile label="Papers"    value={stats?.totalSubjects ?? 0}  icon="book"            color="#7C3AED" route={{ pathname: "/admin", params: { tab: "programs" } }} />
+              <StatTile label="Chapters"  value={stats?.totalChapters ?? 0}  icon="layers"          color="#D97706" route={{ pathname: "/admin", params: { tab: "content" } }} />
+              <StatTile label="Topics"    value={stats?.totalTopics ?? 0}    icon="bookmark"        color="#DC2626" route={{ pathname: "/admin", params: { tab: "content" } }} />
+              <StatTile label="MCQs"      value={stats?.totalQuestions ?? 0} icon="help-circle"     color="#0891B2" route={{ pathname: "/admin", params: { tab: "content" } }} />
             </View>
 
             {stats && (
@@ -190,9 +190,9 @@ function AdminDashboard({ userName, avatar, initial }: { userName: string; avata
         {/* Quick Actions */}
         <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Manage</Text>
         <View style={styles.quickActions}>
-          <QuickAction label="Programs"  sub="Add, edit, or remove programs and papers" icon="school-outline"         color="#059669" route="/admin" />
-          <QuickAction label="Students"  sub="Manage accounts and paper access"          icon="people-outline"        color="#3B82F6" route="/admin" />
-          <QuickAction label="Content"   sub="Chapters, topics, and MCQ questions"       icon="document-text-outline" color="#7C3AED" route="/admin" />
+          <QuickAction label="Programs"  sub="Add, edit, or remove programs and papers" icon="school-outline"         color="#059669" tab="programs" />
+          <QuickAction label="Students"  sub="Manage accounts and paper access"          icon="people-outline"        color="#3B82F6" tab="students" />
+          <QuickAction label="Content"   sub="Chapters, topics, and MCQ questions"       icon="document-text-outline" color="#7C3AED" tab="content" />
         </View>
       </ScrollView>
     </View>
