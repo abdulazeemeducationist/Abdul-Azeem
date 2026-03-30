@@ -18,6 +18,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
 import { useAuth } from "@/context/AuthContext";
+import CountryCodePicker, { DEFAULT_COUNTRY, detectCountry, type Country } from "@/components/CountryCodePicker";
 
 interface MenuRowProps {
   icon: keyof typeof Ionicons.glyphMap;
@@ -57,7 +58,8 @@ export default function ProfileScreen() {
   // Edit profile modal
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [editName, setEditName] = useState("");
-  const [editWhatsapp, setEditWhatsapp] = useState("");
+  const [editCountry, setEditCountry] = useState<Country>(DEFAULT_COUNTRY);
+  const [editLocalNumber, setEditLocalNumber] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileError, setProfileError] = useState("");
   const [profileSuccess, setProfileSuccess] = useState(false);
@@ -108,7 +110,14 @@ export default function ProfileScreen() {
 
   const openEditProfile = () => {
     setEditName(user?.name ?? "");
-    setEditWhatsapp(user?.whatsappNumber ?? "");
+    if (user?.whatsappNumber) {
+      const { country, local } = detectCountry(user.whatsappNumber);
+      setEditCountry(country);
+      setEditLocalNumber(local);
+    } else {
+      setEditCountry(DEFAULT_COUNTRY);
+      setEditLocalNumber("");
+    }
     setProfileError("");
     setProfileSuccess(false);
     setShowEditProfile(true);
@@ -119,7 +128,10 @@ export default function ProfileScreen() {
     setSavingProfile(true);
     setProfileError("");
     try {
-      await updateProfile(editName.trim(), editWhatsapp);
+      const fullWhatsapp = editLocalNumber.trim()
+        ? editCountry.code + editLocalNumber.replace(/\D/g, "").replace(/^0+/, "")
+        : "";
+      await updateProfile(editName.trim(), fullWhatsapp);
       setProfileSuccess(true);
       setTimeout(() => { setShowEditProfile(false); setProfileSuccess(false); }, 1000);
     } catch (e: any) {
@@ -237,7 +249,7 @@ export default function ProfileScreen() {
           {user?.whatsappNumber ? (
             <View style={styles.whatsappRow}>
               <Ionicons name="logo-whatsapp" size={13} color="#25D366" />
-              <Text style={styles.whatsappText}>{user.whatsappNumber}</Text>
+              <Text style={styles.whatsappText}>+{user.whatsappNumber}</Text>
             </View>
           ) : null}
           {user?.role === "admin" && (
@@ -362,12 +374,15 @@ export default function ProfileScreen() {
             <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>WhatsApp Number</Text>
               <View style={styles.inputWrapper}>
-                <Ionicons name="logo-whatsapp" size={17} color="#25D366" style={styles.inputIcon} />
+                <CountryCodePicker
+                  selected={editCountry}
+                  onSelect={setEditCountry}
+                />
                 <TextInput
                   style={styles.input}
-                  value={editWhatsapp}
-                  onChangeText={setEditWhatsapp}
-                  placeholder="e.g. 03001234567"
+                  value={editLocalNumber}
+                  onChangeText={setEditLocalNumber}
+                  placeholder="3001234567"
                   placeholderTextColor={Colors.light.textMuted}
                   keyboardType="phone-pad"
                 />

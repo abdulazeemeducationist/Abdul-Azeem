@@ -15,6 +15,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
 import { useAuth } from "@/context/AuthContext";
+import CountryCodePicker, { DEFAULT_COUNTRY, type Country } from "@/components/CountryCodePicker";
 
 type OtpStep = "idle" | "sending" | "sent" | "verifying" | "verified";
 
@@ -26,7 +27,8 @@ export default function SignUpScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [whatsapp, setWhatsapp] = useState("");
+  const [selectedCountry, setSelectedCountry] = useState<Country>(DEFAULT_COUNTRY);
+  const [localNumber, setLocalNumber] = useState("");
   const [otp, setOtp] = useState("");
   const [otpStep, setOtpStep] = useState<OtpStep>("idle");
   const [phoneToken, setPhoneToken] = useState("");
@@ -48,16 +50,21 @@ export default function SignUpScreen() {
     }, 1000);
   };
 
+  const fullNumber = () => {
+    const local = localNumber.replace(/\D/g, "").replace(/^0+/, "");
+    return selectedCountry.code + local;
+  };
+
   const handleSendCode = async () => {
     setOtpError("");
-    const cleaned = whatsapp.replace(/\D/g, "");
-    if (cleaned.length < 10) {
-      setOtpError("Enter a valid WhatsApp number (min 10 digits)");
+    const local = localNumber.replace(/\D/g, "").replace(/^0+/, "");
+    if (local.length < 7) {
+      setOtpError("Enter a valid phone number after the country code");
       return;
     }
     setOtpStep("sending");
     try {
-      const result = await sendOtp(cleaned);
+      const result = await sendOtp(fullNumber());
       setDevCode(result.devCode ?? "");
       setOtp("");
       setOtpStep("sent");
@@ -74,10 +81,9 @@ export default function SignUpScreen() {
       setOtpError("Enter the 6-digit code");
       return;
     }
-    const cleaned = whatsapp.replace(/\D/g, "");
     setOtpStep("verifying");
     try {
-      const result = await verifyOtp(cleaned, otp);
+      const result = await verifyOtp(fullNumber(), otp);
       setPhoneToken(result.phoneToken);
       setOtpStep("verified");
     } catch (e: any) {
@@ -102,7 +108,7 @@ export default function SignUpScreen() {
     setError("");
     setLoading(true);
     try {
-      await signUp(name.trim(), email.trim(), password, whatsapp.replace(/\D/g, ""), phoneToken);
+      await signUp(name.trim(), email.trim(), password, fullNumber(), phoneToken);
     } catch (e: any) {
       setError(e.message || "Sign up failed. Please try again.");
     } finally {
@@ -199,20 +205,22 @@ export default function SignUpScreen() {
           <View style={styles.inputGroup}>
             <Text style={styles.label}>WhatsApp Number</Text>
             <View style={[styles.inputWrapper, phoneVerified && styles.inputWrapperVerified]}>
-              <Ionicons
-                name="logo-whatsapp"
-                size={18}
-                color={phoneVerified ? "#25D366" : Colors.light.textMuted}
-                style={styles.inputIcon}
+              <CountryCodePicker
+                selected={selectedCountry}
+                onSelect={c => {
+                  setSelectedCountry(c);
+                  if (otpStep !== "idle") { setOtpStep("idle"); setDevCode(""); setOtp(""); setOtpError(""); }
+                }}
+                disabled={phoneVerified}
               />
               <TextInput
                 style={[styles.input, styles.inputFlex]}
-                value={whatsapp}
+                value={localNumber}
                 onChangeText={text => {
-                  setWhatsapp(text);
+                  setLocalNumber(text);
                   if (otpStep !== "idle") { setOtpStep("idle"); setDevCode(""); setOtp(""); setOtpError(""); }
                 }}
-                placeholder="e.g. 03001234567"
+                placeholder="3001234567"
                 placeholderTextColor={Colors.light.textMuted}
                 keyboardType="phone-pad"
                 editable={!phoneVerified}
