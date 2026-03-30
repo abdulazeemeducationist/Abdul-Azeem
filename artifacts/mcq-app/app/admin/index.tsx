@@ -215,8 +215,8 @@ export default function AdminScreen() {
     clearSnack();
     snackUndoRef.current = undoFn;
     snackCommitRef.current = commitFn;
-    setSnackbar({ message, countdown: 5 });
-    let count = 5;
+    setSnackbar({ message, countdown: 10 });
+    let count = 10;
     snackIntervalRef.current = setInterval(() => {
       count -= 1;
       if (count <= 0) {
