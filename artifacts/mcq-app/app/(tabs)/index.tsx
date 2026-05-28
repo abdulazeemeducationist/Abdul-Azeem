@@ -150,10 +150,10 @@ function AdminDashboard({ userName, avatar, initial }: { userName: string; avata
           )}
         </View>
         <View style={styles.headerText}>
-          <Text style={styles.welcomeLabel}>Welcome back,</Text>
-          <Text style={styles.fullName}>{userName}</Text>
+          <Text style={styles.welcomeLabel} numberOfLines={1}>Welcome back,</Text>
+          <Text style={styles.fullName} numberOfLines={1} ellipsizeMode="tail">{userName}</Text>
         </View>
-        <View style={[styles.adminBadge]}>
+        <View style={styles.adminBadge}>
           <Ionicons name="shield-checkmark" size={14} color={Colors.light.primary} />
           <Text style={styles.adminBadgeText}>Admin</Text>
         </View>
@@ -226,8 +226,8 @@ export default function HomeScreen() {
           )}
         </View>
         <View style={styles.headerText}>
-          <Text style={styles.welcomeLabel}>Welcome back,</Text>
-          <Text style={styles.fullName}>{user?.name ?? firstName}</Text>
+          <Text style={styles.welcomeLabel} numberOfLines={1}>Welcome back,</Text>
+          <Text style={styles.fullName} numberOfLines={1} ellipsizeMode="tail">{user?.name ?? firstName}</Text>
         </View>
       </View>
 
@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
   },
   avatarCircleImg: { width: 48, height: 48, borderRadius: 24 },
   avatarText: { fontSize: 20, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
-  headerText: { flex: 1 },
+  headerText: { flex: 1, minWidth: 0 },
   welcomeLabel: { fontSize: 12, fontFamily: "Inter_400Regular", color: Colors.light.textSecondary },
   fullName: { fontSize: 18, fontFamily: "Inter_700Bold", color: Colors.light.text },
   adminBadge: {
@@ -354,7 +354,7 @@ const styles = StyleSheet.create({
   // Admin dashboard
   statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, paddingHorizontal: 16, marginBottom: 12 },
   statTile: {
-    width: "30.5%", backgroundColor: Colors.light.card, borderRadius: 12, padding: 12,
+    flex: 1, minWidth: "44%", backgroundColor: Colors.light.card, borderRadius: 12, padding: 12,
     borderLeftWidth: 3, gap: 4,
     shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
   },
