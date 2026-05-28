@@ -10,6 +10,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, router } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
+import { Platform, StyleSheet, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -70,14 +71,24 @@ export default function RootLayout() {
 
   if (!fontsLoaded && !fontError) return null;
 
+  const isWeb = Platform.OS === "web";
+
   return (
     <SafeAreaProvider>
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
-            <GestureHandlerRootView style={{ flex: 1 }}>
+            <GestureHandlerRootView style={styles.root}>
               <KeyboardProvider>
-                <RootLayoutNav />
+                {isWeb ? (
+                  <View style={styles.webWrapper}>
+                    <View style={styles.webContainer}>
+                      <RootLayoutNav />
+                    </View>
+                  </View>
+                ) : (
+                  <RootLayoutNav />
+                )}
               </KeyboardProvider>
             </GestureHandlerRootView>
           </AuthProvider>
@@ -86,3 +97,24 @@ export default function RootLayout() {
     </SafeAreaProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+  webWrapper: {
+    flex: 1,
+    backgroundColor: "#E8EDF5",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  webContainer: {
+    width: "100%",
+    maxWidth: 430,
+    height: "100%",
+    backgroundColor: "#F8FAFC",
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+  },
+});
