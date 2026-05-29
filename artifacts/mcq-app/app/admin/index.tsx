@@ -90,6 +90,13 @@ export default function AdminScreen() {
   const [chapterForm, setChapterForm] = useState({ name: "", orderNumber: "1" });
   const [savingChapter, setSavingChapter] = useState(false);
 
+  // Topic management state
+  const [expandedChapterId, setExpandedChapterId] = useState<number | null>(null);
+  const [showTopicModal, setShowTopicModal] = useState(false);
+  const [editingTopic, setEditingTopic] = useState<any | null>(null);
+  const [topicForm, setTopicForm] = useState({ name: "", orderNumber: "1" });
+  const [savingTopic, setSavingTopic] = useState(false);
+
   // Video management state
   const [videoFilterSubjectId, setVideoFilterSubjectId] = useState<number | null>(null);
   const [videoFilterChapterId, setVideoFilterChapterId] = useState<number | null>(null);
@@ -192,6 +199,11 @@ export default function AdminScreen() {
     queryKey: ["qform-topics", qFormChapterId],
     queryFn: () => api.getTopics(Number(qFormChapterId)),
     enabled: showAddQuestion && !!qFormChapterId,
+  });
+  const { data: expandedTopics, refetch: refetchExpandedTopics } = useQuery({
+    queryKey: ["chapter-topics", expandedChapterId],
+    queryFn: () => api.getTopics(Number(expandedChapterId)),
+    enabled: !!expandedChapterId,
   });
 
   if (user?.role !== "admin") {
@@ -649,6 +661,57 @@ export default function AdminScreen() {
           await api.deleteChapter(ch.id);
           qc.invalidateQueries({ queryKey: ["admin-chapters", chapFilterSubjectId] });
           qc.invalidateQueries({ queryKey: ["adminStats"] });
+          refetchAdminChapters();
+          refetchStats();
+        }, () => {});
+      },
+    });
+  };
+
+  // --- Topic CRUD ---
+  const openAddTopic = (chapterId: number) => {
+    setEditingTopic(null);
+    setTopicForm({ name: "", orderNumber: String((expandedTopics?.length ?? 0) + 1) });
+    setExpandedChapterId(chapterId);
+    setShowTopicModal(true);
+  };
+  const openEditTopic = (t: any) => {
+    setEditingTopic(t);
+    setTopicForm({ name: t.name, orderNumber: String(t.orderNumber ?? 1) });
+    setShowTopicModal(true);
+  };
+  const handleSaveTopic = async () => {
+    if (!topicForm.name.trim() || !expandedChapterId) return;
+    setSavingTopic(true);
+    try {
+      if (editingTopic) {
+        await api.updateTopic(editingTopic.id, { name: topicForm.name.trim(), orderNumber: parseInt(topicForm.orderNumber) || editingTopic.orderNumber });
+      } else {
+        await api.createTopic({ chapterId: expandedChapterId, name: topicForm.name.trim(), orderNumber: parseInt(topicForm.orderNumber) || (expandedTopics?.length ?? 0) + 1 });
+        qc.invalidateQueries({ queryKey: ["adminStats"] });
+        qc.invalidateQueries({ queryKey: ["admin-chapters", chapFilterSubjectId] });
+        refetchStats();
+        refetchAdminChapters();
+      }
+      qc.invalidateQueries({ queryKey: ["chapter-topics", expandedChapterId] });
+      refetchExpandedTopics();
+      setShowTopicModal(false);
+      setEditingTopic(null);
+    } catch (e) { console.error(e); }
+    finally { setSavingTopic(false); }
+  };
+  const handleDeleteTopic = (t: any) => {
+    setConfirmModal({
+      title: "Delete Topic?",
+      message: `"${t.name}" and all its MCQ questions will be permanently deleted.`,
+      onConfirm: () => {
+        setConfirmModal(null);
+        showUndo(`Topic "${t.name}" deleted.`, async () => {
+          await api.deleteTopic(t.id);
+          qc.invalidateQueries({ queryKey: ["chapter-topics", expandedChapterId] });
+          qc.invalidateQueries({ queryKey: ["admin-chapters", chapFilterSubjectId] });
+          qc.invalidateQueries({ queryKey: ["adminStats"] });
+          refetchExpandedTopics();
           refetchAdminChapters();
           refetchStats();
         }, () => {});
@@ -1293,44 +1356,87 @@ export default function AdminScreen() {
                 ) : (
                   <>
                     <Text style={styles.qCount}>{adminChapters.length} chapter{adminChapters.length !== 1 ? "s" : ""}</Text>
-                    {adminChapters.map((ch: any, idx: number) => (
-                      <View key={ch.id} style={[styles.chapterAdminRow, !ch.isActive && styles.chapterAdminRowInactive]}>
-                        <View style={styles.chapterAdminLeft}>
-                          <View style={styles.chapterOrderBadge}>
-                            <Text style={styles.chapterOrderText}>{idx + 1}</Text>
+                    {adminChapters.map((ch: any, idx: number) => {
+                      const isExpanded = expandedChapterId === ch.id;
+                      return (
+                        <View key={ch.id}>
+                          <View style={[styles.chapterAdminRow, !ch.isActive && styles.chapterAdminRowInactive]}>
+                            <Pressable
+                              style={styles.chapterAdminLeft}
+                              onPress={() => setExpandedChapterId(isExpanded ? null : ch.id)}
+                            >
+                              <View style={styles.chapterOrderBadge}>
+                                <Text style={styles.chapterOrderText}>{idx + 1}</Text>
+                              </View>
+                              <View style={{ flex: 1, minWidth: 0 }}>
+                                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                                  <Text style={[styles.chapterAdminName, !ch.isActive && { color: Colors.light.textMuted }]} numberOfLines={1}>{ch.name}</Text>
+                                  {!ch.isActive && (
+                                    <View style={styles.hiddenBadge}><Text style={styles.hiddenBadgeText}>Hidden</Text></View>
+                                  )}
+                                </View>
+                                <Text style={styles.chapterAdminMeta}>{ch.topicCount ?? 0} topic{ch.topicCount !== 1 ? "s" : ""} · tap to manage</Text>
+                              </View>
+                              <Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={16} color={Colors.light.textMuted} style={{ marginRight: 4 }} />
+                            </Pressable>
+                            <View style={styles.chapterAdminActions}>
+                              <Pressable
+                                style={[styles.toggleIconBtn, { backgroundColor: ch.isActive ? "#FEF9C3" : "#DCFCE7" }]}
+                                onPress={() => handleToggleChapter(ch)}
+                              >
+                                <Ionicons name={ch.isActive ? "eye-off-outline" : "eye-outline"} size={14} color={ch.isActive ? "#D97706" : "#059669"} />
+                              </Pressable>
+                              <Pressable style={styles.editIconBtn} onPress={() => openEditChapter(ch)}>
+                                <Ionicons name="pencil" size={13} color={Colors.light.primary} />
+                              </Pressable>
+                              <Pressable style={styles.deleteIconBtn} onPress={() => handleDeleteChapter(ch)}>
+                                <Ionicons name="trash" size={13} color={Colors.light.error} />
+                              </Pressable>
+                            </View>
                           </View>
-                          <View style={{ flex: 1 }}>
-                            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                              <Text style={[styles.chapterAdminName, !ch.isActive && { color: Colors.light.textMuted }]} numberOfLines={1}>{ch.name}</Text>
-                              {!ch.isActive && (
-                                <View style={styles.hiddenBadge}><Text style={styles.hiddenBadgeText}>Hidden</Text></View>
+
+                          {/* ── Inline Topic Management ── */}
+                          {isExpanded && (
+                            <View style={styles.topicPanel}>
+                              <View style={styles.topicPanelHeader}>
+                                <Text style={styles.topicPanelTitle}>Topics in "{ch.name}"</Text>
+                                <Pressable style={styles.addTopicBtn} onPress={() => openAddTopic(ch.id)}>
+                                  <Ionicons name="add" size={14} color="#FFF" />
+                                  <Text style={styles.addTopicBtnText}>Add Topic</Text>
+                                </Pressable>
+                              </View>
+                              {!expandedTopics ? (
+                                <ActivityIndicator color={Colors.light.primary} style={{ marginVertical: 12 }} />
+                              ) : expandedTopics.length === 0 ? (
+                                <View style={styles.topicEmptyState}>
+                                  <Ionicons name="file-tray-outline" size={32} color={Colors.light.textMuted} />
+                                  <Text style={styles.topicEmptyText}>No topics yet. Add one to start adding MCQs.</Text>
+                                </View>
+                              ) : (
+                                expandedTopics.map((t: any, ti: number) => (
+                                  <View key={t.id} style={styles.topicRow}>
+                                    <View style={styles.topicRowLeft}>
+                                      <View style={styles.topicOrderDot}>
+                                        <Text style={styles.topicOrderDotText}>{ti + 1}</Text>
+                                      </View>
+                                      <Text style={styles.topicRowName} numberOfLines={2}>{t.name}</Text>
+                                    </View>
+                                    <View style={styles.topicRowActions}>
+                                      <Pressable style={styles.editIconBtn} onPress={() => openEditTopic(t)}>
+                                        <Ionicons name="pencil" size={13} color={Colors.light.primary} />
+                                      </Pressable>
+                                      <Pressable style={styles.deleteIconBtn} onPress={() => handleDeleteTopic(t)}>
+                                        <Ionicons name="trash" size={13} color={Colors.light.error} />
+                                      </Pressable>
+                                    </View>
+                                  </View>
+                                ))
                               )}
                             </View>
-                            <Text style={styles.chapterAdminMeta}>{ch.topicCount ?? 0} topic{ch.topicCount !== 1 ? "s" : ""}</Text>
-                          </View>
+                          )}
                         </View>
-                        <View style={styles.chapterAdminActions}>
-                          <Pressable
-                            style={[styles.previewIconBtn]}
-                            onPress={() => router.push({ pathname: "/content/[chapterId]", params: { chapterId: String(ch.id) } } as any)}
-                          >
-                            <Ionicons name="eye-outline" size={15} color="#7C3AED" />
-                          </Pressable>
-                          <Pressable
-                            style={[styles.toggleIconBtn, { backgroundColor: ch.isActive ? "#FEF9C3" : "#DCFCE7" }]}
-                            onPress={() => handleToggleChapter(ch)}
-                          >
-                            <Ionicons name={ch.isActive ? "eye-off-outline" : "eye-outline"} size={14} color={ch.isActive ? "#D97706" : "#059669"} />
-                          </Pressable>
-                          <Pressable style={styles.editIconBtn} onPress={() => openEditChapter(ch)}>
-                            <Ionicons name="pencil" size={13} color={Colors.light.primary} />
-                          </Pressable>
-                          <Pressable style={styles.deleteIconBtn} onPress={() => handleDeleteChapter(ch)}>
-                            <Ionicons name="trash" size={13} color={Colors.light.error} />
-                          </Pressable>
-                        </View>
-                      </View>
-                    ))}
+                      );
+                    })}
                   </>
                 )}
               </>
@@ -2271,6 +2377,49 @@ export default function AdminScreen() {
         </View>
       </Modal>
 
+      {/* ── Add / Edit Topic Modal ── */}
+      <Modal visible={showTopicModal} transparent animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowTopicModal(false)}>
+        <View style={[styles.sheetContainer, { paddingTop: Math.max(insets.top + 8, 20) }]}>
+          <View style={styles.sheetHeader}>
+            <Text style={styles.sheetTitle}>{editingTopic ? "Edit Topic" : "Add Topic"}</Text>
+            <Pressable onPress={() => setShowTopicModal(false)}>
+              <Ionicons name="close" size={24} color={Colors.light.text} />
+            </Pressable>
+          </View>
+          <ScrollView style={styles.sheetScroll} contentContainerStyle={{ gap: 14, paddingBottom: Math.max(insets.bottom + 20, 40) }} keyboardShouldPersistTaps="handled">
+            <View style={styles.formField}>
+              <Text style={styles.formLabel}>Topic Name <Text style={styles.required}>*</Text></Text>
+              <TextInput
+                style={styles.formInput}
+                value={topicForm.name}
+                onChangeText={v => setTopicForm(f => ({ ...f, name: v }))}
+                placeholder="e.g. Material Cost and Labour Cost"
+                placeholderTextColor={Colors.light.textMuted}
+                autoFocus
+              />
+            </View>
+            <View style={styles.formField}>
+              <Text style={styles.formLabel}>Order Number</Text>
+              <TextInput
+                style={styles.formInput}
+                value={topicForm.orderNumber}
+                onChangeText={v => setTopicForm(f => ({ ...f, orderNumber: v }))}
+                placeholder="1"
+                placeholderTextColor={Colors.light.textMuted}
+                keyboardType="numeric"
+              />
+            </View>
+            <Pressable
+              style={[styles.saveBtn, !topicForm.name.trim() && styles.saveBtnDisabled, { opacity: savingTopic ? 0.85 : 1 }]}
+              onPress={handleSaveTopic}
+              disabled={savingTopic || !topicForm.name.trim()}
+            >
+              {savingTopic ? <ActivityIndicator color="#FFF" /> : <Text style={styles.saveBtnText}>{editingTopic ? "Save Changes" : "Create Topic"}</Text>}
+            </Pressable>
+          </ScrollView>
+        </View>
+      </Modal>
+
       {/* ── Confirm Delete Modal ── */}
       <Modal visible={!!confirmModal} transparent animationType="fade" onRequestClose={() => setConfirmModal(null)}>
         <View style={styles.overlay}>
@@ -2561,6 +2710,21 @@ const styles = StyleSheet.create({
   hiddenBadge: { backgroundColor: "#FEF9C3", paddingHorizontal: 7, paddingVertical: 2, borderRadius: 20 },
   hiddenBadgeText: { fontSize: 9, fontFamily: "Inter_600SemiBold", color: "#92400E" },
   previewIconBtn: { width: 30, height: 30, borderRadius: 8, backgroundColor: "#7C3AED18", alignItems: "center", justifyContent: "center" },
+
+  // Topic management
+  topicPanel: { backgroundColor: Colors.light.backgroundSecondary, borderRadius: 12, marginBottom: 8, marginTop: -4, padding: 12, borderWidth: 1, borderColor: Colors.light.border + "80", borderTopWidth: 0, borderTopLeftRadius: 0, borderTopRightRadius: 0 },
+  topicPanelHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
+  topicPanelTitle: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: Colors.light.textSecondary, flex: 1 },
+  addTopicBtn: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: Colors.light.primary, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
+  addTopicBtnText: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: "#FFF" },
+  topicEmptyState: { alignItems: "center", paddingVertical: 16, gap: 6 },
+  topicEmptyText: { fontSize: 12, fontFamily: "Inter_400Regular", color: Colors.light.textMuted, textAlign: "center" },
+  topicRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: Colors.light.card, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 10, marginBottom: 6, borderWidth: 1, borderColor: Colors.light.border },
+  topicRowLeft: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8, minWidth: 0 },
+  topicOrderDot: { width: 22, height: 22, borderRadius: 11, backgroundColor: Colors.light.primary + "20", alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  topicOrderDotText: { fontSize: 11, fontFamily: "Inter_700Bold", color: Colors.light.primary },
+  topicRowName: { fontSize: 13, fontFamily: "Inter_500Medium", color: Colors.light.text, flex: 1 },
+  topicRowActions: { flexDirection: "row", gap: 4, flexShrink: 0 },
 
   // Note file picker styles
   noteFilePicker: { borderWidth: 1.5, borderColor: Colors.light.primary, borderStyle: "dashed", borderRadius: 14, paddingVertical: 24, alignItems: "center", gap: 6, backgroundColor: Colors.light.primary + "06" },

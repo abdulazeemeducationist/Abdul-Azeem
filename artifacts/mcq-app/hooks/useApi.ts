@@ -405,6 +405,20 @@ export const api = {
     if (!res.ok) throw new Error("Failed to create topic");
     return res.json();
   },
+  updateTopic: async (id: number, data: { name: string; orderNumber?: number }) => {
+    const res = await fetch(`${API_BASE}/admin/topics/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error("Failed to update topic");
+    return res.json();
+  },
+  deleteTopic: async (id: number) => {
+    const res = await fetch(`${API_BASE}/admin/topics/${id}`, { method: "DELETE" });
+    if (!res.ok) throw new Error("Failed to delete topic");
+    return res.json();
+  },
   createQuestion: async (data: {
     topicId: number;
     questionText: string;

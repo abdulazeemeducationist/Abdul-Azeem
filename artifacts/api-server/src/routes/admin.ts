@@ -344,11 +344,46 @@ router.delete("/chapters/:chapterId", async (req, res) => {
 router.post("/topics", async (req, res) => {
   try {
     const { chapterId, name, orderNumber } = req.body;
-    const [topic] = await db.insert(topicsTable).values({ chapterId, name, orderNumber }).returning();
+    if (!chapterId || !name?.trim()) {
+      return res.status(400).json({ error: "Bad Request", message: "chapterId and name are required" });
+    }
+    const [topic] = await db.insert(topicsTable).values({ chapterId, name: name.trim(), orderNumber }).returning();
     res.status(201).json({ ...topic, questionCount: 0 });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Internal Server Error", message: "Failed to create topic" });
+  }
+});
+
+router.put("/topics/:topicId", async (req, res) => {
+  try {
+    const id = parseInt(req.params.topicId);
+    const { name, orderNumber } = req.body;
+    if (!name?.trim()) {
+      return res.status(400).json({ error: "Bad Request", message: "name is required" });
+    }
+    const [topic] = await db.update(topicsTable)
+      .set({ name: name.trim(), orderNumber })
+      .where(eq(topicsTable.id, id))
+      .returning();
+    if (!topic) return res.status(404).json({ error: "Not Found" });
+    res.json(topic);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to update topic" });
+  }
+});
+
+router.delete("/topics/:topicId", async (req, res) => {
+  try {
+    const id = parseInt(req.params.topicId);
+    await db.delete(questionsTable).where(eq(questionsTable.topicId, id));
+    await db.delete(userProgressTable).where(eq(userProgressTable.topicId, id));
+    await db.delete(topicsTable).where(eq(topicsTable.id, id));
+    res.json({ message: "Topic deleted" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to delete topic" });
   }
 });
 
