@@ -428,6 +428,7 @@ router.get("/questions", async (req, res) => {
       explanation: questionsTable.explanation,
       questionType: questionsTable.questionType,
       difficulty: questionsTable.difficulty,
+      marks: questionsTable.marks,
     };
 
     let rows;
@@ -459,7 +460,7 @@ router.get("/questions", async (req, res) => {
 
 router.post("/questions", async (req, res) => {
   try {
-    const { topicId, questionText, questionHtml, questionImageUrl, optionA, optionB, optionC, optionD, correctAnswers, explanation, questionType, difficulty } = req.body;
+    const { topicId, questionText, questionHtml, questionImageUrl, optionA, optionB, optionC, optionD, correctAnswers, explanation, questionType, difficulty, marks } = req.body;
     if (!topicId || isNaN(Number(topicId))) {
       return res.status(400).json({ error: "Bad Request", message: "topicId is required and must be a valid number" });
     }
@@ -475,6 +476,7 @@ router.post("/questions", async (req, res) => {
       optionA, optionB, optionC, optionD,
       correctAnswers: JSON.stringify(correctAnswers),
       explanation, questionType, difficulty: difficulty ?? "medium",
+      marks: marks ? Number(marks) : 1,
     }).returning();
     res.status(201).json({ ...question, correctAnswers: JSON.parse(question.correctAnswers) });
   } catch (err) {
@@ -523,7 +525,7 @@ router.post("/questions/import", async (req, res) => {
 router.put("/questions/:questionId", async (req, res) => {
   try {
     const id = parseInt(req.params.questionId);
-    const { topicId, questionText, questionHtml, questionImageUrl, optionA, optionB, optionC, optionD, correctAnswers, explanation, questionType, difficulty } = req.body;
+    const { topicId, questionText, questionHtml, questionImageUrl, optionA, optionB, optionC, optionD, correctAnswers, explanation, questionType, difficulty, marks } = req.body;
     const [question] = await db.update(questionsTable).set({
       topicId,
       questionText: questionText ?? "",
@@ -532,6 +534,7 @@ router.put("/questions/:questionId", async (req, res) => {
       optionA, optionB, optionC, optionD,
       correctAnswers: JSON.stringify(correctAnswers),
       explanation, questionType, difficulty: difficulty ?? "medium",
+      marks: marks ? Number(marks) : 1,
     }).where(eq(questionsTable.id, id)).returning();
     res.json({ ...question, correctAnswers: JSON.parse(question.correctAnswers) });
   } catch (err) {

@@ -57,7 +57,10 @@ export interface Topic {
 export interface Question {
   id: number;
   topicId: number;
+  topicName?: string;
   questionText: string;
+  questionHtml?: string | null;
+  questionImageUrl?: string | null;
   optionA: string;
   optionB: string;
   optionC: string;
@@ -65,6 +68,8 @@ export interface Question {
   correctAnswers: string[];
   explanation: string;
   questionType: "single" | "multiple";
+  difficulty?: string;
+  marks: number;
 }
 
 export interface UserProgress {
@@ -493,6 +498,7 @@ export const api = {
     explanation: string;
     questionType: "single" | "multiple";
     difficulty: string;
+    marks: number;
   }) => {
     const res = await fetch(`${API_BASE}/admin/questions`, {
       method: "POST",
@@ -533,7 +539,9 @@ export const api = {
   },
   updateQuestion: async (id: number, data: {
     topicId: number;
-    questionText: string;
+    questionText?: string;
+    questionHtml?: string;
+    questionImageUrl?: string;
     optionA: string;
     optionB: string;
     optionC: string;
@@ -542,6 +550,7 @@ export const api = {
     explanation: string;
     questionType: "single" | "multiple";
     difficulty: string;
+    marks: number;
   }) => {
     const res = await fetch(`${API_BASE}/admin/questions/${id}`, {
       method: "PUT",

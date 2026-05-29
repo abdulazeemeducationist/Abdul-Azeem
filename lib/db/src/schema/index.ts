@@ -85,6 +85,7 @@ export const questionsTable = pgTable("questions", {
   explanation: text("explanation").notNull(),
   questionType: varchar("question_type", { length: 20 }).notNull().default("single"),
   difficulty: varchar("difficulty", { length: 20 }).notNull().default("medium"),
+  marks: integer("marks").notNull().default(1),
   questionHtml: text("question_html"),
   questionImageUrl: text("question_image_url"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
