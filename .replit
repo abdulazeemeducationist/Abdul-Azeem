@@ -1,28 +1,54 @@
 modules = ["nodejs-24", "postgresql-16"]
 
-[[artifacts]]
-id = "artifacts/api-server"
+  [[artifacts]]
+  id = "artifacts/api-server"
 
-[[artifacts]]
-id = "artifacts/mockup-sandbox"
+  [[artifacts]]
+  id = "artifacts/mockup-sandbox"
 
-[deployment]
-router = "application"
-deploymentTarget = "autoscale"
+  [[artifacts]]
+  id = "artifacts/mcq-app"
 
-[deployment.postBuild]
-args = ["pnpm", "store", "prune"]
-env = { "CI" = "true" }
+  [deployment]
+  router = "application"
+  deploymentTarget = "autoscale"
 
-[workflows]
+  [deployment.postBuild]
+  args = ["pnpm", "store", "prune"]
+  env = { "CI" = "true" }
 
-[agent]
-stack = "PNPM_WORKSPACE"
-expertMode = true
+  [workflows]
+  runButton = "Project"
 
-[postMerge]
-path = "scripts/post-merge.sh"
-timeoutMs = 20000
+  [[workflows.workflow]]
+  name = "Project"
+  mode = "parallel"
+  author = "agent"
 
-[nix]
-channel = "stable-25_05"
+  [[workflows.workflow.tasks]]
+  task = "workflow.run"
+  args = "MCQ Practice App"
+
+  [[workflows.workflow]]
+  name = "MCQ Practice App"
+  author = "agent"
+
+  [workflows.workflow.metadata]
+  outputType = "webview"
+
+  [[workflows.workflow.tasks]]
+  task = "shell.exec"
+  args = "PORT=8000 pnpm --filter @workspace/mcq-app run dev"
+  waitForPort = 8000
+
+  [agent]
+  stack = "PNPM_WORKSPACE"
+  expertMode = true
+
+  [postMerge]
+  path = "scripts/post-merge.sh"
+  timeoutMs = 20000
+
+  [nix]
+  channel = "stable-25_05"
+  
