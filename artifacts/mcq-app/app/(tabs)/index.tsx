@@ -140,6 +140,8 @@ function AdminDashboard({ userName, avatar, initial, role }: { userName: string;
   const badgeLabel = isAdmin ? "Admin" : isTeacher ? "Teacher" : "TA";
   const badgeIcon: keyof typeof Ionicons.glyphMap = isAdmin ? "shield-checkmark" : isTeacher ? "school" : "person";
 
+  const { signOut } = useAuth();
+
   const { data: stats, isLoading } = useQuery({
     queryKey: ["adminStats"],
     queryFn: api.getAdminStats,
@@ -164,6 +166,13 @@ function AdminDashboard({ userName, avatar, initial, role }: { userName: string;
           <Ionicons name={badgeIcon} size={14} color={Colors.light.primary} />
           <Text style={styles.adminBadgeText}>{badgeLabel}</Text>
         </View>
+        <Pressable
+          style={styles.signOutBtn}
+          onPress={signOut}
+          hitSlop={8}
+        >
+          <Ionicons name="log-out-outline" size={22} color={Colors.light.textMuted} />
+        </Pressable>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: isWeb ? 34 + 84 : 100 }}>
@@ -214,7 +223,7 @@ function AdminDashboard({ userName, avatar, initial, role }: { userName: string;
 // ── Student Home ─────────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
   const topPad = isWeb ? Math.max(insets.top, 67) : insets.top;
@@ -252,6 +261,13 @@ export default function HomeScreen() {
           <Text style={styles.welcomeLabel} numberOfLines={1}>Welcome back,</Text>
           <Text style={styles.fullName} numberOfLines={1} ellipsizeMode="tail">{user?.name ?? firstName}</Text>
         </View>
+        <Pressable
+          style={styles.signOutBtn}
+          onPress={signOut}
+          hitSlop={8}
+        >
+          <Ionicons name="log-out-outline" size={22} color={Colors.light.textMuted} />
+        </Pressable>
       </View>
 
       <Text style={styles.sectionTitle}>Programs</Text>
@@ -319,6 +335,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20,
   },
   adminBadgeText: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: Colors.light.primary },
+  signOutBtn: {
+    marginLeft: "auto",
+    padding: 6,
+    borderRadius: 8,
+  },
   sectionTitle: {
     fontSize: 13, fontFamily: "Inter_600SemiBold", color: Colors.light.textMuted,
     textTransform: "uppercase", letterSpacing: 1.2,
