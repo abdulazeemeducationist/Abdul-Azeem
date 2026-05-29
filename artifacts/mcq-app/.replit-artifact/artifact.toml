@@ -10,8 +10,7 @@ name = "expo"
 version = "1.0.0"
 
 [[services]]
-ensurePreviewReachable = "/status"
-localPort = 25735
+localPort = 8000
 name = "expo"
 paths = ["/"]
 
@@ -19,7 +18,7 @@ paths = ["/"]
 run = "pnpm --filter @workspace/mcq-app run dev"
 
 [services.env]
-PORT = "25735"
+PORT = "8000"
 BASE_PATH = "/"
 
 [services.production]
