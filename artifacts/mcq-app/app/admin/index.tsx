@@ -114,6 +114,8 @@ export default function AdminScreen() {
   const [filterSubjectId, setFilterSubjectId] = useState<number | null>(null);
   const [mcqFilterSubjectId, setMcqFilterSubjectId] = useState<number | null>(null);
   const [mcqFilterChapterId, setMcqFilterChapterId] = useState<number | null>(null);
+  const [qFormSubjectId, setQFormSubjectId] = useState<number | null>(null);
+  const [qFormChapterId, setQFormChapterId] = useState<number | null>(null);
   const [savingQ, setSavingQ] = useState(false);
   const [pendingQDeleteIds, setPendingQDeleteIds] = useState<number[]>([]);
 
@@ -180,6 +182,16 @@ export default function AdminScreen() {
     queryKey: ["admin-chapters", chapFilterSubjectId],
     queryFn: () => api.getAdminChapters(Number(chapFilterSubjectId)),
     enabled: activeTab === "content" && contentSubTab === "chapters" && !!chapFilterSubjectId,
+  });
+  const { data: qFormChapters } = useQuery({
+    queryKey: ["qform-chapters", qFormSubjectId],
+    queryFn: () => api.getAdminChapters(Number(qFormSubjectId)),
+    enabled: showAddQuestion && !!qFormSubjectId,
+  });
+  const { data: qFormTopics } = useQuery({
+    queryKey: ["qform-topics", qFormChapterId],
+    queryFn: () => api.getTopics(Number(qFormChapterId)),
+    enabled: showAddQuestion && !!qFormChapterId,
   });
 
   if (user?.role !== "admin") {
@@ -492,7 +504,13 @@ export default function AdminScreen() {
   };
 
   // --- Add / Edit Question ---
-  const openAddQuestion = () => { setEditingQuestion(null); setQForm(EMPTY_Q); setShowAddQuestion(true); };
+  const openAddQuestion = () => {
+    setEditingQuestion(null);
+    setQForm(EMPTY_Q);
+    setQFormSubjectId(mcqFilterSubjectId);
+    setQFormChapterId(mcqFilterChapterId);
+    setShowAddQuestion(true);
+  };
   const openEditQuestion = (q: any) => {
     setEditingQuestion(q);
     setQForm({
@@ -503,10 +521,13 @@ export default function AdminScreen() {
       explanation: q.explanation,
       difficulty: q.difficulty ?? "medium",
     });
+    setQFormSubjectId(mcqFilterSubjectId);
+    setQFormChapterId(mcqFilterChapterId);
     setShowAddQuestion(true);
   };
   const handleSaveQuestion = async () => {
-    if (!qForm.topicId || !qForm.questionText || !qForm.optionA || !qForm.optionB || !qForm.optionC || !qForm.optionD || !qForm.correctAnswers || !qForm.explanation) return;
+    const topicIdNum = parseInt(qForm.topicId);
+    if (!qForm.topicId || isNaN(topicIdNum) || !qForm.questionText || !qForm.optionA || !qForm.optionB || !qForm.optionC || !qForm.optionD || !qForm.correctAnswers || !qForm.explanation) return;
     const answers = qForm.correctAnswers.toUpperCase().split(",").map(a => a.trim()).filter(a => ["A","B","C","D"].includes(a));
     if (!answers.length) return;
     setSavingQ(true);
@@ -514,7 +535,7 @@ export default function AdminScreen() {
     const oldQ = wasEditing ? { ...wasEditing } : null;
     try {
       const payload = {
-        topicId: parseInt(qForm.topicId),
+        topicId: topicIdNum,
         questionText: qForm.questionText,
         optionA: qForm.optionA, optionB: qForm.optionB, optionC: qForm.optionC, optionD: qForm.optionD,
         correctAnswers: answers, explanation: qForm.explanation,
@@ -1989,8 +2010,76 @@ export default function AdminScreen() {
             </Pressable>
           </View>
           <ScrollView style={styles.sheetScroll} contentContainerStyle={{ gap: 12, paddingBottom: Math.max(insets.bottom + 20, 40) }} keyboardShouldPersistTaps="handled">
+
+            {/* ── Topic Picker ── */}
+            <View style={styles.formField}>
+              <Text style={styles.formLabel}>Course (Subject)</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 4 }}>
+                <View style={{ flexDirection: "row", gap: 8 }}>
+                  {(allSubjects ?? []).map((s: any) => (
+                    <Pressable
+                      key={s.id}
+                      style={[styles.pickerChip, qFormSubjectId === s.id && styles.pickerChipActive]}
+                      onPress={() => {
+                        setQFormSubjectId(s.id);
+                        setQFormChapterId(null);
+                        setQForm(f => ({ ...f, topicId: "" }));
+                      }}
+                    >
+                      <Text style={[styles.pickerChipText, qFormSubjectId === s.id && styles.pickerChipTextActive]} numberOfLines={1}>{s.name}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </ScrollView>
+            </View>
+
+            {qFormSubjectId && (
+              <View style={styles.formField}>
+                <Text style={styles.formLabel}>Chapter</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 4 }}>
+                  <View style={{ flexDirection: "row", gap: 8 }}>
+                    {(qFormChapters ?? []).map((ch: any) => (
+                      <Pressable
+                        key={ch.id}
+                        style={[styles.pickerChip, qFormChapterId === ch.id && styles.pickerChipActive]}
+                        onPress={() => {
+                          setQFormChapterId(ch.id);
+                          setQForm(f => ({ ...f, topicId: "" }));
+                        }}
+                      >
+                        <Text style={[styles.pickerChipText, qFormChapterId === ch.id && styles.pickerChipTextActive]} numberOfLines={1}>{ch.name}</Text>
+                      </Pressable>
+                    ))}
+                    {!qFormChapters?.length && <Text style={styles.pickerEmptyText}>No chapters yet</Text>}
+                  </View>
+                </ScrollView>
+              </View>
+            )}
+
+            {qFormChapterId && (
+              <View style={styles.formField}>
+                <Text style={styles.formLabel}>Topic <Text style={{ color: Colors.light.error }}>*</Text></Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 4 }}>
+                  <View style={{ flexDirection: "row", gap: 8 }}>
+                    {(qFormTopics ?? []).map((t: any) => (
+                      <Pressable
+                        key={t.id}
+                        style={[styles.pickerChip, qForm.topicId === String(t.id) && styles.pickerChipActive]}
+                        onPress={() => setQForm(f => ({ ...f, topicId: String(t.id) }))}
+                      >
+                        <Text style={[styles.pickerChipText, qForm.topicId === String(t.id) && styles.pickerChipTextActive]} numberOfLines={1}>{t.name}</Text>
+                      </Pressable>
+                    ))}
+                    {!qFormTopics?.length && <Text style={styles.pickerEmptyText}>No topics yet</Text>}
+                  </View>
+                </ScrollView>
+                {qForm.topicId ? (
+                  <Text style={styles.pickerSelectedHint}>Topic ID: {qForm.topicId}</Text>
+                ) : null}
+              </View>
+            )}
+
             {[
-              { label: "Topic ID", key: "topicId", placeholder: "e.g. 1", keyboard: "numeric" as const },
               { label: "Question", key: "questionText", placeholder: "Enter the question...", multiline: true },
               { label: "Option A", key: "optionA", placeholder: "Option A" },
               { label: "Option B", key: "optionB", placeholder: "Option B" },
@@ -2008,7 +2097,6 @@ export default function AdminScreen() {
                   placeholder={field.placeholder}
                   placeholderTextColor={Colors.light.textMuted}
                   multiline={field.multiline}
-                  keyboardType={field.keyboard}
                 />
               </View>
             ))}
@@ -2325,6 +2413,15 @@ const styles = StyleSheet.create({
   diffMedium: { backgroundColor: "#FEF3C7" },
   diffHard: { backgroundColor: "#FEE2E2" },
   diffText: { fontSize: 10, fontFamily: "Inter_600SemiBold", color: Colors.light.text, textTransform: "capitalize" },
+  pickerChip: {
+    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1.5,
+    borderColor: Colors.light.border, backgroundColor: Colors.light.card,
+  },
+  pickerChipActive: { borderColor: Colors.light.primary, backgroundColor: Colors.light.primary + "18" },
+  pickerChipText: { fontSize: 13, fontFamily: "Inter_500Medium", color: Colors.light.textSecondary },
+  pickerChipTextActive: { color: Colors.light.primary, fontFamily: "Inter_600SemiBold" },
+  pickerEmptyText: { fontSize: 13, fontFamily: "Inter_400Regular", color: Colors.light.textMuted, paddingVertical: 8 },
+  pickerSelectedHint: { fontSize: 11, fontFamily: "Inter_400Regular", color: Colors.light.textMuted, marginTop: 4 },
   diffPicker: { flexDirection: "row", gap: 10 },
   diffPickerBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 10, borderRadius: 12, borderWidth: 1.5 },
   diffPickerEasy: { borderColor: "#16A34A" },

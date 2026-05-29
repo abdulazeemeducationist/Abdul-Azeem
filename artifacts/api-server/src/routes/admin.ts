@@ -403,6 +403,12 @@ router.get("/questions", async (req, res) => {
 router.post("/questions", async (req, res) => {
   try {
     const { topicId, questionText, optionA, optionB, optionC, optionD, correctAnswers, explanation, questionType, difficulty } = req.body;
+    if (!topicId || isNaN(Number(topicId))) {
+      return res.status(400).json({ error: "Bad Request", message: "topicId is required and must be a valid number" });
+    }
+    if (!questionText || !optionA || !optionB || !optionC || !optionD || !correctAnswers?.length || !explanation) {
+      return res.status(400).json({ error: "Bad Request", message: "All question fields are required" });
+    }
     const [question] = await db.insert(questionsTable).values({
       topicId, questionText, optionA, optionB, optionC, optionD,
       correctAnswers: JSON.stringify(correctAnswers),
