@@ -182,6 +182,11 @@ export default function AdminScreen() {
   const [studentLocalNumber, setStudentLocalNumber] = useState("");
   const [savingStudent, setSavingStudent] = useState(false);
   const [studentFormError, setStudentFormError] = useState("");
+  const [resetPwdStudent, setResetPwdStudent] = useState<Student | null>(null);
+  const [resetPwdValue, setResetPwdValue] = useState("");
+  const [resetPwdShow, setResetPwdShow] = useState(false);
+  const [resetPwdSaving, setResetPwdSaving] = useState(false);
+  const [resetPwdError, setResetPwdError] = useState("");
 
   // Content sub-tab
   const [contentSubTab, setContentSubTab] = useState<"chapters" | "videos" | "notes" | "practice">("chapters");
@@ -563,6 +568,21 @@ export default function AdminScreen() {
       await api.toggleBlockStudent(s.id, !s.isBlocked);
       qc.invalidateQueries({ queryKey: ["adminStudents"] }); refetchStudents();
     } catch (e) { console.error(e); }
+  };
+  const handleResetPassword = async () => {
+    if (!resetPwdStudent) return;
+    if (resetPwdValue.length < 6) { setResetPwdError("Password must be at least 6 characters"); return; }
+    setResetPwdSaving(true);
+    setResetPwdError("");
+    try {
+      await api.resetStudentPassword(resetPwdStudent.id, resetPwdValue);
+      setResetPwdStudent(null);
+      setResetPwdValue("");
+    } catch (e: any) {
+      setResetPwdError(e.message || "Failed to reset password");
+    } finally {
+      setResetPwdSaving(false);
+    }
   };
   const confirmDelete = (id: number) => {
     setConfirmModal({
@@ -1355,6 +1375,12 @@ export default function AdminScreen() {
                           <Ionicons name="pencil" size={13} color={Colors.light.primary} />
                         </Pressable>
                         <Pressable
+                          style={[styles.editIconBtn, { backgroundColor: "#FEF3C7" }]}
+                          onPress={() => { setResetPwdStudent(student); setResetPwdValue(""); setResetPwdError(""); setResetPwdShow(false); }}
+                        >
+                          <Ionicons name="key-outline" size={13} color="#D97706" />
+                        </Pressable>
+                        <Pressable
                           style={[styles.toggleIconBtn, { backgroundColor: student.isBlocked ? "#DCFCE7" : "#FEE2E2" }]}
                           onPress={() => handleToggleBlockStudent(student)}
                         >
@@ -2022,6 +2048,59 @@ export default function AdminScreen() {
       </Modal>
 
       {/* ── Add / Edit Student Modal ── */}
+      {/* ── Reset Password Modal ── */}
+      <Modal visible={!!resetPwdStudent} transparent animationType="fade" onRequestClose={() => setResetPwdStudent(null)}>
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "center", alignItems: "center", paddingHorizontal: 24 }}>
+          <View style={{ backgroundColor: "#FFF", borderRadius: 20, padding: 24, width: "100%", maxWidth: 400, gap: 16 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+              <Text style={{ fontSize: 17, fontFamily: "Inter_700Bold", color: Colors.light.text }}>Reset Password</Text>
+              <Pressable onPress={() => setResetPwdStudent(null)}>
+                <Ionicons name="close" size={22} color={Colors.light.text} />
+              </Pressable>
+            </View>
+            <Text style={{ fontSize: 13, fontFamily: "Inter_400Regular", color: Colors.light.textSecondary }}>
+              Set a new password for <Text style={{ fontFamily: "Inter_600SemiBold", color: Colors.light.text }}>{resetPwdStudent?.name}</Text>.
+            </Text>
+            {!!resetPwdError && (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: Colors.light.error + "12", borderRadius: 10, padding: 10 }}>
+                <Ionicons name="alert-circle" size={15} color={Colors.light.error} />
+                <Text style={{ fontSize: 13, fontFamily: "Inter_400Regular", color: Colors.light.error, flex: 1 }}>{resetPwdError}</Text>
+              </View>
+            )}
+            <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: Colors.light.backgroundSecondary, borderRadius: 12, borderWidth: 1, borderColor: Colors.light.border, paddingHorizontal: 12, height: 48 }}>
+              <Ionicons name="lock-closed-outline" size={17} color={Colors.light.textMuted} style={{ marginRight: 8 }} />
+              <TextInput
+                style={{ flex: 1, fontSize: 15, fontFamily: "Inter_400Regular", color: Colors.light.text }}
+                value={resetPwdValue}
+                onChangeText={setResetPwdValue}
+                placeholder="New password (min 6 chars)"
+                placeholderTextColor={Colors.light.textMuted}
+                secureTextEntry={!resetPwdShow}
+                autoCapitalize="none"
+              />
+              <Pressable onPress={() => setResetPwdShow(v => !v)} style={{ padding: 4 }}>
+                <Ionicons name={resetPwdShow ? "eye" : "eye-off"} size={17} color={Colors.light.textMuted} />
+              </Pressable>
+            </View>
+            <View style={{ flexDirection: "row", gap: 10 }}>
+              <Pressable
+                style={{ flex: 1, height: 46, borderRadius: 12, borderWidth: 1, borderColor: Colors.light.border, alignItems: "center", justifyContent: "center" }}
+                onPress={() => setResetPwdStudent(null)}
+              >
+                <Text style={{ fontSize: 15, fontFamily: "Inter_500Medium", color: Colors.light.textSecondary }}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[{ flex: 1, height: 46, borderRadius: 12, backgroundColor: "#D97706", alignItems: "center", justifyContent: "center" }, (resetPwdSaving || resetPwdValue.length < 6) && { opacity: 0.6 }]}
+                onPress={handleResetPassword}
+                disabled={resetPwdSaving || resetPwdValue.length < 6}
+              >
+                {resetPwdSaving ? <ActivityIndicator color="#FFF" /> : <Text style={{ fontSize: 15, fontFamily: "Inter_600SemiBold", color: "#FFF" }}>Reset Password</Text>}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <Modal visible={showStudentModal} transparent animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowStudentModal(false)}>
         <View style={[styles.sheetContainer, { paddingTop: Math.max(insets.top + 8, 20) }]}>
           <View style={styles.sheetHeader}>

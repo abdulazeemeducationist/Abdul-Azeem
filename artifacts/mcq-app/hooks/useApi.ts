@@ -317,6 +317,15 @@ export const api = {
     });
     if (!res.ok) throw new Error("Failed to update student status");
   },
+  resetStudentPassword: async (id: number, newPassword: string): Promise<void> => {
+    const res = await fetch(`${API_BASE}/admin/students/${id}/reset-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ newPassword }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || "Failed to reset password");
+  },
   updateSubject: async (id: number, data: { name: string; code: string; description?: string }): Promise<void> => {
     const res = await fetch(`${API_BASE}/admin/subjects/${id}`, {
       method: "PUT",

@@ -633,6 +633,24 @@ router.patch("/students/:userId/block", async (req, res) => {
   }
 });
 
+router.post("/students/:userId/reset-password", async (req, res) => {
+  try {
+    const id = parseInt(req.params.userId);
+    const { newPassword } = req.body;
+    if (!newPassword || newPassword.length < 6) {
+      res.status(400).json({ error: "Bad Request", message: "Password must be at least 6 characters" });
+      return;
+    }
+    const passwordHash = hashPassword(newPassword);
+    const [user] = await db.update(usersTable).set({ passwordHash }).where(eq(usersTable.id, id)).returning();
+    if (!user) { res.status(404).json({ error: "Student not found" }); return; }
+    res.json({ message: "Password reset successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to reset password" });
+  }
+});
+
 // ── Chapter Videos ──────────────────────────────────────────────────────
 
 router.get("/chapters/:chapterId/videos", async (req, res) => {
