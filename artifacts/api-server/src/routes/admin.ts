@@ -651,6 +651,93 @@ router.post("/students/:userId/reset-password", async (req, res) => {
   }
 });
 
+// ── Staff management (teachers & teaching assistants) ────────────────────
+
+router.get("/staff", async (_req, res) => {
+  try {
+    const staff = await db
+      .select({ id: usersTable.id, name: usersTable.name, email: usersTable.email, role: usersTable.role, isBlocked: usersTable.isBlocked, whatsappNumber: usersTable.whatsappNumber, createdAt: usersTable.createdAt })
+      .from(usersTable)
+      .where(inArray(usersTable.role, ["teacher", "teacher_assistant"]));
+    res.json(staff);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to get staff" });
+  }
+});
+
+router.post("/staff", async (req, res) => {
+  try {
+    const { name, email, password, role, whatsappNumber } = req.body;
+    if (!name || !email || !password || !role) { res.status(400).json({ error: "name, email, password and role are required" }); return; }
+    if (!["teacher", "teacher_assistant"].includes(role)) { res.status(400).json({ error: "role must be 'teacher' or 'teacher_assistant'" }); return; }
+    const existing = await db.select().from(usersTable).where(eq(usersTable.email, email.toLowerCase())).limit(1);
+    if (existing.length > 0) { res.status(409).json({ error: "Email already registered" }); return; }
+    const [user] = await db.insert(usersTable).values({
+      name: name.trim(), email: email.trim().toLowerCase(), passwordHash: hashPassword(password), role,
+      whatsappNumber: whatsappNumber ? whatsappNumber.replace(/\D/g, "") : null,
+    }).returning();
+    res.status(201).json({ id: user.id, name: user.name, email: user.email, role: user.role, isBlocked: user.isBlocked, whatsappNumber: user.whatsappNumber, createdAt: user.createdAt });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to create staff member" });
+  }
+});
+
+router.put("/staff/:id", async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { name, email, role, whatsappNumber } = req.body;
+    if (!name || !email || !role) { res.status(400).json({ error: "name, email and role are required" }); return; }
+    if (!["teacher", "teacher_assistant"].includes(role)) { res.status(400).json({ error: "Invalid role" }); return; }
+    const [user] = await db.update(usersTable)
+      .set({ name: name.trim(), email: email.trim().toLowerCase(), role, whatsappNumber: whatsappNumber ? whatsappNumber.replace(/\D/g, "") : null })
+      .where(eq(usersTable.id, id)).returning();
+    if (!user) { res.status(404).json({ error: "Staff member not found" }); return; }
+    res.json({ id: user.id, name: user.name, email: user.email, role: user.role, isBlocked: user.isBlocked, whatsappNumber: user.whatsappNumber, createdAt: user.createdAt });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to update staff member" });
+  }
+});
+
+router.delete("/staff/:id", async (req, res) => {
+  try {
+    await db.delete(usersTable).where(eq(usersTable.id, parseInt(req.params.id)));
+    res.status(204).end();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to delete staff member" });
+  }
+});
+
+router.patch("/staff/:id/block", async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { isBlocked } = req.body;
+    const [user] = await db.update(usersTable).set({ isBlocked }).where(eq(usersTable.id, id)).returning();
+    if (!user) { res.status(404).json({ error: "Staff member not found" }); return; }
+    res.json({ id: user.id, isBlocked: user.isBlocked });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to update staff status" });
+  }
+});
+
+router.post("/staff/:id/reset-password", async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { newPassword } = req.body;
+    if (!newPassword || newPassword.length < 6) { res.status(400).json({ error: "Bad Request", message: "Password must be at least 6 characters" }); return; }
+    const [user] = await db.update(usersTable).set({ passwordHash: hashPassword(newPassword) }).where(eq(usersTable.id, id)).returning();
+    if (!user) { res.status(404).json({ error: "Staff member not found" }); return; }
+    res.json({ message: "Password reset successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to reset password" });
+  }
+});
+
 // ── Chapter Videos ──────────────────────────────────────────────────────
 
 router.get("/chapters/:chapterId/videos", async (req, res) => {

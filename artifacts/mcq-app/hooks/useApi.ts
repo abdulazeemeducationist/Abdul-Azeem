@@ -326,6 +326,49 @@ export const api = {
     const data = await res.json();
     if (!res.ok) throw new Error(data.message || "Failed to reset password");
   },
+  getStaff: async (): Promise<any[]> => {
+    const res = await fetch(`${API_BASE}/admin/staff`);
+    if (!res.ok) throw new Error("Failed to fetch staff");
+    return res.json();
+  },
+  createStaff: async (data: { name: string; email: string; password: string; role: string; whatsappNumber?: string }): Promise<any> => {
+    const res = await fetch(`${API_BASE}/admin/staff`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Failed to create staff member");
+    return json;
+  },
+  updateStaff: async (id: number, data: { name: string; email: string; role: string; whatsappNumber?: string }): Promise<void> => {
+    const res = await fetch(`${API_BASE}/admin/staff/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error("Failed to update staff member");
+  },
+  deleteStaff: async (id: number): Promise<void> => {
+    await fetch(`${API_BASE}/admin/staff/${id}`, { method: "DELETE" });
+  },
+  toggleBlockStaff: async (id: number, isBlocked: boolean): Promise<void> => {
+    const res = await fetch(`${API_BASE}/admin/staff/${id}/block`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isBlocked }),
+    });
+    if (!res.ok) throw new Error("Failed to update staff status");
+  },
+  resetStaffPassword: async (id: number, newPassword: string): Promise<void> => {
+    const res = await fetch(`${API_BASE}/admin/staff/${id}/reset-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ newPassword }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || "Failed to reset password");
+  },
   updateSubject: async (id: number, data: { name: string; code: string; description?: string }): Promise<void> => {
     const res = await fetch(`${API_BASE}/admin/subjects/${id}`, {
       method: "PUT",

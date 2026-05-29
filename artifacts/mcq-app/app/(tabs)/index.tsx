@@ -198,16 +198,21 @@ export default function HomeScreen() {
   const topPad = isWeb ? Math.max(insets.top, 67) : insets.top;
 
   const isAdmin = user?.role === "admin";
+  const isStaff = user?.role === "teacher" || user?.role === "teacher_assistant";
   const initial = user?.name?.charAt(0)?.toUpperCase() ?? "?";
   const firstName = user?.name?.split(" ")[0] ?? "Student";
 
   const { data: courses, isLoading, error, refetch } = useQuery({
     queryKey: ["courses"],
     queryFn: api.getCourses,
-    enabled: !!user && !isAdmin,
+    enabled: !!user && !isAdmin && !isStaff,
   });
 
   if (isAdmin) {
+    return <AdminDashboard userName={user!.name} avatar={user!.profilePicture} initial={initial} />;
+  }
+
+  if (isStaff) {
     return <AdminDashboard userName={user!.name} avatar={user!.profilePicture} initial={initial} />;
   }
 

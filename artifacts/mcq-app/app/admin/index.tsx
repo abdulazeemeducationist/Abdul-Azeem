@@ -22,7 +22,9 @@ import Colors from "@/constants/colors";
 import { api, Student, AdminSubject, Course, ChapterVideo, ChapterNote } from "@/hooks/useApi";
 import { useAuth } from "@/context/AuthContext";
 
-type TabType = "programs" | "courses" | "content" | "students";
+type TabType = "programs" | "courses" | "content" | "students" | "staff";
+const STAFF_ROLES = ["teacher", "teacher_assistant"] as const;
+type StaffRole = typeof STAFF_ROLES[number];
 
 interface ProgramForm { name: string; code: string; description: string; logo: string }
 const EMPTY_FORM: ProgramForm = { name: "", code: "", description: "", logo: "" };
@@ -138,16 +140,19 @@ export default function AdminScreen() {
   const qc = useQueryClient();
   const params = useLocalSearchParams<{ tab?: string }>();
 
+  const isAdminRole = user?.role === "admin";
+  const isTeacher = user?.role === "teacher" || user?.role === "teacher_assistant";
+
   const [activeTab, setActiveTab] = useState<TabType>(() => {
     const t = params.tab;
-    if (t === "students" || t === "content" || t === "programs" || t === "courses") return t;
-    return "programs";
+    if (t === "students" || t === "content" || t === "programs" || t === "courses" || t === "staff") return t as TabType;
+    return isTeacher ? "content" : "programs";
   });
 
   useEffect(() => {
     const t = params.tab;
-    if (t === "students" || t === "content" || t === "programs" || t === "courses") {
-      setActiveTab(t);
+    if (t === "students" || t === "content" || t === "programs" || t === "courses" || t === "staff") {
+      setActiveTab(t as TabType);
     }
   }, [params.tab]);
 
@@ -187,6 +192,18 @@ export default function AdminScreen() {
   const [resetPwdShow, setResetPwdShow] = useState(false);
   const [resetPwdSaving, setResetPwdSaving] = useState(false);
   const [resetPwdError, setResetPwdError] = useState("");
+
+  // Staff management state
+  const [showStaffModal, setShowStaffModal] = useState(false);
+  const [editingStaff, setEditingStaff] = useState<any | null>(null);
+  const [staffForm, setStaffForm] = useState({ name: "", email: "", password: "", role: "teacher" as StaffRole, showPassword: false });
+  const [staffFormError, setStaffFormError] = useState("");
+  const [savingStaff, setSavingStaff] = useState(false);
+  const [resetStaffPwd, setResetStaffPwd] = useState<any | null>(null);
+  const [resetStaffPwdValue, setResetStaffPwdValue] = useState("");
+  const [resetStaffPwdShow, setResetStaffPwdShow] = useState(false);
+  const [resetStaffPwdSaving, setResetStaffPwdSaving] = useState(false);
+  const [resetStaffPwdError, setResetStaffPwdError] = useState("");
 
   // Content sub-tab
   const [contentSubTab, setContentSubTab] = useState<"chapters" | "videos" | "notes" | "practice">("chapters");
@@ -256,6 +273,9 @@ export default function AdminScreen() {
   const { data: students, isLoading: studentsLoading, refetch: refetchStudents } = useQuery({
     queryKey: ["adminStudents"], queryFn: api.getStudents, enabled: activeTab === "students",
   });
+  const { data: staffList, isLoading: staffLoading, refetch: refetchStaff } = useQuery({
+    queryKey: ["adminStaff"], queryFn: api.getStaff, enabled: activeTab === "staff",
+  });
   const { data: allSubjects, refetch: refetchSubjects } = useQuery({
     queryKey: ["adminSubjects"], queryFn: api.getAllSubjects,
     enabled: showEnrollModal || activeTab === "content" || activeTab === "programs" || activeTab === "courses",
@@ -314,11 +334,11 @@ export default function AdminScreen() {
     enabled: !!expandedChapterId,
   });
 
-  if (user?.role !== "admin") {
+  if (user?.role !== "admin" && user?.role !== "teacher" && user?.role !== "teacher_assistant") {
     return (
       <View style={[styles.center, { paddingTop: topPad }]}>
         <Ionicons name="lock-closed" size={48} color={Colors.light.error} />
-        <Text style={styles.noAccessText}>Admin access required</Text>
+        <Text style={styles.noAccessText}>Access required</Text>
         <Pressable style={styles.retryBtn} onPress={() => router.back()}>
           <Text style={styles.retryText}>Go Back</Text>
         </Pressable>
@@ -584,6 +604,45 @@ export default function AdminScreen() {
       setResetPwdSaving(false);
     }
   };
+  // --- Staff CRUD ---
+  const openAddStaff = () => { setEditingStaff(null); setStaffForm({ name: "", email: "", password: "", role: "teacher", showPassword: false }); setStaffFormError(""); setShowStaffModal(true); };
+  const openEditStaff = (s: any) => { setEditingStaff(s); setStaffForm({ name: s.name, email: s.email, password: "", role: s.role, showPassword: false }); setStaffFormError(""); setShowStaffModal(true); };
+  const handleSaveStaff = async () => {
+    if (!staffForm.name.trim() || !staffForm.email.trim()) { setStaffFormError("Name and email are required"); return; }
+    if (!editingStaff && staffForm.password.length < 6) { setStaffFormError("Password must be at least 6 characters"); return; }
+    setSavingStaff(true); setStaffFormError("");
+    try {
+      if (editingStaff) {
+        await api.updateStaff(editingStaff.id, { name: staffForm.name.trim(), email: staffForm.email.trim(), role: staffForm.role });
+      } else {
+        await api.createStaff({ name: staffForm.name.trim(), email: staffForm.email.trim(), password: staffForm.password, role: staffForm.role });
+      }
+      qc.invalidateQueries({ queryKey: ["adminStaff"] }); refetchStaff();
+      setShowStaffModal(false);
+    } catch (e: any) { setStaffFormError(e.message || "Failed to save"); }
+    finally { setSavingStaff(false); }
+  };
+  const handleToggleBlockStaff = async (s: any) => {
+    try { await api.toggleBlockStaff(s.id, !s.isBlocked); qc.invalidateQueries({ queryKey: ["adminStaff"] }); refetchStaff(); }
+    catch (e) { console.error(e); }
+  };
+  const handleDeleteStaff = (s: any) => {
+    setConfirmModal({
+      title: "Remove Staff Member?",
+      message: `This will permanently remove ${s.name}'s account. They will no longer be able to log in.`,
+      onConfirm: async () => { setConfirmModal(null); await api.deleteStaff(s.id); qc.invalidateQueries({ queryKey: ["adminStaff"] }); refetchStaff(); },
+      onCancel: () => setConfirmModal(null),
+    });
+  };
+  const handleResetStaffPassword = async () => {
+    if (!resetStaffPwd) return;
+    if (resetStaffPwdValue.length < 6) { setResetStaffPwdError("Password must be at least 6 characters"); return; }
+    setResetStaffPwdSaving(true); setResetStaffPwdError("");
+    try { await api.resetStaffPassword(resetStaffPwd.id, resetStaffPwdValue); setResetStaffPwd(null); setResetStaffPwdValue(""); }
+    catch (e: any) { setResetStaffPwdError(e.message || "Failed to reset password"); }
+    finally { setResetStaffPwdSaving(false); }
+  };
+
   const confirmDelete = (id: number) => {
     setConfirmModal({
       title: "Delete Program?",
@@ -1009,12 +1068,14 @@ export default function AdminScreen() {
     return acc;
   }, {});
 
-  const tabs: { key: TabType; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-    { key: "programs",  label: "Programs",  icon: "school-outline" },
-    { key: "courses",   label: "Courses",   icon: "book-outline" },
+  const allTabs: { key: TabType; label: string; icon: keyof typeof Ionicons.glyphMap; adminOnly?: boolean }[] = [
+    { key: "programs",  label: "Programs",  icon: "school-outline",         adminOnly: true },
+    { key: "courses",   label: "Courses",   icon: "book-outline",           adminOnly: true },
     { key: "content",   label: "Content",   icon: "document-text-outline" },
-    { key: "students",  label: "Students",  icon: "people-outline" },
+    { key: "students",  label: "Students",  icon: "people-outline",         adminOnly: true },
+    { key: "staff",     label: "Staff",     icon: "people-circle-outline",  adminOnly: true },
   ];
+  const tabs = isTeacher ? allTabs.filter(t => !t.adminOnly) : allTabs;
 
   return (
     <View style={[styles.container, { paddingTop: topPad }]}>
@@ -1023,7 +1084,9 @@ export default function AdminScreen() {
         <Pressable style={styles.backBtn} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={22} color={Colors.light.text} />
         </Pressable>
-        <Text style={styles.headerTitle}>Admin Panel</Text>
+        <Text style={styles.headerTitle}>
+          {isAdminRole ? "Admin Panel" : user?.role === "teacher" ? "Teacher Panel" : "TA Panel"}
+        </Text>
         <View style={{ width: 38 }} />
       </View>
 
@@ -1411,6 +1474,94 @@ export default function AdminScreen() {
                   )}
                 </View>
               ))
+            )}
+          </View>
+        )}
+
+        {/* STAFF TAB */}
+        {activeTab === "staff" && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Staff Members</Text>
+              <Pressable style={styles.addBtnSmall} onPress={openAddStaff}>
+                <Ionicons name="add" size={16} color="#FFF" />
+                <Text style={styles.addBtnText}>Add Staff</Text>
+              </Pressable>
+            </View>
+
+            {/* Role legend */}
+            <View style={{ flexDirection: "row", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "#7C3AED18", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 }}>
+                <Ionicons name="school" size={13} color="#7C3AED" />
+                <Text style={{ fontSize: 12, fontFamily: "Inter_500Medium", color: "#7C3AED" }}>Teacher — can add/edit MCQs</Text>
+              </View>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "#0891B218", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 }}>
+                <Ionicons name="people" size={13} color="#0891B2" />
+                <Text style={{ fontSize: 12, fontFamily: "Inter_500Medium", color: "#0891B2" }}>Teacher Assistant — can add/edit MCQs</Text>
+              </View>
+            </View>
+
+            {staffLoading ? (
+              <View style={{ paddingTop: 40, alignItems: "center" }}><ActivityIndicator color={Colors.light.primary} /></View>
+            ) : !staffList?.length ? (
+              <View style={styles.emptyState}>
+                <Ionicons name="people-circle-outline" size={48} color={Colors.light.textMuted} />
+                <Text style={styles.emptyText}>No staff members yet. Add a teacher or teaching assistant.</Text>
+              </View>
+            ) : (
+              staffList.map((s: any) => {
+                const isTeacherRole = s.role === "teacher";
+                const roleColor = isTeacherRole ? "#7C3AED" : "#0891B2";
+                const roleLabel = isTeacherRole ? "Teacher" : "Teacher Assistant";
+                return (
+                  <View key={s.id} style={[styles.studentCard, { borderLeftWidth: 3, borderLeftColor: s.isBlocked ? Colors.light.error : roleColor }]}>
+                    <View style={styles.studentHeader}>
+                      <View style={[styles.avatarCircle, { backgroundColor: roleColor + "20" }, s.isBlocked && { backgroundColor: Colors.light.error + "20" }]}>
+                        <Text style={[styles.avatarText, { color: roleColor }, s.isBlocked && { color: Colors.light.error }]}>{s.name.charAt(0).toUpperCase()}</Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                          <Text style={styles.studentName}>{s.name}</Text>
+                          <View style={{ backgroundColor: roleColor + "18", borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 }}>
+                            <Text style={{ fontSize: 11, fontFamily: "Inter_600SemiBold", color: roleColor }}>{roleLabel}</Text>
+                          </View>
+                          {s.isBlocked && (
+                            <View style={styles.blockedBadge}><Text style={styles.blockedBadgeText}>Blocked</Text></View>
+                          )}
+                        </View>
+                        <Text style={styles.studentEmail}>{s.email}</Text>
+                        {s.whatsappNumber && <Text style={styles.studentPhone}>+{s.whatsappNumber}</Text>}
+                      </View>
+                      <View style={{ flexDirection: "column", gap: 4 }}>
+                        <View style={{ flexDirection: "row", gap: 4 }}>
+                          <Pressable style={styles.editIconBtn} onPress={() => openEditStaff(s)}>
+                            <Ionicons name="pencil" size={13} color={Colors.light.primary} />
+                          </Pressable>
+                          <Pressable
+                            style={[styles.editIconBtn, { backgroundColor: "#FEF3C7" }]}
+                            onPress={() => { setResetStaffPwd(s); setResetStaffPwdValue(""); setResetStaffPwdError(""); setResetStaffPwdShow(false); }}
+                          >
+                            <Ionicons name="key-outline" size={13} color="#D97706" />
+                          </Pressable>
+                          <Pressable
+                            style={[styles.toggleIconBtn, { backgroundColor: s.isBlocked ? "#DCFCE7" : "#FEE2E2" }]}
+                            onPress={() => handleToggleBlockStaff(s)}
+                          >
+                            <Ionicons name={s.isBlocked ? "lock-open" : "ban"} size={13} color={s.isBlocked ? "#059669" : Colors.light.error} />
+                          </Pressable>
+                          <Pressable style={styles.deleteIconBtn} onPress={() => handleDeleteStaff(s)}>
+                            <Ionicons name="trash" size={13} color={Colors.light.error} />
+                          </Pressable>
+                        </View>
+                      </View>
+                    </View>
+                    <View style={[styles.studentPapersRow, { marginTop: 4 }]}>
+                      <Ionicons name="calendar-outline" size={12} color={Colors.light.textMuted} />
+                      <Text style={styles.studentPapersLabel}>Joined {new Date(s.createdAt).toLocaleDateString()}</Text>
+                    </View>
+                  </View>
+                );
+              })
             )}
           </View>
         )}
@@ -2098,6 +2249,147 @@ export default function AdminScreen() {
               </Pressable>
             </View>
           </View>
+        </View>
+      </Modal>
+
+      {/* ── Staff Reset Password Modal ── */}
+      <Modal visible={!!resetStaffPwd} transparent animationType="fade" onRequestClose={() => setResetStaffPwd(null)}>
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "center", alignItems: "center", paddingHorizontal: 24 }}>
+          <View style={{ backgroundColor: "#FFF", borderRadius: 20, padding: 24, width: "100%", maxWidth: 400, gap: 16 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+              <Text style={{ fontSize: 17, fontFamily: "Inter_700Bold", color: Colors.light.text }}>Reset Staff Password</Text>
+              <Pressable onPress={() => setResetStaffPwd(null)}><Ionicons name="close" size={22} color={Colors.light.text} /></Pressable>
+            </View>
+            <Text style={{ fontSize: 13, fontFamily: "Inter_400Regular", color: Colors.light.textSecondary }}>
+              Set a new password for <Text style={{ fontFamily: "Inter_600SemiBold", color: Colors.light.text }}>{resetStaffPwd?.name}</Text>.
+            </Text>
+            {!!resetStaffPwdError && (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: Colors.light.error + "12", borderRadius: 10, padding: 10 }}>
+                <Ionicons name="alert-circle" size={15} color={Colors.light.error} />
+                <Text style={{ fontSize: 13, fontFamily: "Inter_400Regular", color: Colors.light.error, flex: 1 }}>{resetStaffPwdError}</Text>
+              </View>
+            )}
+            <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: Colors.light.backgroundSecondary, borderRadius: 12, borderWidth: 1, borderColor: Colors.light.border, paddingHorizontal: 12, height: 48 }}>
+              <Ionicons name="lock-closed-outline" size={17} color={Colors.light.textMuted} style={{ marginRight: 8 }} />
+              <TextInput
+                style={{ flex: 1, fontSize: 15, fontFamily: "Inter_400Regular", color: Colors.light.text }}
+                value={resetStaffPwdValue}
+                onChangeText={setResetStaffPwdValue}
+                placeholder="New password (min 6 chars)"
+                placeholderTextColor={Colors.light.textMuted}
+                secureTextEntry={!resetStaffPwdShow}
+                autoCapitalize="none"
+              />
+              <Pressable onPress={() => setResetStaffPwdShow(v => !v)} style={{ padding: 4 }}>
+                <Ionicons name={resetStaffPwdShow ? "eye" : "eye-off"} size={17} color={Colors.light.textMuted} />
+              </Pressable>
+            </View>
+            <View style={{ flexDirection: "row", gap: 10 }}>
+              <Pressable style={{ flex: 1, height: 46, borderRadius: 12, borderWidth: 1, borderColor: Colors.light.border, alignItems: "center", justifyContent: "center" }} onPress={() => setResetStaffPwd(null)}>
+                <Text style={{ fontSize: 15, fontFamily: "Inter_500Medium", color: Colors.light.textSecondary }}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[{ flex: 1, height: 46, borderRadius: 12, backgroundColor: "#D97706", alignItems: "center", justifyContent: "center" }, (resetStaffPwdSaving || resetStaffPwdValue.length < 6) && { opacity: 0.6 }]}
+                onPress={handleResetStaffPassword}
+                disabled={resetStaffPwdSaving || resetStaffPwdValue.length < 6}
+              >
+                {resetStaffPwdSaving ? <ActivityIndicator color="#FFF" /> : <Text style={{ fontSize: 15, fontFamily: "Inter_600SemiBold", color: "#FFF" }}>Reset Password</Text>}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Add / Edit Staff Modal ── */}
+      <Modal visible={showStaffModal} transparent animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowStaffModal(false)}>
+        <View style={[styles.sheetContainer, { paddingTop: Math.max(insets.top + 8, 20) }]}>
+          <View style={styles.sheetHeader}>
+            <Text style={styles.sheetTitle}>{editingStaff ? "Edit Staff Member" : "Add Staff Member"}</Text>
+            <Pressable onPress={() => setShowStaffModal(false)}><Ionicons name="close" size={24} color={Colors.light.text} /></Pressable>
+          </View>
+          <ScrollView style={styles.sheetScroll} contentContainerStyle={{ gap: 14, paddingBottom: Math.max(insets.bottom + 20, 40) }} keyboardShouldPersistTaps="handled">
+            {!!staffFormError && (
+              <View style={[styles.formField, { backgroundColor: Colors.light.error + "10", borderRadius: 8, padding: 10 }]}>
+                <Text style={{ fontSize: 13, color: Colors.light.error, fontFamily: "Inter_400Regular" }}>{staffFormError}</Text>
+              </View>
+            )}
+            {/* Role selector */}
+            <View style={styles.formField}>
+              <Text style={styles.formLabel}>Role <Text style={styles.required}>*</Text></Text>
+              <View style={{ flexDirection: "row", gap: 10 }}>
+                {(["teacher", "teacher_assistant"] as StaffRole[]).map(r => (
+                  <Pressable
+                    key={r}
+                    style={[{ flex: 1, height: 44, borderRadius: 12, borderWidth: 1.5, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 6 },
+                      staffForm.role === r ? { borderColor: Colors.light.primary, backgroundColor: Colors.light.primary + "12" } : { borderColor: Colors.light.border, backgroundColor: Colors.light.backgroundSecondary }
+                    ]}
+                    onPress={() => setStaffForm(f => ({ ...f, role: r }))}
+                  >
+                    <Ionicons name={r === "teacher" ? "school-outline" : "people-outline"} size={15} color={staffForm.role === r ? Colors.light.primary : Colors.light.textMuted} />
+                    <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: staffForm.role === r ? Colors.light.primary : Colors.light.textMuted }}>
+                      {r === "teacher" ? "Teacher" : "TA"}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+            <View style={styles.formField}>
+              <Text style={styles.formLabel}>Full Name <Text style={styles.required}>*</Text></Text>
+              <View style={styles.formInputRow}>
+                <Ionicons name="person-outline" size={17} color={Colors.light.textMuted} style={styles.formInputIcon} />
+                <TextInput
+                  style={[styles.formInput, styles.formInputFlex, { borderWidth: 0, backgroundColor: "transparent" }]}
+                  value={staffForm.name}
+                  onChangeText={v => setStaffForm(f => ({ ...f, name: v }))}
+                  placeholder="Full name"
+                  placeholderTextColor={Colors.light.textMuted}
+                  autoCapitalize="words"
+                />
+              </View>
+            </View>
+            <View style={styles.formField}>
+              <Text style={styles.formLabel}>Email Address <Text style={styles.required}>*</Text></Text>
+              <View style={styles.formInputRow}>
+                <Ionicons name="mail-outline" size={17} color={Colors.light.textMuted} style={styles.formInputIcon} />
+                <TextInput
+                  style={[styles.formInput, styles.formInputFlex, { borderWidth: 0, backgroundColor: "transparent" }]}
+                  value={staffForm.email}
+                  onChangeText={v => setStaffForm(f => ({ ...f, email: v }))}
+                  placeholder="email@example.com"
+                  placeholderTextColor={Colors.light.textMuted}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+              </View>
+            </View>
+            {!editingStaff && (
+              <View style={styles.formField}>
+                <Text style={styles.formLabel}>Password <Text style={styles.required}>*</Text></Text>
+                <View style={styles.formInputRow}>
+                  <Ionicons name="lock-closed-outline" size={17} color={Colors.light.textMuted} style={styles.formInputIcon} />
+                  <TextInput
+                    style={[styles.formInput, styles.formInputFlex, { borderWidth: 0, backgroundColor: "transparent" }]}
+                    value={staffForm.password}
+                    onChangeText={v => setStaffForm(f => ({ ...f, password: v }))}
+                    placeholder="Minimum 6 characters"
+                    placeholderTextColor={Colors.light.textMuted}
+                    secureTextEntry={!staffForm.showPassword}
+                    autoCapitalize="none"
+                  />
+                  <Pressable onPress={() => setStaffForm(f => ({ ...f, showPassword: !f.showPassword }))} style={styles.formEyeBtn}>
+                    <Ionicons name={staffForm.showPassword ? "eye" : "eye-off"} size={17} color={Colors.light.textMuted} />
+                  </Pressable>
+                </View>
+              </View>
+            )}
+            <Pressable
+              style={({ pressed }) => [styles.saveBtn, { opacity: pressed || savingStaff ? 0.85 : 1 }]}
+              onPress={handleSaveStaff}
+              disabled={savingStaff}
+            >
+              {savingStaff ? <ActivityIndicator color="#FFF" /> : <Text style={styles.saveBtnText}>{editingStaff ? "Save Changes" : "Create Staff Member"}</Text>}
+            </Pressable>
+          </ScrollView>
         </View>
       </Modal>
 
