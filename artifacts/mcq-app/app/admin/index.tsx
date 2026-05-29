@@ -1079,12 +1079,10 @@ export default function AdminScreen() {
     { key: "students",  label: "Students",  icon: "people-outline" },
     { key: "staff",     label: "Staff",     icon: "people-circle-outline" },
   ];
-  // Admin: all tabs | Teacher: all except programs | TA: content only
+  // Admin & Teacher: all tabs | TA: content only
   const tabs = isTA
     ? allTabs.filter(t => t.key === "content")
-    : isTeacher
-      ? allTabs.filter(t => t.key !== "programs")
-      : allTabs;
+    : allTabs;
 
   return (
     <View style={[styles.container, { paddingTop: topPad }]}>
@@ -1123,10 +1121,12 @@ export default function AdminScreen() {
           <View style={styles.section}>
             <View style={styles.sectionHeaderRow}>
               <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Programs</Text>
-              <Pressable style={styles.addBtnSmall} onPress={openAddProgram}>
-                <Ionicons name="add" size={16} color="#FFF" />
-                <Text style={styles.addBtnText}>Add Program</Text>
-              </Pressable>
+              {isAdminRole && (
+                <Pressable style={styles.addBtnSmall} onPress={openAddProgram}>
+                  <Ionicons name="add" size={16} color="#FFF" />
+                  <Text style={styles.addBtnText}>Add Program</Text>
+                </Pressable>
+              )}
             </View>
 
             {/* Summary banner */}
@@ -1172,22 +1172,24 @@ export default function AdminScreen() {
                 return (
                   <View key={prog.id} style={{ marginBottom: 4 }}>
                     <View style={[styles.programRow, { borderLeftColor: accent, borderLeftWidth: 3, marginBottom: 0 }]}>
-                      <View style={styles.reorderBtns}>
-                        <Pressable
-                          onPress={() => handleReorderCourse(prog.id, "up")}
-                          disabled={idx === 0}
-                          style={({ pressed }) => ({ opacity: idx === 0 ? 0.2 : pressed ? 0.5 : 1 })}
-                        >
-                          <Ionicons name="chevron-up" size={16} color={Colors.light.textMuted} />
-                        </Pressable>
-                        <Pressable
-                          onPress={() => handleReorderCourse(prog.id, "down")}
-                          disabled={idx === programs.filter(p => !pendingProgDeleteIds.includes(p.id)).length - 1}
-                          style={({ pressed }) => ({ opacity: idx === programs.filter(p => !pendingProgDeleteIds.includes(p.id)).length - 1 ? 0.2 : pressed ? 0.5 : 1 })}
-                        >
-                          <Ionicons name="chevron-down" size={16} color={Colors.light.textMuted} />
-                        </Pressable>
-                      </View>
+                      {isAdminRole && (
+                        <View style={styles.reorderBtns}>
+                          <Pressable
+                            onPress={() => handleReorderCourse(prog.id, "up")}
+                            disabled={idx === 0}
+                            style={({ pressed }) => ({ opacity: idx === 0 ? 0.2 : pressed ? 0.5 : 1 })}
+                          >
+                            <Ionicons name="chevron-up" size={16} color={Colors.light.textMuted} />
+                          </Pressable>
+                          <Pressable
+                            onPress={() => handleReorderCourse(prog.id, "down")}
+                            disabled={idx === programs.filter(p => !pendingProgDeleteIds.includes(p.id)).length - 1}
+                            style={({ pressed }) => ({ opacity: idx === programs.filter(p => !pendingProgDeleteIds.includes(p.id)).length - 1 ? 0.2 : pressed ? 0.5 : 1 })}
+                          >
+                            <Ionicons name="chevron-down" size={16} color={Colors.light.textMuted} />
+                          </Pressable>
+                        </View>
+                      )}
                       {prog.logo ? (
                         <Image source={{ uri: prog.logo }} style={styles.progLogoThumb} contentFit="cover" />
                       ) : (
@@ -1204,20 +1206,22 @@ export default function AdminScreen() {
                           <Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={11} color={Colors.light.textMuted} style={{ marginLeft: 4 }} />
                         </View>
                       </Pressable>
-                      <View style={styles.rowActions}>
-                        <Pressable
-                          style={[styles.toggleIconBtn, { backgroundColor: prog.isActive ? "#DCFCE7" : "#FEE2E2" }]}
-                          onPress={() => handleToggleCourse(prog.id, prog.isActive)}
-                        >
-                          <Ionicons name={prog.isActive ? "eye" : "eye-off"} size={15} color={prog.isActive ? "#059669" : "#DC2626"} />
-                        </Pressable>
-                        <Pressable style={styles.editIconBtn} onPress={() => openEditProgram(prog)}>
-                          <Ionicons name="pencil" size={15} color={Colors.light.primary} />
-                        </Pressable>
-                        <Pressable style={styles.deleteIconBtn} onPress={() => confirmDelete(prog.id)}>
-                          <Ionicons name="trash" size={15} color={Colors.light.error} />
-                        </Pressable>
-                      </View>
+                      {isAdminRole && (
+                        <View style={styles.rowActions}>
+                          <Pressable
+                            style={[styles.toggleIconBtn, { backgroundColor: prog.isActive ? "#DCFCE7" : "#FEE2E2" }]}
+                            onPress={() => handleToggleCourse(prog.id, prog.isActive)}
+                          >
+                            <Ionicons name={prog.isActive ? "eye" : "eye-off"} size={15} color={prog.isActive ? "#059669" : "#DC2626"} />
+                          </Pressable>
+                          <Pressable style={styles.editIconBtn} onPress={() => openEditProgram(prog)}>
+                            <Ionicons name="pencil" size={15} color={Colors.light.primary} />
+                          </Pressable>
+                          <Pressable style={styles.deleteIconBtn} onPress={() => confirmDelete(prog.id)}>
+                            <Ionicons name="trash" size={15} color={Colors.light.error} />
+                          </Pressable>
+                        </View>
+                      )}
                     </View>
 
                     {/* Expandable Courses Section */}

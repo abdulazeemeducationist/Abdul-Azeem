@@ -173,7 +173,7 @@ function AdminDashboard({ userName, avatar, initial, role }: { userName: string;
           <ActivityIndicator color={Colors.light.primary} style={{ marginTop: 20, marginBottom: 20 }} />
         ) : (
           <View style={styles.statsGrid}>
-            {(isAdmin) && (
+            {(isAdmin || isTeacher) && (
               <StatTile label="Programs" value={stats?.totalCourses ?? 0} icon="school"       color="#059669" route={{ pathname: "/admin", params: { tab: "programs" } }} />
             )}
             {(isAdmin || isTeacher) && (
@@ -192,8 +192,8 @@ function AdminDashboard({ userName, avatar, initial, role }: { userName: string;
         {/* Quick Actions — Manage */}
         <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Manage</Text>
         <View style={styles.quickActions}>
-          {isAdmin && (
-            <QuickAction label="Programs" sub="Add, edit, or remove programs"          icon="school-outline"        color="#059669" tab="programs" />
+          {(isAdmin || isTeacher) && (
+            <QuickAction label="Programs" sub={isAdmin ? "Add, edit, or remove programs" : "View programs"} icon="school-outline" color="#059669" tab="programs" />
           )}
           {(isAdmin || isTeacher) && (
             <QuickAction label="Courses"  sub="Manage courses within each program"    icon="book-outline"          color="#7C3AED" tab="courses" />
