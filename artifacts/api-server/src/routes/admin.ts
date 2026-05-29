@@ -418,6 +418,8 @@ router.get("/questions", async (req, res) => {
       topicId: questionsTable.topicId,
       topicName: topicsTable.name,
       questionText: questionsTable.questionText,
+      questionHtml: questionsTable.questionHtml,
+      questionImageUrl: questionsTable.questionImageUrl,
       optionA: questionsTable.optionA,
       optionB: questionsTable.optionB,
       optionC: questionsTable.optionC,
@@ -457,15 +459,20 @@ router.get("/questions", async (req, res) => {
 
 router.post("/questions", async (req, res) => {
   try {
-    const { topicId, questionText, optionA, optionB, optionC, optionD, correctAnswers, explanation, questionType, difficulty } = req.body;
+    const { topicId, questionText, questionHtml, questionImageUrl, optionA, optionB, optionC, optionD, correctAnswers, explanation, questionType, difficulty } = req.body;
     if (!topicId || isNaN(Number(topicId))) {
       return res.status(400).json({ error: "Bad Request", message: "topicId is required and must be a valid number" });
     }
-    if (!questionText || !optionA || !optionB || !optionC || !optionD || !correctAnswers?.length || !explanation) {
+    const hasBody = questionText || questionHtml || questionImageUrl;
+    if (!hasBody || !optionA || !optionB || !optionC || !optionD || !correctAnswers?.length || !explanation) {
       return res.status(400).json({ error: "Bad Request", message: "All question fields are required" });
     }
     const [question] = await db.insert(questionsTable).values({
-      topicId, questionText, optionA, optionB, optionC, optionD,
+      topicId,
+      questionText: questionText ?? "",
+      questionHtml: questionHtml ?? null,
+      questionImageUrl: questionImageUrl ?? null,
+      optionA, optionB, optionC, optionD,
       correctAnswers: JSON.stringify(correctAnswers),
       explanation, questionType, difficulty: difficulty ?? "medium",
     }).returning();
@@ -516,9 +523,13 @@ router.post("/questions/import", async (req, res) => {
 router.put("/questions/:questionId", async (req, res) => {
   try {
     const id = parseInt(req.params.questionId);
-    const { topicId, questionText, optionA, optionB, optionC, optionD, correctAnswers, explanation, questionType, difficulty } = req.body;
+    const { topicId, questionText, questionHtml, questionImageUrl, optionA, optionB, optionC, optionD, correctAnswers, explanation, questionType, difficulty } = req.body;
     const [question] = await db.update(questionsTable).set({
-      topicId, questionText, optionA, optionB, optionC, optionD,
+      topicId,
+      questionText: questionText ?? "",
+      questionHtml: questionHtml ?? null,
+      questionImageUrl: questionImageUrl ?? null,
+      optionA, optionB, optionC, optionD,
       correctAnswers: JSON.stringify(correctAnswers),
       explanation, questionType, difficulty: difficulty ?? "medium",
     }).where(eq(questionsTable.id, id)).returning();

@@ -482,7 +482,9 @@ export const api = {
   },
   createQuestion: async (data: {
     topicId: number;
-    questionText: string;
+    questionText?: string;
+    questionHtml?: string;
+    questionImageUrl?: string;
     optionA: string;
     optionB: string;
     optionC: string;
