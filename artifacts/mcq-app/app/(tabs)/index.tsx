@@ -171,6 +171,7 @@ function AdminDashboard({ userName, avatar, initial }: { userName: string; avata
               <StatTile label="Courses"   value={stats?.totalSubjects ?? 0}   icon="book"                  color="#7C3AED" route={{ pathname: "/admin", params: { tab: "courses" } }} />
               <StatTile label="Content"   value={stats?.totalChapters ?? 0}   icon="document-text"         color="#D97706" route={{ pathname: "/admin", params: { tab: "content" } }} />
               <StatTile label="Students"  value={stats?.totalUsers ?? 0}      icon="people"                color="#3B82F6" route={{ pathname: "/admin", params: { tab: "students" } }} />
+              <StatTile label="Staff"     value={stats?.totalStaff ?? 0}      icon="person-circle"         color="#0891B2" route={{ pathname: "/admin", params: { tab: "staff" } }} />
             </View>
 
           </>
@@ -183,6 +184,7 @@ function AdminDashboard({ userName, avatar, initial }: { userName: string; avata
           <QuickAction label="Courses"   sub="Manage courses within each program"        icon="book-outline"           color="#7C3AED" tab="courses" />
           <QuickAction label="Content"   sub="Chapters, videos, notes, and MCQs"         icon="document-text-outline" color="#D97706" tab="content" />
           <QuickAction label="Students"  sub="Manage accounts and course access"         icon="people-outline"        color="#3B82F6" tab="students" />
+          <QuickAction label="Staff"     sub="Manage teachers and assistants"            icon="person-circle-outline" color="#0891B2" tab="staff" />
         </View>
       </ScrollView>
     </View>

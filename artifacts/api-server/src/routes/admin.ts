@@ -5,7 +5,7 @@ import {
   usersTable, userProgressTable, userSubjectPurchasesTable, levelsTable,
   chapterVideosTable, chapterNotesTable
 } from "@workspace/db";
-import { eq, count, avg, and, inArray, max, asc } from "drizzle-orm";
+import { eq, count, avg, and, inArray, max, asc, or } from "drizzle-orm";
 import crypto from "crypto";
 
 function hashPassword(p: string) { return crypto.createHash("sha256").update(p + "mcq-salt-2024").digest("hex"); }
@@ -14,7 +14,8 @@ const router: IRouter = Router();
 
 router.get("/stats", async (_req, res) => {
   try {
-    const [{ count: totalUsers }] = await db.select({ count: count() }).from(usersTable);
+    const [{ count: totalUsers }] = await db.select({ count: count() }).from(usersTable).where(eq(usersTable.role, "student"));
+    const [{ count: totalStaff }] = await db.select({ count: count() }).from(usersTable).where(or(eq(usersTable.role, "teacher"), eq(usersTable.role, "teacher_assistant")));
     const [{ count: totalCourses }] = await db.select({ count: count() }).from(coursesTable);
     const [{ count: totalSubjects }] = await db.select({ count: count() }).from(subjectsTable);
     const [{ count: totalChapters }] = await db.select({ count: count() }).from(chaptersTable);
@@ -24,6 +25,7 @@ router.get("/stats", async (_req, res) => {
     const [{ avg: avgScore }] = await db.select({ avg: avg(userProgressTable.scorePercentage) }).from(userProgressTable);
     res.json({
       totalUsers: Number(totalUsers),
+      totalStaff: Number(totalStaff),
       totalCourses: Number(totalCourses),
       totalSubjects: Number(totalSubjects),
       totalChapters: Number(totalChapters),
