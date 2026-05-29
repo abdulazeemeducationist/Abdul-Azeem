@@ -419,6 +419,15 @@ export const api = {
     if (!res.ok) throw new Error("Failed to delete topic");
     return res.json();
   },
+  reorderTopics: async (orderedIds: number[]) => {
+    const res = await fetch(`${API_BASE}/admin/topics/reorder`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orderedIds }),
+    });
+    if (!res.ok) throw new Error("Failed to reorder topics");
+    return res.json();
+  },
   createQuestion: async (data: {
     topicId: number;
     questionText: string;

@@ -27,6 +27,109 @@ type TabType = "programs" | "courses" | "content" | "students";
 interface ProgramForm { name: string; code: string; description: string; logo: string }
 const EMPTY_FORM: ProgramForm = { name: "", code: "", description: "", logo: "" };
 
+// ── Topic Reorder List ──────────────────────────────────────────────────────
+interface TopicReorderListProps {
+  topics: any[];
+  onReorder: (orderedIds: number[]) => Promise<void>;
+  onEdit: (t: any) => void;
+  onDelete: (t: any) => void;
+}
+function TopicReorderList({ topics, onReorder, onEdit, onDelete }: TopicReorderListProps) {
+  const [localTopics, setLocalTopics] = React.useState<any[]>(topics);
+  const [saving, setSaving] = React.useState(false);
+
+  React.useEffect(() => { setLocalTopics(topics); }, [topics]);
+
+  const move = async (fromIdx: number, toIdx: number) => {
+    if (toIdx < 0 || toIdx >= localTopics.length) return;
+    const next = [...localTopics];
+    const [item] = next.splice(fromIdx, 1);
+    next.splice(toIdx, 0, item);
+    setLocalTopics(next);
+    setSaving(true);
+    try { await onReorder(next.map(t => t.id)); }
+    catch { setLocalTopics(localTopics); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <View>
+      {saving && (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 6, paddingHorizontal: 4 }}>
+          <ActivityIndicator size="small" color={Colors.light.primary} />
+          <Text style={{ fontSize: 11, fontFamily: "Inter_400Regular", color: Colors.light.textMuted }}>Saving order…</Text>
+        </View>
+      )}
+      {localTopics.map((t: any, ti: number) => (
+        <View key={t.id} style={topicRowStyle}>
+          {/* Reorder arrows */}
+          <View style={{ gap: 2, marginRight: 6 }}>
+            <Pressable
+              style={[arrowBtn, ti === 0 && { opacity: 0.25 }]}
+              onPress={() => move(ti, ti - 1)}
+              disabled={ti === 0 || saving}
+            >
+              <Ionicons name="chevron-up" size={12} color={Colors.light.primary} />
+            </Pressable>
+            <Pressable
+              style={[arrowBtn, ti === localTopics.length - 1 && { opacity: 0.25 }]}
+              onPress={() => move(ti, ti + 1)}
+              disabled={ti === localTopics.length - 1 || saving}
+            >
+              <Ionicons name="chevron-down" size={12} color={Colors.light.primary} />
+            </Pressable>
+          </View>
+          {/* Position number */}
+          <View style={dotStyle}>
+            <Text style={dotTextStyle}>{ti + 1}</Text>
+          </View>
+          {/* Name */}
+          <Text style={nameStyle} numberOfLines={2}>{t.name}</Text>
+          {/* Actions */}
+          <View style={{ flexDirection: "row", gap: 4 }}>
+            <Pressable
+              style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: Colors.light.primary + "18", alignItems: "center", justifyContent: "center" }}
+              onPress={() => onEdit(t)}
+            >
+              <Ionicons name="pencil" size={13} color={Colors.light.primary} />
+            </Pressable>
+            <Pressable
+              style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: Colors.light.error + "15", alignItems: "center", justifyContent: "center" }}
+              onPress={() => onDelete(t)}
+            >
+              <Ionicons name="trash" size={13} color={Colors.light.error} />
+            </Pressable>
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+const topicRowStyle: import("react-native").ViewStyle = {
+  flexDirection: "row", alignItems: "center",
+  backgroundColor: "#FFF", borderRadius: 10,
+  paddingVertical: 7, paddingHorizontal: 8,
+  marginBottom: 6, borderWidth: 1, borderColor: "#E5E7EB",
+};
+const arrowBtn: import("react-native").ViewStyle = {
+  width: 20, height: 20, borderRadius: 5,
+  backgroundColor: Colors.light.primary + "15",
+  alignItems: "center", justifyContent: "center",
+};
+const dotStyle: import("react-native").ViewStyle = {
+  width: 22, height: 22, borderRadius: 11,
+  backgroundColor: Colors.light.primary + "20",
+  alignItems: "center", justifyContent: "center",
+  marginRight: 8, flexShrink: 0,
+};
+const dotTextStyle: import("react-native").TextStyle = {
+  fontSize: 11, fontFamily: "Inter_700Bold", color: Colors.light.primary,
+};
+const nameStyle: import("react-native").TextStyle = {
+  flex: 1, fontSize: 13, fontFamily: "Inter_500Medium",
+  color: Colors.light.text, marginRight: 6,
+};
+
 export default function AdminScreen() {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
@@ -1413,24 +1516,18 @@ export default function AdminScreen() {
                                   <Text style={styles.topicEmptyText}>No topics yet. Add one to start adding MCQs.</Text>
                                 </View>
                               ) : (
-                                expandedTopics.map((t: any, ti: number) => (
-                                  <View key={t.id} style={styles.topicRow}>
-                                    <View style={styles.topicRowLeft}>
-                                      <View style={styles.topicOrderDot}>
-                                        <Text style={styles.topicOrderDotText}>{ti + 1}</Text>
-                                      </View>
-                                      <Text style={styles.topicRowName} numberOfLines={2}>{t.name}</Text>
-                                    </View>
-                                    <View style={styles.topicRowActions}>
-                                      <Pressable style={styles.editIconBtn} onPress={() => openEditTopic(t)}>
-                                        <Ionicons name="pencil" size={13} color={Colors.light.primary} />
-                                      </Pressable>
-                                      <Pressable style={styles.deleteIconBtn} onPress={() => handleDeleteTopic(t)}>
-                                        <Ionicons name="trash" size={13} color={Colors.light.error} />
-                                      </Pressable>
-                                    </View>
-                                  </View>
-                                ))
+                                <TopicReorderList
+                                  topics={expandedTopics}
+                                  onReorder={async (orderedIds) => {
+                                    qc.setQueryData(["chapter-topics", expandedChapterId], (old: any[]) =>
+                                      orderedIds.map(id => old.find((t: any) => t.id === id))
+                                    );
+                                    await api.reorderTopics(orderedIds);
+                                    qc.invalidateQueries({ queryKey: ["chapter-topics", expandedChapterId] });
+                                  }}
+                                  onEdit={openEditTopic}
+                                  onDelete={handleDeleteTopic}
+                                />
                               )}
                             </View>
                           )}

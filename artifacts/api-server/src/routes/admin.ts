@@ -387,6 +387,24 @@ router.delete("/topics/:topicId", async (req, res) => {
   }
 });
 
+router.post("/topics/reorder", async (req, res) => {
+  try {
+    const { orderedIds } = req.body as { orderedIds: number[] };
+    if (!Array.isArray(orderedIds) || !orderedIds.length) {
+      return res.status(400).json({ error: "orderedIds array required" });
+    }
+    await Promise.all(
+      orderedIds.map((id, idx) =>
+        db.update(topicsTable).set({ orderNumber: idx + 1 }).where(eq(topicsTable.id, id))
+      )
+    );
+    res.json({ message: "Topics reordered" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to reorder topics" });
+  }
+});
+
 router.get("/questions", async (req, res) => {
   try {
     const topicId = req.query.topicId ? parseInt(req.query.topicId as string) : null;
