@@ -141,12 +141,16 @@ export default function AdminScreen() {
   const params = useLocalSearchParams<{ tab?: string }>();
 
   const isAdminRole = user?.role === "admin";
-  const isTeacher = user?.role === "teacher" || user?.role === "teacher_assistant";
+  const isTeacher = user?.role === "teacher";
+  const isTA = user?.role === "teacher_assistant";
+  const isStaff = isTeacher || isTA;
 
   const [activeTab, setActiveTab] = useState<TabType>(() => {
     const t = params.tab;
     if (t === "students" || t === "content" || t === "programs" || t === "courses" || t === "staff") return t as TabType;
-    return isTeacher ? "content" : "programs";
+    if (isTeacher) return "courses";
+    if (isTA) return "content";
+    return "programs";
   });
 
   useEffect(() => {
@@ -334,7 +338,7 @@ export default function AdminScreen() {
     enabled: !!expandedChapterId,
   });
 
-  if (user?.role !== "admin" && user?.role !== "teacher" && user?.role !== "teacher_assistant") {
+  if (!isAdminRole && !isStaff) {
     return (
       <View style={[styles.center, { paddingTop: topPad }]}>
         <Ionicons name="lock-closed" size={48} color={Colors.light.error} />
@@ -1068,14 +1072,19 @@ export default function AdminScreen() {
     return acc;
   }, {});
 
-  const allTabs: { key: TabType; label: string; icon: keyof typeof Ionicons.glyphMap; adminOnly?: boolean }[] = [
-    { key: "programs",  label: "Programs",  icon: "school-outline",         adminOnly: true },
-    { key: "courses",   label: "Courses",   icon: "book-outline",           adminOnly: true },
+  const allTabs: { key: TabType; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+    { key: "programs",  label: "Programs",  icon: "school-outline" },
+    { key: "courses",   label: "Courses",   icon: "book-outline" },
     { key: "content",   label: "Content",   icon: "document-text-outline" },
-    { key: "students",  label: "Students",  icon: "people-outline",         adminOnly: true },
-    { key: "staff",     label: "Staff",     icon: "people-circle-outline",  adminOnly: true },
+    { key: "students",  label: "Students",  icon: "people-outline" },
+    { key: "staff",     label: "Staff",     icon: "people-circle-outline" },
   ];
-  const tabs = isTeacher ? allTabs.filter(t => !t.adminOnly) : allTabs;
+  // Admin: all tabs | Teacher: all except programs | TA: content only
+  const tabs = isTA
+    ? allTabs.filter(t => t.key === "content")
+    : isTeacher
+      ? allTabs.filter(t => t.key !== "programs")
+      : allTabs;
 
   return (
     <View style={[styles.container, { paddingTop: topPad }]}>
@@ -1085,7 +1094,7 @@ export default function AdminScreen() {
           <Ionicons name="arrow-back" size={22} color={Colors.light.text} />
         </Pressable>
         <Text style={styles.headerTitle}>
-          {isAdminRole ? "Admin Panel" : user?.role === "teacher" ? "Teacher Panel" : "TA Panel"}
+          {isAdminRole ? "Admin Panel" : isTeacher ? "Teacher Panel" : "TA Panel"}
         </Text>
         <View style={{ width: 38 }} />
       </View>
@@ -1493,11 +1502,11 @@ export default function AdminScreen() {
             <View style={{ flexDirection: "row", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "#7C3AED18", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 }}>
                 <Ionicons name="school" size={13} color="#7C3AED" />
-                <Text style={{ fontSize: 12, fontFamily: "Inter_500Medium", color: "#7C3AED" }}>Teacher — can add/edit MCQs</Text>
+                <Text style={{ fontSize: 12, fontFamily: "Inter_500Medium", color: "#7C3AED" }}>Teacher — full access (no program management)</Text>
               </View>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "#0891B218", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 }}>
                 <Ionicons name="people" size={13} color="#0891B2" />
-                <Text style={{ fontSize: 12, fontFamily: "Inter_500Medium", color: "#0891B2" }}>Teacher Assistant — can add/edit MCQs</Text>
+                <Text style={{ fontSize: 12, fontFamily: "Inter_500Medium", color: "#0891B2" }}>Teacher Assistant — content & MCQs only</Text>
               </View>
             </View>
 

@@ -128,12 +128,19 @@ function QuickAction({ label, sub, icon, color, tab }: QuickActionProps) {
   );
 }
 
-function AdminDashboard({ userName, avatar, initial }: { userName: string; avatar?: string | null; initial: string }) {
+function AdminDashboard({ userName, avatar, initial, role }: { userName: string; avatar?: string | null; initial: string; role: string }) {
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
   const topPad = isWeb ? Math.max(insets.top, 67) : insets.top;
 
-  const { data: stats, isLoading, refetch } = useQuery({
+  const isAdmin = role === "admin";
+  const isTeacher = role === "teacher";
+  const isTA = role === "teacher_assistant";
+
+  const badgeLabel = isAdmin ? "Admin" : isTeacher ? "Teacher" : "TA";
+  const badgeIcon: keyof typeof Ionicons.glyphMap = isAdmin ? "shield-checkmark" : isTeacher ? "school" : "person";
+
+  const { data: stats, isLoading } = useQuery({
     queryKey: ["adminStats"],
     queryFn: api.getAdminStats,
   });
@@ -154,37 +161,50 @@ function AdminDashboard({ userName, avatar, initial }: { userName: string; avata
           <Text style={styles.fullName} numberOfLines={1} ellipsizeMode="tail">{userName}</Text>
         </View>
         <View style={styles.adminBadge}>
-          <Ionicons name="shield-checkmark" size={14} color={Colors.light.primary} />
-          <Text style={styles.adminBadgeText}>Admin</Text>
+          <Ionicons name={badgeIcon} size={14} color={Colors.light.primary} />
+          <Text style={styles.adminBadgeText}>{badgeLabel}</Text>
         </View>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: isWeb ? 34 + 84 : 100 }}>
-        {/* Stats */}
+        {/* Stats — Overview */}
         <Text style={styles.sectionTitle}>Overview</Text>
         {isLoading ? (
           <ActivityIndicator color={Colors.light.primary} style={{ marginTop: 20, marginBottom: 20 }} />
         ) : (
-          <>
-            <View style={styles.statsGrid}>
-              <StatTile label="Programs"  value={stats?.totalCourses ?? 0}    icon="school"                color="#059669" route={{ pathname: "/admin", params: { tab: "programs" } }} />
-              <StatTile label="Courses"   value={stats?.totalSubjects ?? 0}   icon="book"                  color="#7C3AED" route={{ pathname: "/admin", params: { tab: "courses" } }} />
-              <StatTile label="Content"   value={stats?.totalChapters ?? 0}   icon="document-text"         color="#D97706" route={{ pathname: "/admin", params: { tab: "content" } }} />
-              <StatTile label="Students"  value={stats?.totalUsers ?? 0}      icon="people"                color="#3B82F6" route={{ pathname: "/admin", params: { tab: "students" } }} />
-              <StatTile label="Staff"     value={stats?.totalStaff ?? 0}      icon="person-circle"         color="#0891B2" route={{ pathname: "/admin", params: { tab: "staff" } }} />
-            </View>
-
-          </>
+          <View style={styles.statsGrid}>
+            {(isAdmin) && (
+              <StatTile label="Programs" value={stats?.totalCourses ?? 0} icon="school"       color="#059669" route={{ pathname: "/admin", params: { tab: "programs" } }} />
+            )}
+            {(isAdmin || isTeacher) && (
+              <StatTile label="Courses"  value={stats?.totalSubjects ?? 0} icon="book"        color="#7C3AED" route={{ pathname: "/admin", params: { tab: "courses" } }} />
+            )}
+            <StatTile label="Content"   value={stats?.totalChapters ?? 0} icon="document-text" color="#D97706" route={{ pathname: "/admin", params: { tab: "content" } }} />
+            {(isAdmin || isTeacher) && (
+              <StatTile label="Students" value={stats?.totalUsers ?? 0}   icon="people"       color="#3B82F6" route={{ pathname: "/admin", params: { tab: "students" } }} />
+            )}
+            {(isAdmin || isTeacher) && (
+              <StatTile label="Staff"    value={stats?.totalStaff ?? 0}   icon="person-circle" color="#0891B2" route={{ pathname: "/admin", params: { tab: "staff" } }} />
+            )}
+          </View>
         )}
 
-        {/* Quick Actions */}
+        {/* Quick Actions — Manage */}
         <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Manage</Text>
         <View style={styles.quickActions}>
-          <QuickAction label="Programs"  sub="Add, edit, or remove programs"              icon="school-outline"         color="#059669" tab="programs" />
-          <QuickAction label="Courses"   sub="Manage courses within each program"        icon="book-outline"           color="#7C3AED" tab="courses" />
-          <QuickAction label="Content"   sub="Chapters, videos, notes, and MCQs"         icon="document-text-outline" color="#D97706" tab="content" />
-          <QuickAction label="Students"  sub="Manage accounts and course access"         icon="people-outline"        color="#3B82F6" tab="students" />
-          <QuickAction label="Staff"     sub="Manage teachers and assistants"            icon="person-circle-outline" color="#0891B2" tab="staff" />
+          {isAdmin && (
+            <QuickAction label="Programs" sub="Add, edit, or remove programs"          icon="school-outline"        color="#059669" tab="programs" />
+          )}
+          {(isAdmin || isTeacher) && (
+            <QuickAction label="Courses"  sub="Manage courses within each program"    icon="book-outline"          color="#7C3AED" tab="courses" />
+          )}
+          <QuickAction label="Content"    sub="Chapters, videos, notes, and MCQs"     icon="document-text-outline" color="#D97706" tab="content" />
+          {(isAdmin || isTeacher) && (
+            <QuickAction label="Students" sub="Manage accounts and course access"     icon="people-outline"        color="#3B82F6" tab="students" />
+          )}
+          {(isAdmin || isTeacher) && (
+            <QuickAction label="Staff"    sub="Manage teachers and assistants"        icon="person-circle-outline" color="#0891B2" tab="staff" />
+          )}
         </View>
       </ScrollView>
     </View>
@@ -210,12 +230,8 @@ export default function HomeScreen() {
     enabled: !!user && !isAdmin && !isStaff,
   });
 
-  if (isAdmin) {
-    return <AdminDashboard userName={user!.name} avatar={user!.profilePicture} initial={initial} />;
-  }
-
-  if (isStaff) {
-    return <AdminDashboard userName={user!.name} avatar={user!.profilePicture} initial={initial} />;
+  if (isAdmin || isStaff) {
+    return <AdminDashboard userName={user!.name} avatar={user!.profilePicture} initial={initial} role={user!.role} />;
   }
 
   return (
