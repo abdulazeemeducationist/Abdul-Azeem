@@ -260,7 +260,7 @@ export default function AdminScreen() {
   const snackUndoRef = useRef<(() => void) | null>(null);
   const snackCommitRef = useRef<(() => Promise<void> | void) | null>(null);
   const snackIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const EMPTY_Q = { topicId: "", questionText: "", optionA: "", optionB: "", optionC: "", optionD: "", correctAnswers: "", explanation: "", difficulty: "medium" };
+  const EMPTY_Q = { topicId: "", questionText: "", optionA: "", optionB: "", optionC: "", optionD: "", correctAnswers: "", explanation: "", difficulty: "medium", marks: "1" };
   const [qForm, setQForm] = useState(EMPTY_Q);
 
   const { data: stats, refetch: refetchStats } = useQuery({
@@ -715,6 +715,7 @@ export default function AdminScreen() {
       correctAnswers: (q.correctAnswers as string[]).join(","),
       explanation: q.explanation,
       difficulty: q.difficulty ?? "medium",
+      marks: String(q.marks ?? 1),
     });
     setQFormSubjectId(mcqFilterSubjectId);
     setQFormChapterId(mcqFilterChapterId);
@@ -736,6 +737,7 @@ export default function AdminScreen() {
         correctAnswers: answers, explanation: qForm.explanation,
         questionType: answers.length > 1 ? "multiple" as const : "single" as const,
         difficulty: qForm.difficulty,
+        marks: Math.max(1, parseInt(qForm.marks) || 1),
       };
       let newQId: number | null = null;
       if (wasEditing) {
@@ -758,6 +760,7 @@ export default function AdminScreen() {
             optionA: oldQ.optionA, optionB: oldQ.optionB, optionC: oldQ.optionC, optionD: oldQ.optionD,
             correctAnswers: oldQ.correctAnswers, explanation: oldQ.explanation,
             questionType: oldQ.questionType, difficulty: oldQ.difficulty,
+            marks: oldQ.marks ?? 1,
           });
           refetchQuestions();
           qc.invalidateQueries({ queryKey: ["adminQuestions"] });
@@ -2557,6 +2560,20 @@ export default function AdminScreen() {
                   </Pressable>
                 ))}
               </View>
+            </View>
+
+            {/* Marks */}
+            <View style={styles.formField}>
+              <Text style={styles.formLabel}>Marks</Text>
+              <TextInput
+                style={styles.formInput}
+                value={qForm.marks}
+                onChangeText={v => setQForm(f => ({ ...f, marks: v.replace(/[^0-9]/g, "") }))}
+                placeholder="1"
+                placeholderTextColor={Colors.light.textMuted}
+                keyboardType="numeric"
+                maxLength={3}
+              />
             </View>
 
             <Pressable style={[styles.saveBtn, { opacity: savingQ ? 0.85 : 1 }]} onPress={handleSaveQuestion} disabled={savingQ}>
