@@ -38,12 +38,10 @@ function ChapterCard({ chapter }: { chapter: Chapter }) {
             <Ionicons name="document-text-outline" size={12} color={Colors.light.textMuted} />
             <Text style={styles.statChipText}>Notes</Text>
           </View>
-          {chapter.questionCount > 0 && (
-            <View style={styles.statChip}>
-              <Ionicons name="help-circle-outline" size={12} color={Colors.light.textMuted} />
-              <Text style={styles.statChipText}>{chapter.questionCount} MCQs</Text>
-            </View>
-          )}
+          <View style={styles.statChip}>
+            <Ionicons name="pencil-outline" size={12} color={Colors.light.textMuted} />
+            <Text style={styles.statChipText}>Practice</Text>
+          </View>
         </View>
       </View>
       <Ionicons name="chevron-forward" size={18} color={Colors.light.textMuted} />
