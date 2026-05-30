@@ -272,6 +272,30 @@ router.post("/chapters", async (req, res) => {
   }
 });
 
+router.get("/chapters/:chapterId/topics", async (req, res) => {
+  try {
+    const chapterId = parseInt(req.params.chapterId);
+    const topics = await db
+      .select({
+        id: topicsTable.id,
+        chapterId: topicsTable.chapterId,
+        name: topicsTable.name,
+        orderNumber: topicsTable.orderNumber,
+        createdAt: topicsTable.createdAt,
+        questionCount: count(questionsTable.id),
+      })
+      .from(topicsTable)
+      .leftJoin(questionsTable, eq(questionsTable.topicId, topicsTable.id))
+      .where(eq(topicsTable.chapterId, chapterId))
+      .groupBy(topicsTable.id)
+      .orderBy(asc(topicsTable.orderNumber));
+    res.json(topics);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to get topics" });
+  }
+});
+
 router.get("/subjects/:subjectId/chapters", async (req, res) => {
   try {
     const subjectId = parseInt(req.params.subjectId);

@@ -3,6 +3,7 @@ import {
   LayoutDashboard,
   BookOpen,
   Users,
+  UserCog,
   LogOut,
   GraduationCap,
   ChevronRight,
@@ -13,6 +14,7 @@ const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/courses", label: "Courses", icon: BookOpen },
   { href: "/students", label: "Students", icon: Users },
+  { href: "/staff", label: "Staff", icon: UserCog },
 ];
 
 export function Sidebar() {

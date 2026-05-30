@@ -1,20 +1,24 @@
 import { useGetAdminStats } from "@workspace/api-client-react";
-import { BookOpen, Users, FileText, HelpCircle, BarChart2, Layers, Hash, Target } from "lucide-react";
+import { BookOpen, Users, FileText, HelpCircle, BarChart2, Layers, Hash, Target, UserCog } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Link } from "wouter";
 
-const statCards = [
-  { key: "totalUsers" as const, label: "Students", icon: Users, color: "text-blue-500" },
-  { key: "totalCourses" as const, label: "Courses", icon: BookOpen, color: "text-violet-500" },
-  { key: "totalSubjects" as const, label: "Subjects", icon: FileText, color: "text-indigo-500" },
-  { key: "totalChapters" as const, label: "Chapters", icon: Layers, color: "text-cyan-500" },
-  { key: "totalTopics" as const, label: "Topics", icon: Hash, color: "text-teal-500" },
-  { key: "totalQuestions" as const, label: "Questions", icon: HelpCircle, color: "text-green-500" },
-  { key: "totalAttempts" as const, label: "Attempts", icon: Target, color: "text-orange-500" },
-  { key: "averageScore" as const, label: "Avg Score", icon: BarChart2, color: "text-pink-500", isPercent: true },
+type StatKey = "totalUsers" | "totalCourses" | "totalSubjects" | "totalChapters" | "totalTopics" | "totalQuestions" | "totalAttempts" | "averageScore";
+
+const statCards: { key: StatKey; label: string; icon: React.ElementType; color: string; isPercent?: boolean; href: string }[] = [
+  { key: "totalUsers", label: "Students", icon: Users, color: "text-blue-500", href: "/students" },
+  { key: "totalCourses", label: "Courses", icon: BookOpen, color: "text-violet-500", href: "/courses" },
+  { key: "totalSubjects", label: "Subjects", icon: FileText, color: "text-indigo-500", href: "/courses" },
+  { key: "totalChapters", label: "Chapters", icon: Layers, color: "text-cyan-500", href: "/courses" },
+  { key: "totalTopics", label: "Topics", icon: Hash, color: "text-teal-500", href: "/courses" },
+  { key: "totalQuestions", label: "Questions", icon: HelpCircle, color: "text-green-500", href: "/courses" },
+  { key: "totalAttempts", label: "Attempts", icon: Target, color: "text-orange-500", href: "/students" },
+  { key: "averageScore", label: "Avg Score", icon: BarChart2, color: "text-pink-500", isPercent: true, href: "/students" },
 ];
 
 export default function DashboardPage() {
   const { data: stats, isLoading } = useGetAdminStats();
+  const extStats = stats as (typeof stats & { totalStaff?: number }) | undefined;
 
   return (
     <div className="p-8">
@@ -24,22 +28,39 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {statCards.map(({ key, label, icon: Icon, color, isPercent }) => (
-          <div key={key} className="bg-card border border-card-border rounded-xl p-5">
+        {/* Staff card */}
+        <Link href="/staff">
+          <a className="bg-card border border-card-border rounded-xl p-5 hover:border-primary/40 hover:shadow-sm transition-all cursor-pointer block">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{label}</span>
-              <Icon className={`w-4 h-4 ${color}`} />
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Staff</span>
+              <UserCog className="w-4 h-4 text-amber-500" />
             </div>
             {isLoading ? (
               <Skeleton className="h-8 w-16" />
             ) : (
-              <p className="text-3xl font-bold text-foreground">
-                {isPercent
-                  ? `${(stats?.averageScore ?? 0).toFixed(1)}%`
-                  : (stats?.[key] ?? 0).toLocaleString()}
-              </p>
+              <p className="text-3xl font-bold text-foreground">{(extStats?.totalStaff ?? 0).toLocaleString()}</p>
             )}
-          </div>
+          </a>
+        </Link>
+
+        {statCards.map(({ key, label, icon: Icon, color, isPercent, href }) => (
+          <Link key={key} href={href}>
+            <a className="bg-card border border-card-border rounded-xl p-5 hover:border-primary/40 hover:shadow-sm transition-all cursor-pointer block">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{label}</span>
+                <Icon className={`w-4 h-4 ${color}`} />
+              </div>
+              {isLoading ? (
+                <Skeleton className="h-8 w-16" />
+              ) : (
+                <p className="text-3xl font-bold text-foreground">
+                  {isPercent
+                    ? `${(stats?.averageScore ?? 0).toFixed(1)}%`
+                    : (stats?.[key] ?? 0).toLocaleString()}
+                </p>
+              )}
+            </a>
+          </Link>
         ))}
       </div>
     </div>
