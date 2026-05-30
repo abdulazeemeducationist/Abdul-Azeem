@@ -20,6 +20,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
 import { api, Student, AdminSubject, Course, ChapterVideo, ChapterNote } from "@/hooks/useApi";
+import { stripHtml } from "@/components/QuestionBody";
 import { useAuth } from "@/context/AuthContext";
 
 type TabType = "programs" | "courses" | "content" | "students" | "staff";
@@ -1761,7 +1762,15 @@ export default function AdminScreen() {
                         <Ionicons name="trash" size={14} color={Colors.light.error} />
                       </Pressable>
                     </View>
-                    <Text style={styles.qText} numberOfLines={2}>{q.questionText}</Text>
+                    <Text style={styles.qText} numberOfLines={2}>
+                      {q.questionText
+                        ? q.questionText
+                        : (q as any).questionHtml
+                          ? stripHtml((q as any).questionHtml)
+                          : (q as any).questionImageUrl
+                            ? "📷 Image question"
+                            : "(No content)"}
+                    </Text>
                     <View style={styles.qOptions}>
                       {(["A","B","C","D"] as const).map(opt => {
                         const text = q[`option${opt}` as keyof typeof q] as string;

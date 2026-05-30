@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
 import { useAuth } from "@/context/AuthContext";
 import { api, Question, QuizState } from "@/hooks/useApi";
+import QuestionBody from "@/components/QuestionBody";
 
 const OPTIONS = ["A", "B", "C", "D"] as const;
 type Option = typeof OPTIONS[number];
@@ -315,7 +316,11 @@ export default function PracticeScreen() {
         )}
 
         <View style={styles.questionCard}>
-          <Text style={styles.questionText}>{currentQuestion?.questionText}</Text>
+          <QuestionBody
+            questionText={currentQuestion?.questionText}
+            questionHtml={currentQuestion?.questionHtml}
+            questionImageUrl={currentQuestion?.questionImageUrl}
+          />
         </View>
 
         <View style={styles.optionsContainer}>
