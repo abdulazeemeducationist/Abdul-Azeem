@@ -1,18 +1,18 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Image } from "expo-image";
-import * as ImagePicker from "expo-image-picker";
 import { router, useLocalSearchParams } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
+  FlatList,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
+  TouchableWithoutFeedback,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -20,7 +20,6 @@ import { WebView } from "react-native-webview";
 import Colors from "@/constants/colors";
 import { api } from "@/hooks/useApi";
 
-type InputMode = "type" | "image" | "word";
 type Difficulty = "easy" | "medium" | "hard";
 
 const CKEDITOR_HTML = (placeholder: string) => `<!DOCTYPE html>
@@ -53,8 +52,7 @@ const CKEDITOR_HTML = (placeholder: string) => `<!DOCTYPE html>
       ClassicEditor, Essentials, Bold, Italic, Underline, Strikethrough,
       Subscript, Superscript, FontFamily, FontSize,
       Heading, List, Paragraph,
-      Table, TableToolbar, TableProperties, TableCellProperties,
-      PasteFromOffice
+      Table, TableToolbar, TableProperties, TableCellProperties
     } = CKEDITOR5;
 
     ClassicEditor.create(document.getElementById('editor'), {
@@ -62,12 +60,10 @@ const CKEDITOR_HTML = (placeholder: string) => `<!DOCTYPE html>
         Essentials, Bold, Italic, Underline, Strikethrough,
         Subscript, Superscript, FontFamily, FontSize,
         Heading, List, Paragraph,
-        Table, TableToolbar, TableProperties, TableCellProperties,
-        PasteFromOffice
+        Table, TableToolbar, TableProperties, TableCellProperties
       ],
       toolbar: {
         items: [
-          'heading', '|',
           'fontFamily', 'fontSize', '|',
           'bold', 'italic', 'underline', 'strikethrough', '|',
           'subscript', 'superscript', '|',
@@ -102,13 +98,99 @@ const CKEDITOR_HTML = (placeholder: string) => `<!DOCTYPE html>
 </body>
 </html>`;
 
+interface DropdownOption { id: number; name: string }
+
+function DropdownSelect({
+  placeholder,
+  options,
+  selectedId,
+  onSelect,
+  disabled,
+}: {
+  placeholder: string;
+  options: DropdownOption[];
+  selectedId: number | null;
+  onSelect: (id: number) => void;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = options.find(o => o.id === selectedId);
+
+  return (
+    <>
+      <Pressable
+        style={[s.dropdownBtn, disabled && s.dropdownBtnDisabled]}
+        onPress={() => !disabled && setOpen(true)}
+      >
+        <Text
+          style={[s.dropdownBtnText, !selected && s.dropdownPlaceholder]}
+          numberOfLines={1}
+        >
+          {selected ? selected.name : placeholder}
+        </Text>
+        <Ionicons
+          name="chevron-down"
+          size={16}
+          color={disabled ? Colors.light.textMuted : Colors.light.textSecondary}
+        />
+      </Pressable>
+
+      <Modal
+        visible={open}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setOpen(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setOpen(false)}>
+          <View style={s.modalOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={s.modalSheet}>
+                <View style={s.modalHeader}>
+                  <Text style={s.modalTitle}>{placeholder}</Text>
+                  <Pressable onPress={() => setOpen(false)} hitSlop={8}>
+                    <Ionicons name="close" size={20} color={Colors.light.textSecondary} />
+                  </Pressable>
+                </View>
+                {options.length === 0 ? (
+                  <View style={s.modalEmpty}>
+                    <Text style={s.modalEmptyText}>No options available</Text>
+                  </View>
+                ) : (
+                  <FlatList
+                    data={options}
+                    keyExtractor={item => String(item.id)}
+                    style={{ maxHeight: 320 }}
+                    renderItem={({ item }) => (
+                      <Pressable
+                        style={[s.modalItem, item.id === selectedId && s.modalItemActive]}
+                        onPress={() => { onSelect(item.id); setOpen(false); }}
+                      >
+                        <Text
+                          style={[s.modalItemText, item.id === selectedId && s.modalItemTextActive]}
+                          numberOfLines={2}
+                        >
+                          {item.name}
+                        </Text>
+                        {item.id === selectedId && (
+                          <Ionicons name="checkmark" size={16} color={Colors.light.primary} />
+                        )}
+                      </Pressable>
+                    )}
+                  />
+                )}
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+    </>
+  );
+}
 
 export default function AddMcqScreen() {
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();
   const params = useLocalSearchParams<{ subjectId?: string; chapterId?: string }>();
-
-  const [inputMode, setInputMode] = useState<InputMode>("type");
 
   const [qFormSubjectId, setQFormSubjectId] = useState<number | null>(
     params.subjectId ? parseInt(params.subjectId) : null
@@ -119,7 +201,6 @@ export default function AddMcqScreen() {
   const [topicId, setTopicId] = useState<number | null>(null);
 
   const [questionHtml, setQuestionHtml] = useState("");
-  const [questionImageUri, setQuestionImageUri] = useState<string | null>(null);
 
   const [optionA, setOptionA] = useState("");
   const [optionB, setOptionB] = useState("");
@@ -150,47 +231,16 @@ export default function AddMcqScreen() {
     enabled: !!qFormChapterId,
   });
 
-  const pickImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert("Permission needed", "Please allow photo library access to import images.");
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      allowsEditing: false,
-      quality: 0.85,
-      base64: true,
-    });
-    if (!result.canceled && result.assets?.[0]) {
-      const asset = result.assets[0];
-      if (asset.base64) {
-        const ext = asset.uri.split(".").pop()?.toLowerCase() ?? "jpeg";
-        const mime = ext === "png" ? "image/png" : "image/jpeg";
-        setQuestionImageUri(`data:${mime};base64,${asset.base64}`);
-      } else {
-        setQuestionImageUri(asset.uri);
-      }
-    }
-  };
-
   const toggleAnswer = (letter: string) => {
     setCorrectAnswers(prev =>
       prev.includes(letter) ? prev.filter(a => a !== letter) : [...prev, letter]
     );
   };
 
-  const getBody = (): { questionText?: string; questionHtml?: string; questionImageUrl?: string } => {
-    if (inputMode === "type" || inputMode === "word") return { questionHtml };
-    if (inputMode === "image") return { questionImageUrl: questionImageUri ?? undefined };
-    return {};
-  };
-
   const validate = (): string | null => {
     if (!topicId) return "Please select a topic.";
-    if ((inputMode === "type" || inputMode === "word") && !questionHtml.replace(/<[^>]*>/g, "").trim())
+    if (!questionHtml.replace(/<[^>]*>/g, "").trim())
       return "Please type the question body.";
-    if (inputMode === "image" && !questionImageUri) return "Please select an image.";
     if (!optionA.trim() || !optionB.trim() || !optionC.trim() || !optionD.trim())
       return "All four options (A–D) are required.";
     if (!correctAnswers.length) return "Please select at least one correct answer.";
@@ -206,11 +256,10 @@ export default function AddMcqScreen() {
     if (msg) { setError(msg); return; }
     setSaving(true);
     try {
-      const body = getBody();
       const answers = correctAnswers.sort();
       await api.createQuestion({
         topicId: topicId!,
-        ...body,
+        questionHtml,
         optionA, optionB, optionC, optionD,
         correctAnswers: answers,
         explanation,
@@ -227,12 +276,6 @@ export default function AddMcqScreen() {
     }
   };
 
-  const inputModes: { key: InputMode; label: string; icon: string }[] = [
-    { key: "type", label: "Rich Type", icon: "create-outline" },
-    { key: "image", label: "Image", icon: "image-outline" },
-    { key: "word", label: "Word Paste", icon: "document-text-outline" },
-  ];
-
   const answerOptions = ["A", "B", "C", "D"];
   const difficultyOptions: { key: Difficulty; label: string; color: string }[] = [
     { key: "easy", label: "Easy", color: "#16A34A" },
@@ -241,6 +284,9 @@ export default function AddMcqScreen() {
   ];
 
   const topPad = Platform.OS === "web" ? Math.max(insets.top, 67) : insets.top;
+
+  const chapterOptions: DropdownOption[] = (qFormChapters ?? []).map((ch: any) => ({ id: ch.id, name: ch.name }));
+  const topicOptions: DropdownOption[] = (qFormTopics ?? []).map((t: any) => ({ id: t.id, name: t.name }));
 
   return (
     <View style={[s.container, { paddingTop: topPad }]}>
@@ -295,43 +341,29 @@ export default function AddMcqScreen() {
 
           {qFormSubjectId && (
             <>
-              <Text style={[s.fieldLabel, { marginTop: 10 }]}>Chapter</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chipRow}>
-                {(qFormChapters ?? []).map((ch: any) => (
-                  <Pressable
-                    key={ch.id}
-                    style={[s.chip, qFormChapterId === ch.id && s.chipActive]}
-                    onPress={() => { setQFormChapterId(ch.id); setTopicId(null); }}
-                  >
-                    <Text style={[s.chipText, qFormChapterId === ch.id && s.chipTextActive]} numberOfLines={1}>
-                      {ch.name}
-                    </Text>
-                  </Pressable>
-                ))}
-                {!qFormChapters?.length && <Text style={s.emptyChip}>No chapters yet</Text>}
-              </ScrollView>
+              <Text style={[s.fieldLabel, { marginTop: 6 }]}>Chapter</Text>
+              <DropdownSelect
+                placeholder="Select a chapter…"
+                options={chapterOptions}
+                selectedId={qFormChapterId}
+                onSelect={(id) => { setQFormChapterId(id); setTopicId(null); }}
+                disabled={!chapterOptions.length}
+              />
             </>
           )}
 
           {qFormChapterId && (
             <>
-              <Text style={[s.fieldLabel, { marginTop: 10 }]}>
+              <Text style={[s.fieldLabel, { marginTop: 6 }]}>
                 Topic <Text style={{ color: Colors.light.error }}>*</Text>
               </Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chipRow}>
-                {(qFormTopics ?? []).map((t: any) => (
-                  <Pressable
-                    key={t.id}
-                    style={[s.chip, topicId === t.id && s.chipActive]}
-                    onPress={() => setTopicId(t.id)}
-                  >
-                    <Text style={[s.chipText, topicId === t.id && s.chipTextActive]} numberOfLines={1}>
-                      {t.name}
-                    </Text>
-                  </Pressable>
-                ))}
-                {!qFormTopics?.length && <Text style={s.emptyChip}>No topics yet</Text>}
-              </ScrollView>
+              <DropdownSelect
+                placeholder="Select a topic…"
+                options={topicOptions}
+                selectedId={topicId}
+                onSelect={setTopicId}
+                disabled={!topicOptions.length}
+              />
             </>
           )}
         </View>
@@ -339,115 +371,30 @@ export default function AddMcqScreen() {
         {/* ── SECTION 2: QUESTION BODY ── */}
         <View style={s.section}>
           <Text style={s.sectionLabel}>QUESTION BODY</Text>
-
-          {/* Mode Selector */}
-          <View style={s.modeTabs}>
-            {inputModes.map(m => (
-              <Pressable
-                key={m.key}
-                style={[s.modeTab, inputMode === m.key && s.modeTabActive]}
-                onPress={() => setInputMode(m.key)}
-              >
-                <Ionicons
-                  name={m.icon as any}
-                  size={16}
-                  color={inputMode === m.key ? Colors.light.primary : Colors.light.textMuted}
-                />
-                <Text style={[s.modeTabText, inputMode === m.key && s.modeTabTextActive]}>
-                  {m.label}
-                </Text>
-              </Pressable>
-            ))}
+          <Text style={s.fieldLabelSub}>
+            Use the toolbar to format text, change font/size, or insert and edit tables.
+          </Text>
+          <View style={s.webviewWrapper}>
+            <WebView
+              originWhitelist={["*"]}
+              source={{ html: CKEDITOR_HTML("Type the question body here — use bold, italic, tables, font size and style…"), baseUrl: "https://cdn.ckeditor.com" }}
+              style={{ flex: 1 }}
+              scrollEnabled
+              nestedScrollEnabled
+              javaScriptEnabled
+              domStorageEnabled
+              mixedContentMode="always"
+              allowUniversalAccessFromFileURLs
+              onMessage={event => {
+                try {
+                  const data = JSON.parse(event.nativeEvent.data);
+                  if (data.type === "change") setQuestionHtml(data.html ?? "");
+                } catch {}
+              }}
+              keyboardDisplayRequiresUserAction={false}
+              showsVerticalScrollIndicator={false}
+            />
           </View>
-
-          {/* RICH TYPE MODE */}
-          {inputMode === "type" && (
-            <View style={s.webviewWrapper}>
-              <WebView
-                originWhitelist={["*"]}
-                source={{ html: CKEDITOR_HTML("Type the question body here — bold, italic, tables all supported…"), baseUrl: "https://cdn.ckeditor.com" }}
-                style={{ flex: 1 }}
-                scrollEnabled
-                nestedScrollEnabled
-                javaScriptEnabled
-                domStorageEnabled
-                mixedContentMode="always"
-                allowUniversalAccessFromFileURLs
-                onMessage={event => {
-                  try {
-                    const data = JSON.parse(event.nativeEvent.data);
-                    if (data.type === "change") setQuestionHtml(data.html ?? "");
-                  } catch {}
-                }}
-                keyboardDisplayRequiresUserAction={false}
-                showsVerticalScrollIndicator={false}
-              />
-            </View>
-          )}
-
-          {/* IMAGE MODE */}
-          {inputMode === "image" && (
-            <View style={s.imageZone}>
-              {questionImageUri ? (
-                <>
-                  <Image
-                    source={{ uri: questionImageUri }}
-                    style={s.imagePreview}
-                    contentFit="contain"
-                  />
-                  <Pressable style={s.changeImageBtn} onPress={pickImage}>
-                    <Ionicons name="refresh-outline" size={16} color={Colors.light.primary} />
-                    <Text style={s.changeImageBtnText}>Change Image</Text>
-                  </Pressable>
-                </>
-              ) : (
-                <Pressable style={s.imagePickBtn} onPress={pickImage}>
-                  <Ionicons name="image-outline" size={40} color={Colors.light.textMuted} />
-                  <Text style={s.imagePickLabel}>Tap to select an image</Text>
-                  <Text style={s.imagePickSub}>JPG, PNG from photo library</Text>
-                </Pressable>
-              )}
-            </View>
-          )}
-
-          {/* WORD PASTE MODE */}
-          {inputMode === "word" && (
-            <View>
-              <View style={s.wordInfoRow}>
-                <Ionicons name="information-circle-outline" size={15} color={Colors.light.textMuted} />
-                <Text style={s.wordInfoText}>
-                  Paste from Microsoft Word below — formatting and tables are preserved by CKEditor.
-                </Text>
-              </View>
-              <View style={s.webviewWrapper}>
-                <WebView
-                  originWhitelist={["*"]}
-                  source={{ html: CKEDITOR_HTML("Paste your Word content here — formatting and tables are preserved…"), baseUrl: "https://cdn.ckeditor.com" }}
-                  style={{ flex: 1 }}
-                  scrollEnabled
-                  nestedScrollEnabled
-                  javaScriptEnabled
-                  domStorageEnabled
-                  mixedContentMode="always"
-                  allowUniversalAccessFromFileURLs
-                  onMessage={event => {
-                    try {
-                      const data = JSON.parse(event.nativeEvent.data);
-                      if (data.type === "change") setQuestionHtml(data.html ?? "");
-                    } catch {}
-                  }}
-                  keyboardDisplayRequiresUserAction={false}
-                  showsVerticalScrollIndicator={false}
-                />
-              </View>
-              {!!questionHtml && questionHtml.replace(/<[^>]*>/g, "").trim() && (
-                <View style={s.wordPreviewBadge}>
-                  <Ionicons name="checkmark-circle" size={14} color="#16A34A" />
-                  <Text style={s.wordPreviewBadgeText}>Content received — ready to save</Text>
-                </View>
-              )}
-            </View>
-          )}
         </View>
 
         {/* ── SECTION 3: OPTIONS ── */}
@@ -632,21 +579,42 @@ const s = StyleSheet.create({
   chipActive: { backgroundColor: Colors.light.primary + "14", borderColor: Colors.light.primary },
   chipText: { fontSize: 13, fontFamily: "Inter_500Medium", color: Colors.light.textMuted },
   chipTextActive: { color: Colors.light.primary, fontFamily: "Inter_600SemiBold" },
-  emptyChip: { fontSize: 13, color: Colors.light.textMuted, fontFamily: "Inter_400Regular", paddingVertical: 7 },
 
-  modeTabs: { flexDirection: "row", gap: 8, marginBottom: 4 },
-  modeTab: {
-    flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5,
-    paddingVertical: 9, borderRadius: 10,
+  dropdownBtn: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    borderWidth: 1.5, borderColor: Colors.light.border, borderRadius: 10,
+    paddingHorizontal: 14, paddingVertical: 11,
     backgroundColor: Colors.light.background,
-    borderWidth: 1.5, borderColor: Colors.light.border,
   },
-  modeTabActive: {
-    borderColor: Colors.light.primary,
-    backgroundColor: Colors.light.primary + "0D",
+  dropdownBtnDisabled: { opacity: 0.5 },
+  dropdownBtnText: { flex: 1, fontSize: 14, fontFamily: "Inter_500Medium", color: Colors.light.text, marginRight: 8 },
+  dropdownPlaceholder: { color: Colors.light.textMuted, fontFamily: "Inter_400Regular" },
+
+  modalOverlay: {
+    flex: 1, backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center", alignItems: "center", padding: 24,
   },
-  modeTabText: { fontSize: 12, fontFamily: "Inter_500Medium", color: Colors.light.textMuted },
-  modeTabTextActive: { color: Colors.light.primary, fontFamily: "Inter_600SemiBold" },
+  modalSheet: {
+    backgroundColor: Colors.light.card, borderRadius: 16, width: "100%", maxWidth: 420,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 20,
+    elevation: 10, overflow: "hidden",
+  },
+  modalHeader: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingHorizontal: 18, paddingVertical: 14,
+    borderBottomWidth: 1, borderBottomColor: Colors.light.border,
+  },
+  modalTitle: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: Colors.light.text },
+  modalEmpty: { padding: 24, alignItems: "center" },
+  modalEmptyText: { fontSize: 14, color: Colors.light.textMuted, fontFamily: "Inter_400Regular" },
+  modalItem: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingHorizontal: 18, paddingVertical: 13,
+    borderBottomWidth: 1, borderBottomColor: Colors.light.border + "80",
+  },
+  modalItemActive: { backgroundColor: Colors.light.primary + "0D" },
+  modalItemText: { flex: 1, fontSize: 14, fontFamily: "Inter_400Regular", color: Colors.light.text, marginRight: 8 },
+  modalItemTextActive: { fontFamily: "Inter_600SemiBold", color: Colors.light.primary },
 
   webviewWrapper: {
     borderWidth: 1, borderColor: Colors.light.border,
@@ -662,32 +630,6 @@ const s = StyleSheet.create({
     fontSize: 15, fontFamily: "Inter_400Regular", color: Colors.light.text,
     minHeight: 120,
   },
-
-  imageZone: { alignItems: "center", gap: 10 },
-  imagePickBtn: {
-    width: "100%", minHeight: 160,
-    borderWidth: 2, borderColor: Colors.light.border, borderStyle: "dashed",
-    borderRadius: 12, alignItems: "center", justifyContent: "center", gap: 6,
-    backgroundColor: Colors.light.background, padding: 20,
-  },
-  imagePickLabel: { fontSize: 14, fontFamily: "Inter_500Medium", color: Colors.light.textSecondary },
-  imagePickSub: { fontSize: 12, color: Colors.light.textMuted, fontFamily: "Inter_400Regular" },
-  imagePreview: { width: "100%", height: 200, borderRadius: 10 },
-  changeImageBtn: {
-    flexDirection: "row", alignItems: "center", gap: 6,
-    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
-    backgroundColor: Colors.light.primary + "12", borderWidth: 1, borderColor: Colors.light.primary,
-  },
-  changeImageBtnText: { fontSize: 13, fontFamily: "Inter_500Medium", color: Colors.light.primary },
-
-  wordInfoRow: { flexDirection: "row", gap: 6, alignItems: "flex-start", marginBottom: 6 },
-  wordInfoText: { flex: 1, fontSize: 12, color: Colors.light.textMuted, fontFamily: "Inter_400Regular", lineHeight: 18 },
-  wordPreviewBadge: {
-    flexDirection: "row", gap: 6, alignItems: "center",
-    backgroundColor: "#f0fdf4", borderRadius: 8, padding: 8, marginTop: 6,
-    borderWidth: 1, borderColor: "#bbf7d0",
-  },
-  wordPreviewBadgeText: { fontSize: 12, color: "#16A34A", fontFamily: "Inter_500Medium" },
 
   optionRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
   optionBadge: {
