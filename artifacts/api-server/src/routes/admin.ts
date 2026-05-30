@@ -485,6 +485,18 @@ router.post("/questions", async (req, res) => {
   }
 });
 
+router.get("/questions/:questionId", async (req, res) => {
+  try {
+    const id = parseInt(req.params.questionId);
+    const [question] = await db.select().from(questionsTable).where(eq(questionsTable.id, id));
+    if (!question) return res.status(404).json({ error: "Question not found" });
+    res.json({ ...question, correctAnswers: JSON.parse(question.correctAnswers) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to fetch question" });
+  }
+});
+
 router.post("/questions/import", async (req, res) => {
   try {
     const { questions } = req.body as { questions: Array<{

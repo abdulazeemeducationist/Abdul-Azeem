@@ -708,19 +708,7 @@ export default function AdminScreen() {
     });
   };
   const openEditQuestion = (q: any) => {
-    setEditingQuestion(q);
-    setQForm({
-      topicId: String(q.topicId),
-      questionText: q.questionText || (q.questionHtml ? stripHtml(q.questionHtml) : "") || (q.questionImageUrl ? "📷 Image question" : ""),
-      optionA: q.optionA, optionB: q.optionB, optionC: q.optionC, optionD: q.optionD,
-      correctAnswers: (q.correctAnswers as string[]).join(","),
-      explanation: q.explanation,
-      difficulty: q.difficulty ?? "medium",
-      marks: String(q.marks ?? 1),
-    });
-    setQFormSubjectId(mcqFilterSubjectId);
-    setQFormChapterId(mcqFilterChapterId);
-    setShowAddQuestion(true);
+    router.push({ pathname: "/admin/edit-mcq", params: { id: String(q.id) } });
   };
   const handleSaveQuestion = async () => {
     const topicIdNum = parseInt(qForm.topicId);

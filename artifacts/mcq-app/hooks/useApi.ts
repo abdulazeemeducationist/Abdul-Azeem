@@ -537,6 +537,11 @@ export const api = {
     if (!res.ok) throw new Error("Failed to import questions");
     return res.json() as Promise<{ imported: number }>;
   },
+  getAdminQuestion: async (id: number): Promise<Question> => {
+    const res = await fetch(`${API_BASE}/admin/questions/${id}`);
+    if (!res.ok) throw new Error("Failed to fetch question");
+    return res.json();
+  },
   updateQuestion: async (id: number, data: {
     topicId: number;
     questionText?: string;
