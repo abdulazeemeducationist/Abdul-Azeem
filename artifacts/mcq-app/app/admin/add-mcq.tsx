@@ -23,210 +23,85 @@ import { api } from "@/hooks/useApi";
 type InputMode = "type" | "image" | "word";
 type Difficulty = "easy" | "medium" | "hard";
 
-const RICH_EDITOR_HTML = (placeholder: string) => `
-<!DOCTYPE html>
+const CKEDITOR_HTML = (placeholder: string) => `<!DOCTYPE html>
 <html>
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: Arial, sans-serif; background: #fff; -webkit-text-size-adjust: 100%; }
-  #toolbar {
-    position: sticky; top: 0; z-index: 10;
-    background: #f5f5f5; border-bottom: 1px solid #e0e0e0;
-    padding: 6px 8px; display: flex; gap: 5px; align-items: center; flex-wrap: wrap;
-  }
-  .tb-btn {
-    background: #fff; border: 1px solid #ccc; border-radius: 5px;
-    padding: 0 8px; font-size: 13px; cursor: pointer; color: #222;
-    min-width: 30px; height: 28px; display: inline-flex; align-items: center; justify-content: center;
-    -webkit-tap-highlight-color: transparent;
-  }
-  .tb-btn:active { background: #dde8ff; border-color: #4a7cdc; }
-  .tb-sep { width: 1px; height: 22px; background: #ddd; margin: 0 2px; flex-shrink: 0; }
-  .tb-select {
-    border: 1px solid #ccc; border-radius: 5px; padding: 0 4px;
-    font-size: 12px; background: #fff; color: #222; height: 28px; max-width: 110px;
-  }
-  #editor-wrap { position: relative; min-height: 160px; }
-  #hint {
-    color: #bbb; font-size: 14px; position: absolute;
-    top: 12px; left: 14px; pointer-events: none; user-select: none;
-  }
-  #editor {
-    min-height: 160px; padding: 10px 14px; outline: none;
-    font-size: 15px; line-height: 1.7; color: #111; word-break: break-word;
-  }
-  #editor:empty:not(:focus)::before { content: ''; }
-  #editor table {
-    border-collapse: collapse; width: 100%; margin: 8px 0;
-    table-layout: fixed; word-break: break-word;
-  }
-  #editor td, #editor th {
-    border: 1px solid #bbb; padding: 6px 8px; min-width: 30px;
-    vertical-align: top;
-  }
-  #editor th { background: #f0f0f0; font-weight: bold; }
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <link rel="stylesheet" href="https://cdn.ckeditor.com/ckeditor5/43.3.1/ckeditor5.css">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; background: #fff; overflow: hidden; }
+    .ck-editor { display: flex; flex-direction: column; height: 100%; border: none !important; border-radius: 0 !important; box-shadow: none !important; }
+    .ck.ck-toolbar { flex-wrap: wrap !important; border: none !important; border-bottom: 1px solid #e5e7eb !important; background: #f9fafb !important; padding: 4px 6px !important; border-radius: 0 !important; }
+    .ck.ck-toolbar .ck-toolbar__separator { background: #d1d5db !important; }
+    .ck-editor__main { flex: 1; overflow: hidden; }
+    .ck-editor__editable_inline { height: 100% !important; min-height: unset !important; overflow-y: auto !important; padding: 12px 16px !important; font-size: 15px !important; line-height: 1.75 !important; border: none !important; border-radius: 0 !important; box-shadow: none !important; }
+    .ck-editor__editable.ck-focused { outline: none !important; box-shadow: none !important; border: none !important; }
+    .ck-content table { border-collapse: collapse; width: 100%; margin: 8px 0; }
+    .ck-content table td, .ck-content table th { border: 1px solid #d1d5db; padding: 6px 10px; vertical-align: top; }
+    .ck-content table th { background: #f3f4f6; font-weight: 600; }
+    .ck-content p { margin-bottom: 4px; }
+  </style>
 </head>
 <body>
-<div id="toolbar">
-  <select class="tb-select" id="fontSel" onchange="applyFont(this.value)" title="Font">
-    <option value="Arial">Arial</option>
-    <option value="Times New Roman">Times NR</option>
-    <option value="Courier New">Courier</option>
-    <option value="Georgia">Georgia</option>
-    <option value="Verdana">Verdana</option>
-  </select>
-  <select class="tb-select" id="sizeSel" onchange="applySize(this.value)" title="Size">
-    <option value="1">8</option>
-    <option value="2">10</option>
-    <option value="3" selected>12</option>
-    <option value="4">14</option>
-    <option value="5">18</option>
-    <option value="6">24</option>
-    <option value="7">36</option>
-  </select>
-  <div class="tb-sep"></div>
-  <button class="tb-btn" id="btnB" onmousedown="event.preventDefault();cmd('bold')" title="Bold"><b>B</b></button>
-  <button class="tb-btn" id="btnI" onmousedown="event.preventDefault();cmd('italic')" title="Italic"><i>I</i></button>
-  <button class="tb-btn" id="btnU" onmousedown="event.preventDefault();cmd('underline')" title="Underline"><u>U</u></button>
-  <button class="tb-btn" onmousedown="event.preventDefault();cmd('subscript')" title="Subscript" style="font-size:11px">X₂</button>
-  <button class="tb-btn" onmousedown="event.preventDefault();cmd('superscript')" title="Superscript" style="font-size:11px">X²</button>
-  <div class="tb-sep"></div>
-  <button class="tb-btn" onmousedown="event.preventDefault();insertTable()" title="Insert table" style="font-size:16px">⊞</button>
-  <button class="tb-btn" onmousedown="event.preventDefault();addRow()" title="Add row" style="font-size:12px">+Row</button>
-  <button class="tb-btn" onmousedown="event.preventDefault();addCol()" title="Add column" style="font-size:12px">+Col</button>
-  <button class="tb-btn" onmousedown="event.preventDefault();deleteTable()" title="Delete table" style="font-size:16px">⊟</button>
-  <div class="tb-sep"></div>
-  <button class="tb-btn" onmousedown="event.preventDefault();cmd('removeFormat')" title="Clear formatting" style="font-size:11px">✖Fmt</button>
-</div>
-<div id="editor-wrap">
-  <span id="hint">${placeholder}</span>
-  <div id="editor" contenteditable="true" oninput="onEdit()" onkeyup="onEdit()" onpaste="onPaste()" onclick="updateToolbar()"></div>
-</div>
-<script>
-function cmd(c) {
-  document.getElementById('editor').focus();
-  document.execCommand(c, false, null);
-  onEdit();
-  updateToolbar();
-}
-function applyFont(f) {
-  document.getElementById('editor').focus();
-  document.execCommand('fontName', false, f);
-  onEdit();
-}
-function applySize(s) {
-  document.getElementById('editor').focus();
-  document.execCommand('fontSize', false, s);
-  onEdit();
-}
-function insertTable() {
-  var html = '<table>';
-  html += '<tr><th>Header 1</th><th>Header 2</th><th>Header 3</th></tr>';
-  html += '<tr><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>';
-  html += '<tr><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>';
-  html += '</table><p><br></p>';
-  document.getElementById('editor').focus();
-  document.execCommand('insertHTML', false, html);
-  onEdit();
-}
-function addRow() {
-  var tbl = getActiveTable();
-  if (!tbl) return;
-  var cols = tbl.rows[0] ? tbl.rows[0].cells.length : 3;
-  var row = tbl.insertRow();
-  for (var i = 0; i < cols; i++) {
-    var cell = row.insertCell();
-    cell.innerHTML = '&nbsp;';
-    cell.style.border = '1px solid #bbb';
-    cell.style.padding = '6px 8px';
-  }
-  onEdit();
-}
-function addCol() {
-  var tbl = getActiveTable();
-  if (!tbl) return;
-  for (var r = 0; r < tbl.rows.length; r++) {
-    var cell = r === 0 ? document.createElement('th') : document.createElement('td');
-    cell.innerHTML = r === 0 ? 'Header' : '&nbsp;';
-    cell.style.border = '1px solid #bbb';
-    cell.style.padding = '6px 8px';
-    if (r === 0) cell.style.background = '#f0f0f0';
-    tbl.rows[r].appendChild(cell);
-  }
-  onEdit();
-}
-function deleteTable() {
-  var tbl = getActiveTable();
-  if (tbl) { tbl.parentNode.removeChild(tbl); onEdit(); }
-}
-function getActiveTable() {
-  var sel = window.getSelection();
-  if (!sel || !sel.rangeCount) return null;
-  var node = sel.getRangeAt(0).startContainer;
-  while (node && node !== document.getElementById('editor')) {
-    if (node.nodeName === 'TABLE') return node;
-    node = node.parentNode;
-  }
-  return null;
-}
-function updateToolbar() {
-  document.getElementById('btnB').style.background = document.queryCommandState('bold') ? '#dde8ff' : '';
-  document.getElementById('btnI').style.background = document.queryCommandState('italic') ? '#dde8ff' : '';
-  document.getElementById('btnU').style.background = document.queryCommandState('underline') ? '#dde8ff' : '';
-}
-function onEdit() {
-  var el = document.getElementById('editor');
-  var isEmpty = !el.innerHTML || el.innerHTML === '<br>';
-  document.getElementById('hint').style.display = isEmpty ? 'block' : 'none';
-  window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'change', html: el.innerHTML }));
-}
-function onPaste() { setTimeout(onEdit, 80); }
-function setContent(html) {
-  var el = document.getElementById('editor');
-  el.innerHTML = html || '';
-  document.getElementById('hint').style.display = (html && html !== '<br>') ? 'none' : 'block';
-}
-</script>
-</body>
-</html>
-`;
+  <div id="editor"></div>
+  <script src="https://cdn.ckeditor.com/ckeditor5/43.3.1/ckeditor5.umd.js"></script>
+  <script>
+    var placeholder = ${JSON.stringify(placeholder)};
+    var {
+      ClassicEditor, Essentials, Bold, Italic, Underline, Strikethrough,
+      Subscript, Superscript, FontFamily, FontSize,
+      Heading, List, Paragraph,
+      Table, TableToolbar, TableProperties, TableCellProperties,
+      PasteFromOffice
+    } = CKEDITOR5;
 
-// ── Web-only rich editor using native contenteditable ──────────────────────
-function RichEditorWeb({
-  placeholder,
-  minHeight,
-  onHtmlChange,
-}: {
-  placeholder: string;
-  minHeight: number;
-  onHtmlChange: (html: string) => void;
-}) {
-  return React.createElement("div", {
-    contentEditable: true,
-    suppressContentEditableWarning: true,
-    "data-placeholder": placeholder,
-    style: {
-      minHeight,
-      padding: "12px 16px",
-      outline: "none",
-      fontSize: 15,
-      lineHeight: 1.6,
-      color: "#111",
-      fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
-      boxSizing: "border-box",
-      whiteSpace: "pre-wrap",
-    } as React.CSSProperties,
-    onInput: (e: React.FormEvent<HTMLDivElement>) =>
-      onHtmlChange((e.currentTarget as HTMLDivElement).innerHTML),
-    onPaste: (e: React.ClipboardEvent<HTMLDivElement>) => {
-      const el = e.currentTarget as HTMLDivElement;
-      setTimeout(() => onHtmlChange(el.innerHTML), 80);
-    },
-  }) as React.ReactElement;
-}
+    ClassicEditor.create(document.getElementById('editor'), {
+      plugins: [
+        Essentials, Bold, Italic, Underline, Strikethrough,
+        Subscript, Superscript, FontFamily, FontSize,
+        Heading, List, Paragraph,
+        Table, TableToolbar, TableProperties, TableCellProperties,
+        PasteFromOffice
+      ],
+      toolbar: {
+        items: [
+          'heading', '|',
+          'fontFamily', 'fontSize', '|',
+          'bold', 'italic', 'underline', 'strikethrough', '|',
+          'subscript', 'superscript', '|',
+          'bulletedList', 'numberedList', '|',
+          'insertTable', '|',
+          'undo', 'redo'
+        ],
+        shouldNotGroupWhenFull: true
+      },
+      table: {
+        contentToolbar: ['tableColumn', 'tableRow', 'mergeTableCells', 'tableProperties', 'tableCellProperties']
+      },
+      fontFamily: {
+        options: ['default', 'Arial', 'Courier New', 'Georgia', 'Times New Roman', 'Verdana']
+      },
+      fontSize: {
+        options: [10, 12, 'default', 16, 18, 20, 24, 28, 36]
+      },
+      placeholder: placeholder
+    }).then(function(editor) {
+      window.ckEditor = editor;
+      editor.model.document.on('change:data', function() {
+        window.ReactNativeWebView && window.ReactNativeWebView.postMessage(
+          JSON.stringify({ type: 'change', html: editor.getData() })
+        );
+      });
+    }).catch(function(err) {
+      document.getElementById('editor').innerHTML =
+        '<div style="padding:16px;color:#dc2626;font-family:Arial;font-size:14px">CKEditor failed to load. Check your internet connection.<br><small style="color:#9ca3af">' + err.message + '</small></div>';
+    });
+  </script>
+</body>
+</html>`;
+
 
 export default function AddMcqScreen() {
   const insets = useSafeAreaInsets();
@@ -488,29 +363,25 @@ export default function AddMcqScreen() {
           {/* RICH TYPE MODE */}
           {inputMode === "type" && (
             <View style={s.webviewWrapper}>
-              {Platform.OS === "web" ? (
-                <RichEditorWeb
-                  placeholder="Type the question body here — bold, italic, tables all supported…"
-                  minHeight={300}
-                  onHtmlChange={setQuestionHtml}
-                />
-              ) : (
-                <WebView
-                  originWhitelist={["*"]}
-                  source={{ html: RICH_EDITOR_HTML("Type the question body here — use the toolbar to format…") }}
-                  style={{ flex: 1, minHeight: 320 }}
-                  scrollEnabled
-                  nestedScrollEnabled
-                  onMessage={event => {
-                    try {
-                      const data = JSON.parse(event.nativeEvent.data);
-                      if (data.type === "change") setQuestionHtml(data.html ?? "");
-                    } catch {}
-                  }}
-                  keyboardDisplayRequiresUserAction={false}
-                  showsVerticalScrollIndicator={false}
-                />
-              )}
+              <WebView
+                originWhitelist={["*"]}
+                source={{ html: CKEDITOR_HTML("Type the question body here — bold, italic, tables all supported…"), baseUrl: "https://cdn.ckeditor.com" }}
+                style={{ flex: 1 }}
+                scrollEnabled
+                nestedScrollEnabled
+                javaScriptEnabled
+                domStorageEnabled
+                mixedContentMode="always"
+                allowUniversalAccessFromFileURLs
+                onMessage={event => {
+                  try {
+                    const data = JSON.parse(event.nativeEvent.data);
+                    if (data.type === "change") setQuestionHtml(data.html ?? "");
+                  } catch {}
+                }}
+                keyboardDisplayRequiresUserAction={false}
+                showsVerticalScrollIndicator={false}
+              />
             </View>
           )}
 
@@ -545,33 +416,29 @@ export default function AddMcqScreen() {
               <View style={s.wordInfoRow}>
                 <Ionicons name="information-circle-outline" size={15} color={Colors.light.textMuted} />
                 <Text style={s.wordInfoText}>
-                  Paste from Microsoft Word below — formatting and tables are preserved.
+                  Paste from Microsoft Word below — formatting and tables are preserved by CKEditor.
                 </Text>
               </View>
               <View style={s.webviewWrapper}>
-                {Platform.OS === "web" ? (
-                  <RichEditorWeb
-                    placeholder="Paste your Word content here — formatting and tables are preserved…"
-                    minHeight={280}
-                    onHtmlChange={setQuestionHtml}
-                  />
-                ) : (
-                  <WebView
-                    originWhitelist={["*"]}
-                    source={{ html: RICH_EDITOR_HTML("Paste your Word content here — formatting is preserved…") }}
-                    style={{ flex: 1, minHeight: 300 }}
-                    scrollEnabled
-                    nestedScrollEnabled
-                    onMessage={event => {
-                      try {
-                        const data = JSON.parse(event.nativeEvent.data);
-                        if (data.type === "change") setQuestionHtml(data.html ?? "");
-                      } catch {}
-                    }}
-                    keyboardDisplayRequiresUserAction={false}
-                    showsVerticalScrollIndicator={false}
-                  />
-                )}
+                <WebView
+                  originWhitelist={["*"]}
+                  source={{ html: CKEDITOR_HTML("Paste your Word content here — formatting and tables are preserved…"), baseUrl: "https://cdn.ckeditor.com" }}
+                  style={{ flex: 1 }}
+                  scrollEnabled
+                  nestedScrollEnabled
+                  javaScriptEnabled
+                  domStorageEnabled
+                  mixedContentMode="always"
+                  allowUniversalAccessFromFileURLs
+                  onMessage={event => {
+                    try {
+                      const data = JSON.parse(event.nativeEvent.data);
+                      if (data.type === "change") setQuestionHtml(data.html ?? "");
+                    } catch {}
+                  }}
+                  keyboardDisplayRequiresUserAction={false}
+                  showsVerticalScrollIndicator={false}
+                />
               </View>
               {!!questionHtml && questionHtml.replace(/<[^>]*>/g, "").trim() && (
                 <View style={s.wordPreviewBadge}>
@@ -784,7 +651,7 @@ const s = StyleSheet.create({
   webviewWrapper: {
     borderWidth: 1, borderColor: Colors.light.border,
     borderRadius: 10, overflow: "hidden",
-    minHeight: 320,
+    height: 420,
     backgroundColor: "#fff",
   },
 
