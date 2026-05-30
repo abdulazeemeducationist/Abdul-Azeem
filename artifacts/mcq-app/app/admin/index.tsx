@@ -711,7 +711,7 @@ export default function AdminScreen() {
     setEditingQuestion(q);
     setQForm({
       topicId: String(q.topicId),
-      questionText: q.questionText,
+      questionText: q.questionText || (q.questionHtml ? stripHtml(q.questionHtml) : "") || (q.questionImageUrl ? "📷 Image question" : ""),
       optionA: q.optionA, optionB: q.optionB, optionC: q.optionC, optionD: q.optionD,
       correctAnswers: (q.correctAnswers as string[]).join(","),
       explanation: q.explanation,
