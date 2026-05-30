@@ -1,5 +1,12 @@
 import React, { useState } from "react";
-import { Image, Platform, StyleSheet, Text, View } from "react-native";
+import {
+  Image,
+  Platform,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from "react-native";
 import { WebView } from "react-native-webview";
 import Colors from "@/constants/colors";
 
@@ -7,6 +14,8 @@ interface QuestionBodyProps {
   questionText?: string | null;
   questionHtml?: string | null;
   questionImageUrl?: string | null;
+  /** When true the parent card has no padding — used for image questions */
+  imageFill?: boolean;
 }
 
 function makeHtmlDoc(body: string) {
@@ -55,6 +64,35 @@ export function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
 }
 
+/** Returns true when the question uses an image as its body */
+export function isImageQuestion(q: { questionImageUrl?: string | null }): boolean {
+  return !!q?.questionImageUrl;
+}
+
+function ImageQuestion({ uri }: { uri: string }) {
+  const { width: screenWidth } = useWindowDimensions();
+  const [imgHeight, setImgHeight] = useState<number | null>(null);
+
+  const handleLoad = (e: any) => {
+    const { width: nW, height: nH } = e.nativeEvent?.source ?? {};
+    if (nW && nH) {
+      setImgHeight(Math.round((screenWidth * nH) / nW));
+    }
+  };
+
+  return (
+    <Image
+      source={{ uri }}
+      style={[
+        styles.image,
+        imgHeight !== null ? { height: imgHeight } : { height: undefined, aspectRatio: 4 / 3 },
+      ]}
+      resizeMode="contain"
+      onLoad={handleLoad}
+    />
+  );
+}
+
 export default function QuestionBody({ questionText, questionHtml, questionImageUrl }: QuestionBodyProps) {
   const hasHtml = !!questionHtml && stripHtml(questionHtml).length > 0;
   const hasImage = !!questionImageUrl;
@@ -62,9 +100,13 @@ export default function QuestionBody({ questionText, questionHtml, questionImage
 
   if (hasImage) {
     return (
-      <View>
-        <Image source={{ uri: questionImageUrl! }} style={styles.image} resizeMode="contain" />
-        {hasText && <Text style={styles.text}>{questionText}</Text>}
+      <View style={styles.imageWrapper}>
+        <ImageQuestion uri={questionImageUrl!} />
+        {hasText && (
+          <Text style={[styles.text, { paddingHorizontal: 16, paddingBottom: 14, paddingTop: 10 }]}>
+            {questionText}
+          </Text>
+        )}
       </View>
     );
   }
@@ -97,10 +139,11 @@ const styles = StyleSheet.create({
     color: Colors.light.text,
     lineHeight: 26,
   },
+  imageWrapper: {
+    width: "100%",
+  },
   image: {
     width: "100%",
-    height: 220,
-    borderRadius: 8,
-    marginBottom: 8,
+    borderRadius: 0,
   },
 });

@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
 import { useAuth } from "@/context/AuthContext";
 import { api, Question, QuizState } from "@/hooks/useApi";
-import QuestionBody from "@/components/QuestionBody";
+import QuestionBody, { isImageQuestion } from "@/components/QuestionBody";
 
 const OPTIONS = ["A", "B", "C", "D"] as const;
 type Option = typeof OPTIONS[number];
@@ -315,7 +315,10 @@ export default function PracticeScreen() {
           </View>
         )}
 
-        <View style={styles.questionCard}>
+        <View style={[
+          styles.questionCard,
+          isImageQuestion(currentQuestion ?? {}) && styles.questionCardImage,
+        ]}>
           <QuestionBody
             questionText={currentQuestion?.questionText}
             questionHtml={currentQuestion?.questionHtml}
@@ -412,6 +415,10 @@ const styles = StyleSheet.create({
   questionCard: {
     backgroundColor: Colors.light.card, borderRadius: 16, padding: 18,
     shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 12, elevation: 3,
+  },
+  questionCardImage: {
+    padding: 0,
+    overflow: "hidden",
   },
   questionText: { fontSize: 16, fontFamily: "Inter_500Medium", color: Colors.light.text, lineHeight: 26 },
   optionsContainer: { gap: 10 },
