@@ -221,8 +221,10 @@ function RichEditorWeb({
     } as React.CSSProperties,
     onInput: (e: React.FormEvent<HTMLDivElement>) =>
       onHtmlChange((e.currentTarget as HTMLDivElement).innerHTML),
-    onPaste: (e: React.ClipboardEvent<HTMLDivElement>) =>
-      setTimeout(() => onHtmlChange((e.currentTarget as HTMLDivElement).innerHTML), 80),
+    onPaste: (e: React.ClipboardEvent<HTMLDivElement>) => {
+      const el = e.currentTarget as HTMLDivElement;
+      setTimeout(() => onHtmlChange(el.innerHTML), 80);
+    },
   }) as React.ReactElement;
 }
 
