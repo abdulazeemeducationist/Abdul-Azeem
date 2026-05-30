@@ -8,6 +8,7 @@ import topicsRouter from "./topics";
 import questionsRouter from "./questions";
 import progressRouter from "./progress";
 import adminRouter from "./admin";
+import customQuestionsRouter from "./customQuestions";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use("/chapters", topicsRouter);
 router.use("/topics", questionsRouter);
 router.use("/progress", progressRouter);
 router.use("/admin", adminRouter);
+router.use("/custom-questions", customQuestionsRouter);
 
 export default router;

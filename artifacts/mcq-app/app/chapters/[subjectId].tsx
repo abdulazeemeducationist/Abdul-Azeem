@@ -15,6 +15,37 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
 import { api, Chapter } from "@/hooks/useApi";
 
+function CustomTestBanner({ subjectId, subjectName }: { subjectId: string; subjectName: string }) {
+  return (
+    <Pressable
+      style={({ pressed }) => [bannerStyles.banner, { opacity: pressed ? 0.88 : 1, transform: [{ scale: pressed ? 0.985 : 1 }] }]}
+      onPress={() => router.push({ pathname: "/custom-test/[subjectId]", params: { subjectId, subjectName } })}
+    >
+      <View style={bannerStyles.iconBox}>
+        <Ionicons name="options-outline" size={22} color={Colors.light.primary} />
+      </View>
+      <View style={bannerStyles.textBox}>
+        <Text style={bannerStyles.title}>Custom Test</Text>
+        <Text style={bannerStyles.subtitle}>Pick chapters, set question count, get instant results</Text>
+      </View>
+      <Ionicons name="chevron-forward" size={18} color={Colors.light.primary} />
+    </Pressable>
+  );
+}
+
+const bannerStyles = StyleSheet.create({
+  banner: {
+    flexDirection: "row", alignItems: "center", gap: 12,
+    backgroundColor: Colors.light.primary + "0E",
+    borderRadius: 14, padding: 14, borderWidth: 1.5, borderColor: Colors.light.primary + "30",
+    marginHorizontal: 16, marginBottom: 4,
+  },
+  iconBox: { width: 42, height: 42, borderRadius: 12, backgroundColor: Colors.light.primary + "18", alignItems: "center", justifyContent: "center" },
+  textBox: { flex: 1, gap: 2 },
+  title: { fontSize: 14, fontFamily: "Inter_700Bold", color: Colors.light.primary },
+  subtitle: { fontSize: 12, fontFamily: "Inter_400Regular", color: Colors.light.textSecondary, lineHeight: 17 },
+});
+
 function ChapterCard({ chapter }: { chapter: Chapter }) {
   return (
     <Pressable
@@ -92,6 +123,9 @@ export default function ChaptersScreen() {
           renderItem={({ item }) => <ChapterCard chapter={item} />}
           contentContainerStyle={[styles.list, { paddingBottom: isWeb ? 34 : 30 }]}
           showsVerticalScrollIndicator={false}
+          ListHeaderComponent={
+            <CustomTestBanner subjectId={String(subjectId)} subjectName={subjectName ?? ""} />
+          }
           ListEmptyComponent={
             <View style={styles.center}>
               <Ionicons name="layers-outline" size={64} color={Colors.light.textMuted} />
