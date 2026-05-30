@@ -3,7 +3,7 @@ import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { router, useLocalSearchParams } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import React, { useRef, useState } from "react";
+import React, { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -193,6 +193,38 @@ function setContent(html) {
 </body>
 </html>
 `;
+
+// ── Web-only rich editor using native contenteditable ──────────────────────
+function RichEditorWeb({
+  placeholder,
+  minHeight,
+  onHtmlChange,
+}: {
+  placeholder: string;
+  minHeight: number;
+  onHtmlChange: (html: string) => void;
+}) {
+  return React.createElement("div", {
+    contentEditable: true,
+    suppressContentEditableWarning: true,
+    "data-placeholder": placeholder,
+    style: {
+      minHeight,
+      padding: "12px 16px",
+      outline: "none",
+      fontSize: 15,
+      lineHeight: 1.6,
+      color: "#111",
+      fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
+      boxSizing: "border-box",
+      whiteSpace: "pre-wrap",
+    } as React.CSSProperties,
+    onInput: (e: React.FormEvent<HTMLDivElement>) =>
+      onHtmlChange((e.currentTarget as HTMLDivElement).innerHTML),
+    onPaste: (e: React.ClipboardEvent<HTMLDivElement>) =>
+      setTimeout(() => onHtmlChange((e.currentTarget as HTMLDivElement).innerHTML), 80),
+  }) as React.ReactElement;
+}
 
 export default function AddMcqScreen() {
   const insets = useSafeAreaInsets();
@@ -454,21 +486,29 @@ export default function AddMcqScreen() {
           {/* RICH TYPE MODE */}
           {inputMode === "type" && (
             <View style={s.webviewWrapper}>
-              <WebView
-                originWhitelist={["*"]}
-                source={{ html: RICH_EDITOR_HTML("Type the question body here — use the toolbar to format…") }}
-                style={{ flex: 1, minHeight: 320 }}
-                scrollEnabled
-                nestedScrollEnabled
-                onMessage={event => {
-                  try {
-                    const data = JSON.parse(event.nativeEvent.data);
-                    if (data.type === "change") setQuestionHtml(data.html ?? "");
-                  } catch {}
-                }}
-                keyboardDisplayRequiresUserAction={false}
-                showsVerticalScrollIndicator={false}
-              />
+              {Platform.OS === "web" ? (
+                <RichEditorWeb
+                  placeholder="Type the question body here — bold, italic, tables all supported…"
+                  minHeight={300}
+                  onHtmlChange={setQuestionHtml}
+                />
+              ) : (
+                <WebView
+                  originWhitelist={["*"]}
+                  source={{ html: RICH_EDITOR_HTML("Type the question body here — use the toolbar to format…") }}
+                  style={{ flex: 1, minHeight: 320 }}
+                  scrollEnabled
+                  nestedScrollEnabled
+                  onMessage={event => {
+                    try {
+                      const data = JSON.parse(event.nativeEvent.data);
+                      if (data.type === "change") setQuestionHtml(data.html ?? "");
+                    } catch {}
+                  }}
+                  keyboardDisplayRequiresUserAction={false}
+                  showsVerticalScrollIndicator={false}
+                />
+              )}
             </View>
           )}
 
@@ -507,21 +547,29 @@ export default function AddMcqScreen() {
                 </Text>
               </View>
               <View style={s.webviewWrapper}>
-                <WebView
-                  originWhitelist={["*"]}
-                  source={{ html: RICH_EDITOR_HTML("Paste your Word content here — formatting is preserved…") }}
-                  style={{ flex: 1, minHeight: 300 }}
-                  scrollEnabled
-                  nestedScrollEnabled
-                  onMessage={event => {
-                    try {
-                      const data = JSON.parse(event.nativeEvent.data);
-                      if (data.type === "change") setQuestionHtml(data.html ?? "");
-                    } catch {}
-                  }}
-                  keyboardDisplayRequiresUserAction={false}
-                  showsVerticalScrollIndicator={false}
-                />
+                {Platform.OS === "web" ? (
+                  <RichEditorWeb
+                    placeholder="Paste your Word content here — formatting and tables are preserved…"
+                    minHeight={280}
+                    onHtmlChange={setQuestionHtml}
+                  />
+                ) : (
+                  <WebView
+                    originWhitelist={["*"]}
+                    source={{ html: RICH_EDITOR_HTML("Paste your Word content here — formatting is preserved…") }}
+                    style={{ flex: 1, minHeight: 300 }}
+                    scrollEnabled
+                    nestedScrollEnabled
+                    onMessage={event => {
+                      try {
+                        const data = JSON.parse(event.nativeEvent.data);
+                        if (data.type === "change") setQuestionHtml(data.html ?? "");
+                      } catch {}
+                    }}
+                    keyboardDisplayRequiresUserAction={false}
+                    showsVerticalScrollIndicator={false}
+                  />
+                )}
               </View>
               {!!questionHtml && questionHtml.replace(/<[^>]*>/g, "").trim() && (
                 <View style={s.wordPreviewBadge}>
