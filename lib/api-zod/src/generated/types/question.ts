@@ -5,12 +5,18 @@
  * MCQ Practice App API
  * OpenAPI spec version: 0.1.0
  */
+import type { QuestionDifficulty } from "./questionDifficulty";
 import type { QuestionQuestionType } from "./questionQuestionType";
 
 export interface Question {
   id: number;
   topicId: number;
-  questionText: string;
+  /** @nullable */
+  questionText?: string | null;
+  /** @nullable */
+  questionHtml?: string | null;
+  /** @nullable */
+  questionImageUrl?: string | null;
   optionA: string;
   optionB: string;
   optionC: string;
@@ -18,5 +24,7 @@ export interface Question {
   correctAnswers: string[];
   explanation: string;
   questionType: QuestionQuestionType;
+  difficulty?: QuestionDifficulty;
+  marks?: number;
   createdAt: Date;
 }

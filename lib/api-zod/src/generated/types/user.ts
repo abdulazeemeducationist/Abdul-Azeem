@@ -12,5 +12,8 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
+  /** @nullable */
+  whatsappNumber?: string | null;
+  isBlocked?: boolean;
   createdAt: Date;
 }

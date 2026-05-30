@@ -11,6 +11,7 @@ export interface Topic {
   chapterId: number;
   name: string;
   orderNumber: number;
-  questionCount?: number;
+  /** @nullable */
+  questionCount?: number | null;
   createdAt: Date;
 }

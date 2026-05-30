@@ -40,6 +40,18 @@ function mergeHeaders(...sources: Array<HeadersInit | undefined>): Headers {
       headers.set(key, value);
     });
   }
+  
+  try {
+    const authData = localStorage.getItem("mcq_admin_auth");
+    if (authData) {
+      const { token } = JSON.parse(authData);
+      if (token && !headers.has("Authorization")) {
+        headers.set("Authorization", `Bearer ${token}`);
+      }
+    }
+  } catch (e) {
+    // Ignore localStorage errors
+  }
 
   return headers;
 }

@@ -40,6 +40,8 @@ export const SignInResponse = zod.object({
     name: zod.string(),
     email: zod.string(),
     role: zod.enum(["student", "admin"]),
+    whatsappNumber: zod.string().nullish(),
+    isBlocked: zod.boolean().optional(),
     createdAt: zod.date(),
   }),
 });
@@ -62,11 +64,13 @@ export const GetCoursesResponseItem = zod.object({
   id: zod.number(),
   name: zod.string(),
   code: zod.string(),
-  description: zod.string().optional(),
-  icon: zod.string().optional(),
-  color: zod.string().optional(),
-  subjectCount: zod.number().optional(),
-  questionCount: zod.number().optional(),
+  description: zod.string().nullish(),
+  icon: zod.string().nullish(),
+  color: zod.string().nullish(),
+  isActive: zod.boolean().optional(),
+  orderNumber: zod.number().optional(),
+  subjectCount: zod.number().nullish(),
+  questionCount: zod.number().nullish(),
   createdAt: zod.date(),
 });
 export const GetCoursesResponse = zod.array(GetCoursesResponseItem);
@@ -82,11 +86,13 @@ export const GetCourseResponse = zod.object({
   id: zod.number(),
   name: zod.string(),
   code: zod.string(),
-  description: zod.string().optional(),
-  icon: zod.string().optional(),
-  color: zod.string().optional(),
-  subjectCount: zod.number().optional(),
-  questionCount: zod.number().optional(),
+  description: zod.string().nullish(),
+  icon: zod.string().nullish(),
+  color: zod.string().nullish(),
+  isActive: zod.boolean().optional(),
+  orderNumber: zod.number().optional(),
+  subjectCount: zod.number().nullish(),
+  questionCount: zod.number().nullish(),
   createdAt: zod.date(),
 });
 
@@ -100,11 +106,13 @@ export const GetSubjectsByCourseParams = zod.object({
 export const GetSubjectsByCourseResponseItem = zod.object({
   id: zod.number(),
   courseId: zod.number(),
+  levelId: zod.number().nullish(),
   name: zod.string(),
   code: zod.string(),
-  description: zod.string().optional(),
-  chapterCount: zod.number().optional(),
-  questionCount: zod.number().optional(),
+  description: zod.string().nullish(),
+  isActive: zod.boolean().optional(),
+  chapterCount: zod.number().nullish(),
+  questionCount: zod.number().nullish(),
   createdAt: zod.date(),
 });
 export const GetSubjectsByCourseResponse = zod.array(
@@ -123,8 +131,9 @@ export const GetChaptersBySubjectResponseItem = zod.object({
   subjectId: zod.number(),
   name: zod.string(),
   orderNumber: zod.number(),
-  topicCount: zod.number().optional(),
-  questionCount: zod.number().optional(),
+  isActive: zod.boolean().optional(),
+  topicCount: zod.number().nullish(),
+  questionCount: zod.number().nullish(),
   createdAt: zod.date(),
 });
 export const GetChaptersBySubjectResponse = zod.array(
@@ -143,7 +152,7 @@ export const GetTopicsByChapterResponseItem = zod.object({
   chapterId: zod.number(),
   name: zod.string(),
   orderNumber: zod.number(),
-  questionCount: zod.number().optional(),
+  questionCount: zod.number().nullish(),
   createdAt: zod.date(),
 });
 export const GetTopicsByChapterResponse = zod.array(
@@ -160,7 +169,9 @@ export const GetQuestionsByTopicParams = zod.object({
 export const GetQuestionsByTopicResponseItem = zod.object({
   id: zod.number(),
   topicId: zod.number(),
-  questionText: zod.string(),
+  questionText: zod.string().nullish(),
+  questionHtml: zod.string().nullish(),
+  questionImageUrl: zod.string().nullish(),
   optionA: zod.string(),
   optionB: zod.string(),
   optionC: zod.string(),
@@ -168,6 +179,8 @@ export const GetQuestionsByTopicResponseItem = zod.object({
   correctAnswers: zod.array(zod.string()),
   explanation: zod.string(),
   questionType: zod.enum(["single", "multiple"]),
+  difficulty: zod.enum(["easy", "medium", "hard"]).optional(),
+  marks: zod.number().optional(),
   createdAt: zod.date(),
 });
 export const GetQuestionsByTopicResponse = zod.array(
@@ -185,7 +198,7 @@ export const GetUserProgressResponseItem = zod.object({
   id: zod.number(),
   userId: zod.number(),
   topicId: zod.number(),
-  topicName: zod.string().optional(),
+  topicName: zod.string().nullish(),
   totalQuestions: zod.number(),
   correctAnswers: zod.number(),
   scorePercentage: zod.number(),
@@ -210,13 +223,45 @@ export const SaveProgressResponse = zod.object({
   id: zod.number(),
   userId: zod.number(),
   topicId: zod.number(),
-  topicName: zod.string().optional(),
+  topicName: zod.string().nullish(),
   totalQuestions: zod.number(),
   correctAnswers: zod.number(),
   scorePercentage: zod.number(),
   completed: zod.boolean(),
   lastAttemptAt: zod.date().optional(),
 });
+
+/**
+ * @summary Get admin statistics dashboard
+ */
+export const GetAdminStatsResponse = zod.object({
+  totalUsers: zod.number(),
+  totalCourses: zod.number(),
+  totalSubjects: zod.number(),
+  totalChapters: zod.number(),
+  totalTopics: zod.number(),
+  totalQuestions: zod.number(),
+  totalAttempts: zod.number(),
+  averageScore: zod.number(),
+});
+
+/**
+ * @summary Get all courses (admin view with full details)
+ */
+export const GetAdminCoursesResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  code: zod.string(),
+  description: zod.string().nullish(),
+  icon: zod.string().nullish(),
+  color: zod.string().nullish(),
+  isActive: zod.boolean().optional(),
+  orderNumber: zod.number().optional(),
+  subjectCount: zod.number().nullish(),
+  questionCount: zod.number().nullish(),
+  createdAt: zod.date(),
+});
+export const GetAdminCoursesResponse = zod.array(GetAdminCoursesResponseItem);
 
 /**
  * @summary Create a new course
@@ -230,14 +275,197 @@ export const CreateCourseBody = zod.object({
 });
 
 /**
- * @summary Create a new subject
+ * @summary Update a course
+ */
+export const UpdateCourseParams = zod.object({
+  courseId: zod.coerce.number(),
+});
+
+export const UpdateCourseBody = zod.object({
+  name: zod.string(),
+  code: zod.string(),
+  description: zod.string().optional(),
+  icon: zod.string().optional(),
+  color: zod.string().optional(),
+});
+
+export const UpdateCourseResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  code: zod.string(),
+  description: zod.string().nullish(),
+  icon: zod.string().nullish(),
+  color: zod.string().nullish(),
+  isActive: zod.boolean().optional(),
+  orderNumber: zod.number().optional(),
+  subjectCount: zod.number().nullish(),
+  questionCount: zod.number().nullish(),
+  createdAt: zod.date(),
+});
+
+/**
+ * @summary Delete a course and all its content
+ */
+export const DeleteCourseParams = zod.object({
+  courseId: zod.coerce.number(),
+});
+
+export const DeleteCourseResponse = zod.object({
+  message: zod.string(),
+});
+
+/**
+ * @summary Toggle course active state
+ */
+export const ToggleCourseActiveParams = zod.object({
+  courseId: zod.coerce.number(),
+});
+
+export const ToggleCourseActiveBody = zod.object({
+  isActive: zod.boolean(),
+});
+
+export const ToggleCourseActiveResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  code: zod.string(),
+  description: zod.string().nullish(),
+  icon: zod.string().nullish(),
+  color: zod.string().nullish(),
+  isActive: zod.boolean().optional(),
+  orderNumber: zod.number().optional(),
+  subjectCount: zod.number().nullish(),
+  questionCount: zod.number().nullish(),
+  createdAt: zod.date(),
+});
+
+/**
+ * @summary Swap course order with another course
+ */
+export const ReorderCourseParams = zod.object({
+  courseId: zod.coerce.number(),
+});
+
+export const ReorderCourseBody = zod.object({
+  targetId: zod.number().optional(),
+  direction: zod.enum(["up", "down"]),
+});
+
+export const ReorderCourseResponse = zod.object({
+  message: zod.string(),
+});
+
+/**
+ * @summary Get all subjects across all courses
+ */
+export const GetAllSubjectsResponseItem = zod.object({
+  id: zod.number(),
+  courseId: zod.number(),
+  levelId: zod.number().nullish(),
+  name: zod.string(),
+  code: zod.string(),
+  description: zod.string().nullish(),
+  isActive: zod.boolean().optional(),
+  chapterCount: zod.number().nullish(),
+  questionCount: zod.number().nullish(),
+  createdAt: zod.date(),
+});
+export const GetAllSubjectsResponse = zod.array(GetAllSubjectsResponseItem);
+
+/**
+ * @summary Create a new subject (paper)
  */
 export const CreateSubjectBody = zod.object({
   courseId: zod.number(),
+  levelId: zod.number().nullish(),
   name: zod.string(),
   code: zod.string(),
   description: zod.string().optional(),
 });
+
+/**
+ * @summary Update a subject
+ */
+export const UpdateSubjectParams = zod.object({
+  subjectId: zod.coerce.number(),
+});
+
+export const UpdateSubjectBody = zod.object({
+  courseId: zod.number(),
+  levelId: zod.number().nullish(),
+  name: zod.string(),
+  code: zod.string(),
+  description: zod.string().optional(),
+});
+
+export const UpdateSubjectResponse = zod.object({
+  id: zod.number(),
+  courseId: zod.number(),
+  levelId: zod.number().nullish(),
+  name: zod.string(),
+  code: zod.string(),
+  description: zod.string().nullish(),
+  isActive: zod.boolean().optional(),
+  chapterCount: zod.number().nullish(),
+  questionCount: zod.number().nullish(),
+  createdAt: zod.date(),
+});
+
+/**
+ * @summary Delete a subject
+ */
+export const DeleteSubjectParams = zod.object({
+  subjectId: zod.coerce.number(),
+});
+
+export const DeleteSubjectResponse = zod.object({
+  message: zod.string(),
+});
+
+/**
+ * @summary Toggle subject active/locked state
+ */
+export const ToggleSubjectActiveParams = zod.object({
+  subjectId: zod.coerce.number(),
+});
+
+export const ToggleSubjectActiveBody = zod.object({
+  isActive: zod.boolean(),
+});
+
+export const ToggleSubjectActiveResponse = zod.object({
+  id: zod.number(),
+  courseId: zod.number(),
+  levelId: zod.number().nullish(),
+  name: zod.string(),
+  code: zod.string(),
+  description: zod.string().nullish(),
+  isActive: zod.boolean().optional(),
+  chapterCount: zod.number().nullish(),
+  questionCount: zod.number().nullish(),
+  createdAt: zod.date(),
+});
+
+/**
+ * @summary Get all chapters for a subject (admin, includes inactive)
+ */
+export const GetAdminChaptersBySubjectParams = zod.object({
+  subjectId: zod.coerce.number(),
+});
+
+export const GetAdminChaptersBySubjectResponseItem = zod.object({
+  id: zod.number(),
+  subjectId: zod.number(),
+  name: zod.string(),
+  orderNumber: zod.number(),
+  isActive: zod.boolean().optional(),
+  topicCount: zod.number().nullish(),
+  questionCount: zod.number().nullish(),
+  createdAt: zod.date(),
+});
+export const GetAdminChaptersBySubjectResponse = zod.array(
+  GetAdminChaptersBySubjectResponseItem,
+);
 
 /**
  * @summary Create a new chapter
@@ -249,6 +477,82 @@ export const CreateChapterBody = zod.object({
 });
 
 /**
+ * @summary Update a chapter
+ */
+export const UpdateChapterParams = zod.object({
+  chapterId: zod.coerce.number(),
+});
+
+export const UpdateChapterBody = zod.object({
+  subjectId: zod.number(),
+  name: zod.string(),
+  orderNumber: zod.number(),
+});
+
+export const UpdateChapterResponse = zod.object({
+  id: zod.number(),
+  subjectId: zod.number(),
+  name: zod.string(),
+  orderNumber: zod.number(),
+  isActive: zod.boolean().optional(),
+  topicCount: zod.number().nullish(),
+  questionCount: zod.number().nullish(),
+  createdAt: zod.date(),
+});
+
+/**
+ * @summary Delete a chapter
+ */
+export const DeleteChapterParams = zod.object({
+  chapterId: zod.coerce.number(),
+});
+
+export const DeleteChapterResponse = zod.object({
+  message: zod.string(),
+});
+
+/**
+ * @summary Toggle chapter published/unpublished state
+ */
+export const ToggleChapterActiveParams = zod.object({
+  chapterId: zod.coerce.number(),
+});
+
+export const ToggleChapterActiveBody = zod.object({
+  isActive: zod.boolean(),
+});
+
+export const ToggleChapterActiveResponse = zod.object({
+  id: zod.number(),
+  subjectId: zod.number(),
+  name: zod.string(),
+  orderNumber: zod.number(),
+  isActive: zod.boolean().optional(),
+  topicCount: zod.number().nullish(),
+  questionCount: zod.number().nullish(),
+  createdAt: zod.date(),
+});
+
+/**
+ * @summary Get all topics for a chapter (admin)
+ */
+export const GetAdminTopicsByChapterParams = zod.object({
+  chapterId: zod.coerce.number(),
+});
+
+export const GetAdminTopicsByChapterResponseItem = zod.object({
+  id: zod.number(),
+  chapterId: zod.number(),
+  name: zod.string(),
+  orderNumber: zod.number(),
+  questionCount: zod.number().nullish(),
+  createdAt: zod.date(),
+});
+export const GetAdminTopicsByChapterResponse = zod.array(
+  GetAdminTopicsByChapterResponseItem,
+);
+
+/**
  * @summary Create a new topic
  */
 export const CreateTopicBody = zod.object({
@@ -258,11 +562,65 @@ export const CreateTopicBody = zod.object({
 });
 
 /**
- * @summary Create a new question
+ * @summary Update a topic
  */
-export const CreateQuestionBody = zod.object({
+export const UpdateTopicParams = zod.object({
+  topicId: zod.coerce.number(),
+});
+
+export const UpdateTopicBody = zod.object({
+  chapterId: zod.number(),
+  name: zod.string(),
+  orderNumber: zod.number(),
+});
+
+export const UpdateTopicResponse = zod.object({
+  id: zod.number(),
+  chapterId: zod.number(),
+  name: zod.string(),
+  orderNumber: zod.number(),
+  questionCount: zod.number().nullish(),
+  createdAt: zod.date(),
+});
+
+/**
+ * @summary Delete a topic
+ */
+export const DeleteTopicParams = zod.object({
+  topicId: zod.coerce.number(),
+});
+
+export const DeleteTopicResponse = zod.object({
+  message: zod.string(),
+});
+
+/**
+ * @summary Reorder topics within a chapter
+ */
+export const ReorderTopicsBody = zod.object({
   topicId: zod.number(),
-  questionText: zod.string(),
+  direction: zod.enum(["up", "down"]),
+});
+
+export const ReorderTopicsResponse = zod.object({
+  message: zod.string(),
+});
+
+/**
+ * @summary Get questions filtered by subject, chapter, or topic
+ */
+export const GetAdminQuestionsQueryParams = zod.object({
+  subjectId: zod.coerce.number().optional(),
+  chapterId: zod.coerce.number().optional(),
+  topicId: zod.coerce.number().optional(),
+});
+
+export const GetAdminQuestionsResponseItem = zod.object({
+  id: zod.number(),
+  topicId: zod.number(),
+  questionText: zod.string().nullish(),
+  questionHtml: zod.string().nullish(),
+  questionImageUrl: zod.string().nullish(),
   optionA: zod.string(),
   optionB: zod.string(),
   optionC: zod.string(),
@@ -270,6 +628,86 @@ export const CreateQuestionBody = zod.object({
   correctAnswers: zod.array(zod.string()),
   explanation: zod.string(),
   questionType: zod.enum(["single", "multiple"]),
+  difficulty: zod.enum(["easy", "medium", "hard"]).optional(),
+  marks: zod.number().optional(),
+  createdAt: zod.date(),
+});
+export const GetAdminQuestionsResponse = zod.array(
+  GetAdminQuestionsResponseItem,
+);
+
+/**
+ * @summary Create a new MCQ question
+ */
+export const CreateQuestionBody = zod.object({
+  topicId: zod.number(),
+  questionText: zod.string().optional(),
+  questionHtml: zod.string().optional(),
+  questionImageUrl: zod.string().optional(),
+  optionA: zod.string(),
+  optionB: zod.string(),
+  optionC: zod.string(),
+  optionD: zod.string(),
+  correctAnswers: zod.array(zod.string()),
+  explanation: zod.string(),
+  questionType: zod.enum(["single", "multiple"]),
+  difficulty: zod.enum(["easy", "medium", "hard"]).optional(),
+  marks: zod.number().optional(),
+});
+
+/**
+ * @summary Bulk import questions from JSON
+ */
+export const ImportQuestionsBody = zod.object({
+  topicId: zod.number(),
+  questions: zod.array(
+    zod.object({
+      topicId: zod.number(),
+      questionText: zod.string().optional(),
+      questionHtml: zod.string().optional(),
+      questionImageUrl: zod.string().optional(),
+      optionA: zod.string(),
+      optionB: zod.string(),
+      optionC: zod.string(),
+      optionD: zod.string(),
+      correctAnswers: zod.array(zod.string()),
+      explanation: zod.string(),
+      questionType: zod.enum(["single", "multiple"]),
+      difficulty: zod.enum(["easy", "medium", "hard"]).optional(),
+      marks: zod.number().optional(),
+    }),
+  ),
+});
+
+export const ImportQuestionsResponse = zod.object({
+  imported: zod.number(),
+  failed: zod.number(),
+  message: zod.string(),
+});
+
+/**
+ * @summary Get a single question by ID
+ */
+export const GetAdminQuestionParams = zod.object({
+  questionId: zod.coerce.number(),
+});
+
+export const GetAdminQuestionResponse = zod.object({
+  id: zod.number(),
+  topicId: zod.number(),
+  questionText: zod.string().nullish(),
+  questionHtml: zod.string().nullish(),
+  questionImageUrl: zod.string().nullish(),
+  optionA: zod.string(),
+  optionB: zod.string(),
+  optionC: zod.string(),
+  optionD: zod.string(),
+  correctAnswers: zod.array(zod.string()),
+  explanation: zod.string(),
+  questionType: zod.enum(["single", "multiple"]),
+  difficulty: zod.enum(["easy", "medium", "hard"]).optional(),
+  marks: zod.number().optional(),
+  createdAt: zod.date(),
 });
 
 /**
@@ -281,7 +719,9 @@ export const UpdateQuestionParams = zod.object({
 
 export const UpdateQuestionBody = zod.object({
   topicId: zod.number(),
-  questionText: zod.string(),
+  questionText: zod.string().optional(),
+  questionHtml: zod.string().optional(),
+  questionImageUrl: zod.string().optional(),
   optionA: zod.string(),
   optionB: zod.string(),
   optionC: zod.string(),
@@ -289,12 +729,16 @@ export const UpdateQuestionBody = zod.object({
   correctAnswers: zod.array(zod.string()),
   explanation: zod.string(),
   questionType: zod.enum(["single", "multiple"]),
+  difficulty: zod.enum(["easy", "medium", "hard"]).optional(),
+  marks: zod.number().optional(),
 });
 
 export const UpdateQuestionResponse = zod.object({
   id: zod.number(),
   topicId: zod.number(),
-  questionText: zod.string(),
+  questionText: zod.string().nullish(),
+  questionHtml: zod.string().nullish(),
+  questionImageUrl: zod.string().nullish(),
   optionA: zod.string(),
   optionB: zod.string(),
   optionC: zod.string(),
@@ -302,6 +746,8 @@ export const UpdateQuestionResponse = zod.object({
   correctAnswers: zod.array(zod.string()),
   explanation: zod.string(),
   questionType: zod.enum(["single", "multiple"]),
+  difficulty: zod.enum(["easy", "medium", "hard"]).optional(),
+  marks: zod.number().optional(),
   createdAt: zod.date(),
 });
 
@@ -317,15 +763,110 @@ export const DeleteQuestionResponse = zod.object({
 });
 
 /**
- * @summary Get admin statistics
+ * @summary Get all students with their assigned subjects
  */
-export const GetAdminStatsResponse = zod.object({
-  totalUsers: zod.number(),
-  totalCourses: zod.number(),
-  totalSubjects: zod.number(),
-  totalChapters: zod.number(),
-  totalTopics: zod.number(),
-  totalQuestions: zod.number(),
-  totalAttempts: zod.number(),
-  averageScore: zod.number(),
+export const GetStudentsResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  email: zod.string(),
+  whatsappNumber: zod.string().nullish(),
+  isBlocked: zod.boolean(),
+  createdAt: zod.date(),
+  assignedSubjects: zod.array(
+    zod.object({
+      id: zod.number(),
+      courseId: zod.number(),
+      levelId: zod.number().nullish(),
+      name: zod.string(),
+      code: zod.string(),
+      description: zod.string().nullish(),
+      isActive: zod.boolean().optional(),
+      chapterCount: zod.number().nullish(),
+      questionCount: zod.number().nullish(),
+      createdAt: zod.date(),
+    }),
+  ),
+});
+export const GetStudentsResponse = zod.array(GetStudentsResponseItem);
+
+/**
+ * @summary Create a student account
+ */
+export const CreateStudentBody = zod.object({
+  name: zod.string(),
+  email: zod.string().email(),
+  password: zod.string().optional(),
+  whatsappNumber: zod.string().optional(),
+});
+
+/**
+ * @summary Update student details
+ */
+export const UpdateStudentParams = zod.object({
+  userId: zod.coerce.number(),
+});
+
+export const UpdateStudentBody = zod.object({
+  name: zod.string(),
+  email: zod.string().email(),
+  password: zod.string().optional(),
+  whatsappNumber: zod.string().optional(),
+});
+
+export const UpdateStudentResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  email: zod.string(),
+  role: zod.enum(["student", "admin"]),
+  whatsappNumber: zod.string().nullish(),
+  isBlocked: zod.boolean().optional(),
+  createdAt: zod.date(),
+});
+
+/**
+ * @summary Block or unblock a student
+ */
+export const ToggleStudentBlockParams = zod.object({
+  userId: zod.coerce.number(),
+});
+
+export const ToggleStudentBlockBody = zod.object({
+  isBlocked: zod.boolean(),
+});
+
+export const ToggleStudentBlockResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  email: zod.string(),
+  role: zod.enum(["student", "admin"]),
+  whatsappNumber: zod.string().nullish(),
+  isBlocked: zod.boolean().optional(),
+  createdAt: zod.date(),
+});
+
+/**
+ * @summary Assign a subject/paper to a student
+ */
+export const AssignSubjectToStudentParams = zod.object({
+  userId: zod.coerce.number(),
+});
+
+export const AssignSubjectToStudentBody = zod.object({
+  subjectId: zod.number(),
+});
+
+export const AssignSubjectToStudentResponse = zod.object({
+  message: zod.string(),
+});
+
+/**
+ * @summary Revoke subject access from a student
+ */
+export const RevokeSubjectFromStudentParams = zod.object({
+  userId: zod.coerce.number(),
+  subjectId: zod.coerce.number(),
+});
+
+export const RevokeSubjectFromStudentResponse = zod.object({
+  message: zod.string(),
 });

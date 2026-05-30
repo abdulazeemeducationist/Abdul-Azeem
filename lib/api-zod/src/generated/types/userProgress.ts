@@ -10,7 +10,8 @@ export interface UserProgress {
   id: number;
   userId: number;
   topicId: number;
-  topicName?: string;
+  /** @nullable */
+  topicName?: string | null;
   totalQuestions: number;
   correctAnswers: number;
   scorePercentage: number;

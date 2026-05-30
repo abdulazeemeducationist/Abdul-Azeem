@@ -49,7 +49,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/SignUpRequest"
+              $ref: "#/components/schemas/SignUpInput"
       responses:
         "201":
           description: User created
@@ -80,7 +80,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/SignInRequest"
+              $ref: "#/components/schemas/SignInInput"
       responses:
         "200":
           description: Signed in
@@ -105,7 +105,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/ResetPasswordRequest"
+              $ref: "#/components/schemas/ResetPasswordInput"
       responses:
         "200":
           description: Reset email sent
@@ -263,7 +263,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/SaveProgressRequest"
+              $ref: "#/components/schemas/SaveProgressInput"
       responses:
         "200":
           description: Progress saved
@@ -272,7 +272,35 @@ paths:
               schema:
                 $ref: "#/components/schemas/UserProgress"
 
+  # ── ADMIN: STATS ──────────────────────────────────────────────────────────
+  /admin/stats:
+    get:
+      operationId: getAdminStats
+      tags: [admin]
+      summary: Get admin statistics dashboard
+      responses:
+        "200":
+          description: Admin stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStats"
+
+  # ── ADMIN: COURSES ─────────────────────────────────────────────────────────
   /admin/courses:
+    get:
+      operationId: getAdminCourses
+      tags: [admin]
+      summary: Get all courses (admin view with full details)
+      responses:
+        "200":
+          description: List of courses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Course"
     post:
       operationId: createCourse
       tags: [admin]
@@ -282,7 +310,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/CreateCourseRequest"
+              $ref: "#/components/schemas/CourseInput"
       responses:
         "201":
           description: Course created
@@ -291,17 +319,123 @@ paths:
               schema:
                 $ref: "#/components/schemas/Course"
 
-  /admin/subjects:
-    post:
-      operationId: createSubject
+  /admin/courses/{courseId}:
+    put:
+      operationId: updateCourse
       tags: [admin]
-      summary: Create a new subject
+      summary: Update a course
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema:
+            type: integer
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/CreateSubjectRequest"
+              $ref: "#/components/schemas/CourseInput"
+      responses:
+        "200":
+          description: Course updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Course"
+    delete:
+      operationId: deleteCourse
+      tags: [admin]
+      summary: Delete a course and all its content
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Course deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /admin/courses/{courseId}/active:
+    patch:
+      operationId: toggleCourseActive
+      tags: [admin]
+      summary: Toggle course active state
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ToggleActiveInput"
+      responses:
+        "200":
+          description: Course updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Course"
+
+  /admin/courses/{courseId}/order:
+    patch:
+      operationId: reorderCourse
+      tags: [admin]
+      summary: Swap course order with another course
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReorderInput"
+      responses:
+        "200":
+          description: Order updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  # ── ADMIN: SUBJECTS ────────────────────────────────────────────────────────
+  /admin/subjects:
+    get:
+      operationId: getAllSubjects
+      tags: [admin]
+      summary: Get all subjects across all courses
+      responses:
+        "200":
+          description: List of subjects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Subject"
+    post:
+      operationId: createSubject
+      tags: [admin]
+      summary: Create a new subject (paper)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubjectInput"
       responses:
         "201":
           description: Subject created
@@ -310,6 +444,95 @@ paths:
               schema:
                 $ref: "#/components/schemas/Subject"
 
+  /admin/subjects/{subjectId}:
+    put:
+      operationId: updateSubject
+      tags: [admin]
+      summary: Update a subject
+      parameters:
+        - name: subjectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubjectInput"
+      responses:
+        "200":
+          description: Subject updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subject"
+    delete:
+      operationId: deleteSubject
+      tags: [admin]
+      summary: Delete a subject
+      parameters:
+        - name: subjectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Subject deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /admin/subjects/{subjectId}/active:
+    patch:
+      operationId: toggleSubjectActive
+      tags: [admin]
+      summary: Toggle subject active/locked state
+      parameters:
+        - name: subjectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ToggleActiveInput"
+      responses:
+        "200":
+          description: Subject updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subject"
+
+  /admin/subjects/{subjectId}/chapters:
+    get:
+      operationId: getAdminChaptersBySubject
+      tags: [admin]
+      summary: Get all chapters for a subject (admin, includes inactive)
+      parameters:
+        - name: subjectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of chapters
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Chapter"
+
+  # ── ADMIN: CHAPTERS ────────────────────────────────────────────────────────
   /admin/chapters:
     post:
       operationId: createChapter
@@ -320,7 +543,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/CreateChapterRequest"
+              $ref: "#/components/schemas/ChapterInput"
       responses:
         "201":
           description: Chapter created
@@ -329,6 +552,95 @@ paths:
               schema:
                 $ref: "#/components/schemas/Chapter"
 
+  /admin/chapters/{chapterId}:
+    put:
+      operationId: updateChapter
+      tags: [admin]
+      summary: Update a chapter
+      parameters:
+        - name: chapterId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChapterInput"
+      responses:
+        "200":
+          description: Chapter updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Chapter"
+    delete:
+      operationId: deleteChapter
+      tags: [admin]
+      summary: Delete a chapter
+      parameters:
+        - name: chapterId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Chapter deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /admin/chapters/{chapterId}/active:
+    patch:
+      operationId: toggleChapterActive
+      tags: [admin]
+      summary: Toggle chapter published/unpublished state
+      parameters:
+        - name: chapterId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ToggleActiveInput"
+      responses:
+        "200":
+          description: Chapter updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Chapter"
+
+  /admin/chapters/{chapterId}/topics:
+    get:
+      operationId: getAdminTopicsByChapter
+      tags: [admin]
+      summary: Get all topics for a chapter (admin)
+      parameters:
+        - name: chapterId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of topics
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Topic"
+
+  # ── ADMIN: TOPICS ──────────────────────────────────────────────────────────
   /admin/topics:
     post:
       operationId: createTopic
@@ -339,7 +651,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/CreateTopicRequest"
+              $ref: "#/components/schemas/TopicInput"
       responses:
         "201":
           description: Topic created
@@ -348,17 +660,105 @@ paths:
               schema:
                 $ref: "#/components/schemas/Topic"
 
-  /admin/questions:
-    post:
-      operationId: createQuestion
+  /admin/topics/{topicId}:
+    put:
+      operationId: updateTopic
       tags: [admin]
-      summary: Create a new question
+      summary: Update a topic
+      parameters:
+        - name: topicId
+          in: path
+          required: true
+          schema:
+            type: integer
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/CreateQuestionRequest"
+              $ref: "#/components/schemas/TopicInput"
+      responses:
+        "200":
+          description: Topic updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Topic"
+    delete:
+      operationId: deleteTopic
+      tags: [admin]
+      summary: Delete a topic
+      parameters:
+        - name: topicId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Topic deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /admin/topics/reorder:
+    patch:
+      operationId: reorderTopics
+      tags: [admin]
+      summary: Reorder topics within a chapter
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TopicReorderInput"
+      responses:
+        "200":
+          description: Topics reordered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  # ── ADMIN: QUESTIONS ───────────────────────────────────────────────────────
+  /admin/questions:
+    get:
+      operationId: getAdminQuestions
+      tags: [admin]
+      summary: Get questions filtered by subject, chapter, or topic
+      parameters:
+        - name: subjectId
+          in: query
+          schema:
+            type: integer
+        - name: chapterId
+          in: query
+          schema:
+            type: integer
+        - name: topicId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of questions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Question"
+    post:
+      operationId: createQuestion
+      tags: [admin]
+      summary: Create a new MCQ question
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuestionInput"
       responses:
         "201":
           description: Question created
@@ -367,7 +767,43 @@ paths:
               schema:
                 $ref: "#/components/schemas/Question"
 
+  /admin/questions/import:
+    post:
+      operationId: importQuestions
+      tags: [admin]
+      summary: Bulk import questions from JSON
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuestionImportInput"
+      responses:
+        "200":
+          description: Questions imported
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportResult"
+
   /admin/questions/{questionId}:
+    get:
+      operationId: getAdminQuestion
+      tags: [admin]
+      summary: Get a single question by ID
+      parameters:
+        - name: questionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Question detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Question"
     put:
       operationId: updateQuestion
       tags: [admin]
@@ -383,7 +819,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/CreateQuestionRequest"
+              $ref: "#/components/schemas/QuestionInput"
       responses:
         "200":
           description: Question updated
@@ -409,18 +845,137 @@ paths:
               schema:
                 $ref: "#/components/schemas/MessageResponse"
 
-  /admin/stats:
+  # ── ADMIN: STUDENTS ────────────────────────────────────────────────────────
+  /admin/students:
     get:
-      operationId: getAdminStats
+      operationId: getStudents
       tags: [admin]
-      summary: Get admin statistics
+      summary: Get all students with their assigned subjects
       responses:
         "200":
-          description: Admin stats
+          description: List of students
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AdminStats"
+                type: array
+                items:
+                  $ref: "#/components/schemas/StudentDetail"
+    post:
+      operationId: createStudent
+      tags: [admin]
+      summary: Create a student account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StudentInput"
+      responses:
+        "201":
+          description: Student created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /admin/students/{userId}:
+    put:
+      operationId: updateStudent
+      tags: [admin]
+      summary: Update student details
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StudentInput"
+      responses:
+        "200":
+          description: Student updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /admin/students/{userId}/block:
+    patch:
+      operationId: toggleStudentBlock
+      tags: [admin]
+      summary: Block or unblock a student
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BlockInput"
+      responses:
+        "200":
+          description: Student block state updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /admin/students/{userId}/subjects:
+    post:
+      operationId: assignSubjectToStudent
+      tags: [admin]
+      summary: Assign a subject/paper to a student
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubjectAssignInput"
+      responses:
+        "200":
+          description: Subject assigned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /admin/students/{userId}/subjects/{subjectId}:
+    delete:
+      operationId: revokeSubjectFromStudent
+      tags: [admin]
+      summary: Revoke subject access from a student
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: subjectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Subject revoked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
 
 components:
   schemas:
@@ -451,7 +1006,7 @@ components:
       required:
         - message
 
-    SignUpRequest:
+    SignUpInput:
       type: object
       properties:
         name:
@@ -467,7 +1022,7 @@ components:
         - email
         - password
 
-    SignInRequest:
+    SignInInput:
       type: object
       properties:
         email:
@@ -479,7 +1034,7 @@ components:
         - email
         - password
 
-    ResetPasswordRequest:
+    ResetPasswordInput:
       type: object
       properties:
         email:
@@ -500,6 +1055,10 @@ components:
         role:
           type: string
           enum: [student, admin]
+        whatsappNumber:
+          type: ["string", "null"]
+        isBlocked:
+          type: boolean
         createdAt:
           type: string
           format: date-time
@@ -531,15 +1090,19 @@ components:
         code:
           type: string
         description:
-          type: string
+          type: ["string", "null"]
         icon:
-          type: string
+          type: ["string", "null"]
         color:
-          type: string
+          type: ["string", "null"]
+        isActive:
+          type: boolean
+        orderNumber:
+          type: integer
         subjectCount:
-          type: integer
+          type: ["integer", "null"]
         questionCount:
-          type: integer
+          type: ["integer", "null"]
         createdAt:
           type: string
           format: date-time
@@ -549,6 +1112,42 @@ components:
         - code
         - createdAt
 
+    CourseInput:
+      type: object
+      properties:
+        name:
+          type: string
+        code:
+          type: string
+        description:
+          type: string
+        icon:
+          type: string
+        color:
+          type: string
+      required:
+        - name
+        - code
+
+    ToggleActiveInput:
+      type: object
+      properties:
+        isActive:
+          type: boolean
+      required:
+        - isActive
+
+    ReorderInput:
+      type: object
+      properties:
+        targetId:
+          type: integer
+        direction:
+          type: string
+          enum: [up, down]
+      required:
+        - direction
+
     Subject:
       type: object
       properties:
@@ -556,16 +1155,20 @@ components:
           type: integer
         courseId:
           type: integer
+        levelId:
+          type: ["integer", "null"]
         name:
           type: string
         code:
           type: string
         description:
-          type: string
+          type: ["string", "null"]
+        isActive:
+          type: boolean
         chapterCount:
-          type: integer
+          type: ["integer", "null"]
         questionCount:
-          type: integer
+          type: ["integer", "null"]
         createdAt:
           type: string
           format: date-time
@@ -575,6 +1178,24 @@ components:
         - name
         - code
         - createdAt
+
+    SubjectInput:
+      type: object
+      properties:
+        courseId:
+          type: integer
+        levelId:
+          type: ["integer", "null"]
+        name:
+          type: string
+        code:
+          type: string
+        description:
+          type: string
+      required:
+        - courseId
+        - name
+        - code
 
     Chapter:
       type: object
@@ -587,10 +1208,12 @@ components:
           type: string
         orderNumber:
           type: integer
+        isActive:
+          type: boolean
         topicCount:
-          type: integer
+          type: ["integer", "null"]
         questionCount:
-          type: integer
+          type: ["integer", "null"]
         createdAt:
           type: string
           format: date-time
@@ -600,6 +1223,20 @@ components:
         - name
         - orderNumber
         - createdAt
+
+    ChapterInput:
+      type: object
+      properties:
+        subjectId:
+          type: integer
+        name:
+          type: string
+        orderNumber:
+          type: integer
+      required:
+        - subjectId
+        - name
+        - orderNumber
 
     Topic:
       type: object
@@ -613,7 +1250,7 @@ components:
         orderNumber:
           type: integer
         questionCount:
-          type: integer
+          type: ["integer", "null"]
         createdAt:
           type: string
           format: date-time
@@ -624,6 +1261,32 @@ components:
         - orderNumber
         - createdAt
 
+    TopicInput:
+      type: object
+      properties:
+        chapterId:
+          type: integer
+        name:
+          type: string
+        orderNumber:
+          type: integer
+      required:
+        - chapterId
+        - name
+        - orderNumber
+
+    TopicReorderInput:
+      type: object
+      properties:
+        topicId:
+          type: integer
+        direction:
+          type: string
+          enum: [up, down]
+      required:
+        - topicId
+        - direction
+
     Question:
       type: object
       properties:
@@ -632,6 +1295,58 @@ components:
         topicId:
           type: integer
         questionText:
+          type: ["string", "null"]
+        questionHtml:
+          type: ["string", "null"]
+        questionImageUrl:
+          type: ["string", "null"]
+        optionA:
+          type: string
+        optionB:
+          type: string
+        optionC:
+          type: string
+        optionD:
+          type: string
+        correctAnswers:
+          type: array
+          items:
+            type: string
+        explanation:
+          type: string
+        questionType:
+          type: string
+          enum: [single, multiple]
+        difficulty:
+          type: string
+          enum: [easy, medium, hard]
+        marks:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - topicId
+        - optionA
+        - optionB
+        - optionC
+        - optionD
+        - correctAnswers
+        - explanation
+        - questionType
+        - createdAt
+
+    QuestionInput:
+      type: object
+      properties:
+        topicId:
+          type: integer
+        questionText:
+          type: string
+        questionHtml:
+          type: string
+        questionImageUrl:
           type: string
         optionA:
           type: string
@@ -650,13 +1365,13 @@ components:
         questionType:
           type: string
           enum: [single, multiple]
-        createdAt:
+        difficulty:
           type: string
-          format: date-time
+          enum: [easy, medium, hard]
+        marks:
+          type: integer
       required:
-        - id
         - topicId
-        - questionText
         - optionA
         - optionB
         - optionC
@@ -664,7 +1379,93 @@ components:
         - correctAnswers
         - explanation
         - questionType
+
+    QuestionImportInput:
+      type: object
+      properties:
+        topicId:
+          type: integer
+        questions:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuestionInput"
+      required:
+        - topicId
+        - questions
+
+    ImportResult:
+      type: object
+      properties:
+        imported:
+          type: integer
+        failed:
+          type: integer
+        message:
+          type: string
+      required:
+        - imported
+        - failed
+        - message
+
+    StudentDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        whatsappNumber:
+          type: ["string", "null"]
+        isBlocked:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        assignedSubjects:
+          type: array
+          items:
+            $ref: "#/components/schemas/Subject"
+      required:
+        - id
+        - name
+        - email
+        - isBlocked
         - createdAt
+        - assignedSubjects
+
+    StudentInput:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+        whatsappNumber:
+          type: string
+      required:
+        - name
+        - email
+
+    BlockInput:
+      type: object
+      properties:
+        isBlocked:
+          type: boolean
+      required:
+        - isBlocked
+
+    SubjectAssignInput:
+      type: object
+      properties:
+        subjectId:
+          type: integer
+      required:
+        - subjectId
 
     UserProgress:
       type: object
@@ -676,7 +1477,7 @@ components:
         topicId:
           type: integer
         topicName:
-          type: string
+          type: ["string", "null"]
         totalQuestions:
           type: integer
         correctAnswers:
@@ -697,7 +1498,7 @@ components:
         - scorePercentage
         - completed
 
-    SaveProgressRequest:
+    SaveProgressInput:
       type: object
       properties:
         userId:
@@ -719,102 +1520,6 @@ components:
         - correctAnswers
         - scorePercentage
         - completed
-
-    CreateCourseRequest:
-      type: object
-      properties:
-        name:
-          type: string
-        code:
-          type: string
-        description:
-          type: string
-        icon:
-          type: string
-        color:
-          type: string
-      required:
-        - name
-        - code
-
-    CreateSubjectRequest:
-      type: object
-      properties:
-        courseId:
-          type: integer
-        name:
-          type: string
-        code:
-          type: string
-        description:
-          type: string
-      required:
-        - courseId
-        - name
-        - code
-
-    CreateChapterRequest:
-      type: object
-      properties:
-        subjectId:
-          type: integer
-        name:
-          type: string
-        orderNumber:
-          type: integer
-      required:
-        - subjectId
-        - name
-        - orderNumber
-
-    CreateTopicRequest:
-      type: object
-      properties:
-        chapterId:
-          type: integer
-        name:
-          type: string
-        orderNumber:
-          type: integer
-      required:
-        - chapterId
-        - name
-        - orderNumber
-
-    CreateQuestionRequest:
-      type: object
-      properties:
-        topicId:
-          type: integer
-        questionText:
-          type: string
-        optionA:
-          type: string
-        optionB:
-          type: string
-        optionC:
-          type: string
-        optionD:
-          type: string
-        correctAnswers:
-          type: array
-          items:
-            type: string
-        explanation:
-          type: string
-        questionType:
-          type: string
-          enum: [single, multiple]
-      required:
-        - topicId
-        - questionText
-        - optionA
-        - optionB
-        - optionC
-        - optionD
-        - correctAnswers
-        - explanation
-        - questionType
 
     AdminStats:
       type: object

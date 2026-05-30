@@ -10,10 +10,17 @@ export interface Course {
   id: number;
   name: string;
   code: string;
-  description?: string;
-  icon?: string;
-  color?: string;
-  subjectCount?: number;
-  questionCount?: number;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  icon?: string | null;
+  /** @nullable */
+  color?: string | null;
+  isActive?: boolean;
+  orderNumber?: number;
+  /** @nullable */
+  subjectCount?: number | null;
+  /** @nullable */
+  questionCount?: number | null;
   createdAt: Date;
 }

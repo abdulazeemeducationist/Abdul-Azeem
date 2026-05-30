@@ -11,7 +11,10 @@ export interface Chapter {
   subjectId: number;
   name: string;
   orderNumber: number;
-  topicCount?: number;
-  questionCount?: number;
+  isActive?: boolean;
+  /** @nullable */
+  topicCount?: number | null;
+  /** @nullable */
+  questionCount?: number | null;
   createdAt: Date;
 }

@@ -18,19 +18,19 @@ export interface MessageResponse {
   message: string;
 }
 
-export interface SignUpRequest {
+export interface SignUpInput {
   name: string;
   email: string;
   /** @minLength 6 */
   password: string;
 }
 
-export interface SignInRequest {
+export interface SignInInput {
   email: string;
   password: string;
 }
 
-export interface ResetPasswordRequest {
+export interface ResetPasswordInput {
   email: string;
 }
 
@@ -46,6 +46,9 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
+  /** @nullable */
+  whatsappNumber?: string | null;
+  isBlocked?: boolean;
   createdAt: string;
 }
 
@@ -58,23 +61,70 @@ export interface Course {
   id: number;
   name: string;
   code: string;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  icon?: string | null;
+  /** @nullable */
+  color?: string | null;
+  isActive?: boolean;
+  orderNumber?: number;
+  /** @nullable */
+  subjectCount?: number | null;
+  /** @nullable */
+  questionCount?: number | null;
+  createdAt: string;
+}
+
+export interface CourseInput {
+  name: string;
+  code: string;
   description?: string;
   icon?: string;
   color?: string;
-  subjectCount?: number;
-  questionCount?: number;
-  createdAt: string;
+}
+
+export interface ToggleActiveInput {
+  isActive: boolean;
+}
+
+export type ReorderInputDirection =
+  (typeof ReorderInputDirection)[keyof typeof ReorderInputDirection];
+
+export const ReorderInputDirection = {
+  up: "up",
+  down: "down",
+} as const;
+
+export interface ReorderInput {
+  targetId?: number;
+  direction: ReorderInputDirection;
 }
 
 export interface Subject {
   id: number;
   courseId: number;
+  /** @nullable */
+  levelId?: number | null;
+  name: string;
+  code: string;
+  /** @nullable */
+  description?: string | null;
+  isActive?: boolean;
+  /** @nullable */
+  chapterCount?: number | null;
+  /** @nullable */
+  questionCount?: number | null;
+  createdAt: string;
+}
+
+export interface SubjectInput {
+  courseId: number;
+  /** @nullable */
+  levelId?: number | null;
   name: string;
   code: string;
   description?: string;
-  chapterCount?: number;
-  questionCount?: number;
-  createdAt: string;
 }
 
 export interface Chapter {
@@ -82,9 +132,18 @@ export interface Chapter {
   subjectId: number;
   name: string;
   orderNumber: number;
-  topicCount?: number;
-  questionCount?: number;
+  isActive?: boolean;
+  /** @nullable */
+  topicCount?: number | null;
+  /** @nullable */
+  questionCount?: number | null;
   createdAt: string;
+}
+
+export interface ChapterInput {
+  subjectId: number;
+  name: string;
+  orderNumber: number;
 }
 
 export interface Topic {
@@ -92,8 +151,28 @@ export interface Topic {
   chapterId: number;
   name: string;
   orderNumber: number;
-  questionCount?: number;
+  /** @nullable */
+  questionCount?: number | null;
   createdAt: string;
+}
+
+export interface TopicInput {
+  chapterId: number;
+  name: string;
+  orderNumber: number;
+}
+
+export type TopicReorderInputDirection =
+  (typeof TopicReorderInputDirection)[keyof typeof TopicReorderInputDirection];
+
+export const TopicReorderInputDirection = {
+  up: "up",
+  down: "down",
+} as const;
+
+export interface TopicReorderInput {
+  topicId: number;
+  direction: TopicReorderInputDirection;
 }
 
 export type QuestionQuestionType =
@@ -104,10 +183,24 @@ export const QuestionQuestionType = {
   multiple: "multiple",
 } as const;
 
+export type QuestionDifficulty =
+  (typeof QuestionDifficulty)[keyof typeof QuestionDifficulty];
+
+export const QuestionDifficulty = {
+  easy: "easy",
+  medium: "medium",
+  hard: "hard",
+} as const;
+
 export interface Question {
   id: number;
   topicId: number;
-  questionText: string;
+  /** @nullable */
+  questionText?: string | null;
+  /** @nullable */
+  questionHtml?: string | null;
+  /** @nullable */
+  questionImageUrl?: string | null;
   optionA: string;
   optionB: string;
   optionC: string;
@@ -115,14 +208,87 @@ export interface Question {
   correctAnswers: string[];
   explanation: string;
   questionType: QuestionQuestionType;
+  difficulty?: QuestionDifficulty;
+  marks?: number;
   createdAt: string;
+}
+
+export type QuestionInputQuestionType =
+  (typeof QuestionInputQuestionType)[keyof typeof QuestionInputQuestionType];
+
+export const QuestionInputQuestionType = {
+  single: "single",
+  multiple: "multiple",
+} as const;
+
+export type QuestionInputDifficulty =
+  (typeof QuestionInputDifficulty)[keyof typeof QuestionInputDifficulty];
+
+export const QuestionInputDifficulty = {
+  easy: "easy",
+  medium: "medium",
+  hard: "hard",
+} as const;
+
+export interface QuestionInput {
+  topicId: number;
+  questionText?: string;
+  questionHtml?: string;
+  questionImageUrl?: string;
+  optionA: string;
+  optionB: string;
+  optionC: string;
+  optionD: string;
+  correctAnswers: string[];
+  explanation: string;
+  questionType: QuestionInputQuestionType;
+  difficulty?: QuestionInputDifficulty;
+  marks?: number;
+}
+
+export interface QuestionImportInput {
+  topicId: number;
+  questions: QuestionInput[];
+}
+
+export interface ImportResult {
+  imported: number;
+  failed: number;
+  message: string;
+}
+
+export interface StudentDetail {
+  id: number;
+  name: string;
+  email: string;
+  /** @nullable */
+  whatsappNumber?: string | null;
+  isBlocked: boolean;
+  createdAt: string;
+  assignedSubjects: Subject[];
+}
+
+export interface StudentInput {
+  name: string;
+  email: string;
+  password?: string;
+  whatsappNumber?: string;
+}
+
+export interface BlockInput {
+  isBlocked: boolean;
+}
+
+export interface SubjectAssignInput {
+  subjectId: number;
 }
 
 export interface UserProgress {
   id: number;
   userId: number;
   topicId: number;
-  topicName?: string;
+  /** @nullable */
+  topicName?: string | null;
   totalQuestions: number;
   correctAnswers: number;
   scorePercentage: number;
@@ -130,60 +296,13 @@ export interface UserProgress {
   lastAttemptAt?: string;
 }
 
-export interface SaveProgressRequest {
+export interface SaveProgressInput {
   userId: number;
   topicId: number;
   totalQuestions: number;
   correctAnswers: number;
   scorePercentage: number;
   completed: boolean;
-}
-
-export interface CreateCourseRequest {
-  name: string;
-  code: string;
-  description?: string;
-  icon?: string;
-  color?: string;
-}
-
-export interface CreateSubjectRequest {
-  courseId: number;
-  name: string;
-  code: string;
-  description?: string;
-}
-
-export interface CreateChapterRequest {
-  subjectId: number;
-  name: string;
-  orderNumber: number;
-}
-
-export interface CreateTopicRequest {
-  chapterId: number;
-  name: string;
-  orderNumber: number;
-}
-
-export type CreateQuestionRequestQuestionType =
-  (typeof CreateQuestionRequestQuestionType)[keyof typeof CreateQuestionRequestQuestionType];
-
-export const CreateQuestionRequestQuestionType = {
-  single: "single",
-  multiple: "multiple",
-} as const;
-
-export interface CreateQuestionRequest {
-  topicId: number;
-  questionText: string;
-  optionA: string;
-  optionB: string;
-  optionC: string;
-  optionD: string;
-  correctAnswers: string[];
-  explanation: string;
-  questionType: CreateQuestionRequestQuestionType;
 }
 
 export interface AdminStats {
@@ -199,4 +318,10 @@ export interface AdminStats {
 
 export type GetUserProgressParams = {
   userId: number;
+};
+
+export type GetAdminQuestionsParams = {
+  subjectId?: number;
+  chapterId?: number;
+  topicId?: number;
 };

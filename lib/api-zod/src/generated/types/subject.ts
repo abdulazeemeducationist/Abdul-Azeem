@@ -9,10 +9,16 @@
 export interface Subject {
   id: number;
   courseId: number;
+  /** @nullable */
+  levelId?: number | null;
   name: string;
   code: string;
-  description?: string;
-  chapterCount?: number;
-  questionCount?: number;
+  /** @nullable */
+  description?: string | null;
+  isActive?: boolean;
+  /** @nullable */
+  chapterCount?: number | null;
+  /** @nullable */
+  questionCount?: number | null;
   createdAt: Date;
 }
