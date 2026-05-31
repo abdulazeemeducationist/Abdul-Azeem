@@ -44,19 +44,17 @@ export function Sidebar() {
         {navItems.map(({ href, label, icon: Icon }) => {
           const active = location === href || location.startsWith(href + "/");
           return (
-            <Link key={href} href={href}>
-              <a
-                data-testid={`nav-${label.toLowerCase()}`}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors group ${
-                  active
-                    ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                }`}
-              >
-                <Icon className="w-4 h-4 shrink-0" />
-                <span className="flex-1">{label}</span>
-                {active && <ChevronRight className="w-3 h-3 opacity-50" />}
-              </a>
+            <Link key={href} href={href}
+              data-testid={`nav-${label.toLowerCase()}`}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors group ${
+                active
+                  ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              }`}
+            >
+              <Icon className="w-4 h-4 shrink-0" />
+              <span className="flex-1">{label}</span>
+              {active && <ChevronRight className="w-3 h-3 opacity-50" />}
             </Link>
           );
         })}

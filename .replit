@@ -1,4 +1,4 @@
-modules = ["nodejs-24", "postgresql-16"]
+modules = ["nodejs-24", "postgresql-16", "python-3.11"]
 
   [[artifacts]]
   id = "artifacts/api-server"
@@ -83,16 +83,4 @@ expertMode = true
 
   [nix]
   channel = "stable-25_05"
-
-[[ports]]
-localPort = 5000
-externalPort = 80
-
-[[ports]]
-localPort = 8080
-externalPort = 8080
-
-[[ports]]
-localPort = 8099
-externalPort = 8099
   

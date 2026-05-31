@@ -105,10 +105,8 @@ export default function CoursesPage() {
                 <button onClick={() => setDeleteId(c.id)} className="p-1.5 rounded hover:bg-muted">
                   <Trash2 className="w-3.5 h-3.5 text-destructive" />
                 </button>
-                <Link href={`/courses/${c.id}/subjects`}>
-                  <a className="p-1.5 rounded hover:bg-muted">
-                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                  </a>
+                <Link href={`/courses/${c.id}/subjects`} className="p-1.5 rounded hover:bg-muted inline-flex">
+                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
                 </Link>
               </div>
             </div>

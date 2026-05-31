@@ -37,7 +37,7 @@ export default function QuestionsPage() {
   return (
     <div className="p-8">
       <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
-        <Link href="/courses"><a className="hover:text-foreground">Programs</a></Link>
+        <Link href="/courses" className="hover:text-foreground">Programs</Link>
         <ChevronRight className="w-3.5 h-3.5" />
         <span>Chapters</span>
         <ChevronRight className="w-3.5 h-3.5" />
@@ -98,9 +98,7 @@ export default function QuestionsPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
-                  <Link href={`/questions/${q.id}/edit?topicId=${tId}`}>
-                    <a className="p-1.5 rounded hover:bg-muted"><Pencil className="w-3.5 h-3.5 text-muted-foreground" /></a>
-                  </Link>
+                  <Link href={`/questions/${q.id}/edit?topicId=${tId}`} className="p-1.5 rounded hover:bg-muted inline-flex"><Pencil className="w-3.5 h-3.5 text-muted-foreground" /></Link>
                   <button onClick={() => setDeleteId(q.id)} className="p-1.5 rounded hover:bg-muted">
                     <Trash2 className="w-3.5 h-3.5 text-destructive" />
                   </button>

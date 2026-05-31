@@ -58,14 +58,14 @@ export default function SubjectsPage() {
   return (
     <div className="p-8">
       <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
-        <Link href="/courses"><a className="hover:text-foreground transition-colors">Programs</a></Link>
+        <Link href="/courses" className="hover:text-foreground transition-colors">Programs</Link>
         <ChevronRight className="w-3.5 h-3.5" />
         <span className="text-foreground font-medium">{course?.name ?? "..."}</span>
       </div>
       <div className="flex items-center justify-between mb-8">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <Link href="/courses"><a className="p-1 rounded hover:bg-muted"><ChevronLeft className="w-4 h-4" /></a></Link>
+            <Link href="/courses" className="p-1 rounded hover:bg-muted inline-flex"><ChevronLeft className="w-4 h-4" /></Link>
             <h1 className="text-2xl font-bold">Courses</h1>
           </div>
           <p className="text-sm text-muted-foreground">Courses in {course?.name}</p>
@@ -98,9 +98,7 @@ export default function SubjectsPage() {
                 </button>
                 <button onClick={() => openEdit(s)} className="p-1.5 rounded hover:bg-muted"><Pencil className="w-3.5 h-3.5 text-muted-foreground" /></button>
                 <button onClick={() => setDeleteId(s.id)} className="p-1.5 rounded hover:bg-muted"><Trash2 className="w-3.5 h-3.5 text-destructive" /></button>
-                <Link href={`/subjects/${s.id}/chapters`}>
-                  <a className="p-1.5 rounded hover:bg-muted"><ChevronRight className="w-4 h-4 text-muted-foreground" /></a>
-                </Link>
+                <Link href={`/subjects/${s.id}/chapters`} className="p-1.5 rounded hover:bg-muted inline-flex"><ChevronRight className="w-4 h-4 text-muted-foreground" /></Link>
               </div>
             </div>
           ))}

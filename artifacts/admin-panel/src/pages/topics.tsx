@@ -63,11 +63,11 @@ export default function TopicsPage() {
   return (
     <div className="p-8">
       <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
-        <Link href="/courses"><a className="hover:text-foreground">Programs</a></Link>
+        <Link href="/courses" className="hover:text-foreground">Programs</Link>
         <ChevronRight className="w-3.5 h-3.5" />
         <span>Courses</span>
         <ChevronRight className="w-3.5 h-3.5" />
-        <Link href={`/subjects/${cId}/chapters`}><a className="hover:text-foreground">Chapters</a></Link>
+        <Link href={`/subjects/${cId}/chapters`} className="hover:text-foreground">Chapters</Link>
         <ChevronRight className="w-3.5 h-3.5" />
         <span className="text-foreground font-medium">Topics</span>
       </div>
@@ -103,9 +103,7 @@ export default function TopicsPage() {
                 <button onClick={() => reorder.mutate({ data: { topicId: t.id, direction: "down" } }, { onSuccess: inv })} disabled={idx === (topics.length - 1)} className="p-1.5 rounded hover:bg-muted disabled:opacity-30"><ChevronDown className="w-3.5 h-3.5" /></button>
                 <button onClick={() => openEdit(t)} className="p-1.5 rounded hover:bg-muted"><Pencil className="w-3.5 h-3.5 text-muted-foreground" /></button>
                 <button onClick={() => setDeleteId(t.id)} className="p-1.5 rounded hover:bg-muted"><Trash2 className="w-3.5 h-3.5 text-destructive" /></button>
-                <Link href={`/topics/${t.id}/questions`}>
-                  <a className="p-1.5 rounded hover:bg-muted"><ChevronRight className="w-4 h-4 text-muted-foreground" /></a>
-                </Link>
+                <Link href={`/topics/${t.id}/questions`} className="p-1.5 rounded hover:bg-muted inline-flex"><ChevronRight className="w-4 h-4 text-muted-foreground" /></Link>
               </div>
             </div>
           ))}

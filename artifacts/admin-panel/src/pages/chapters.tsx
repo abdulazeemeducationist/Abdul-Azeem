@@ -58,16 +58,16 @@ export default function ChaptersPage() {
   return (
     <div className="p-8">
       <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
-        <Link href="/courses"><a className="hover:text-foreground">Programs</a></Link>
+        <Link href="/courses" className="hover:text-foreground">Programs</Link>
         <ChevronRight className="w-3.5 h-3.5" />
-        <Link href={`/courses/${subject?.courseId}/subjects`}><a className="hover:text-foreground">Courses</a></Link>
+        <Link href={`/courses/${subject?.courseId}/subjects`} className="hover:text-foreground">Courses</Link>
         <ChevronRight className="w-3.5 h-3.5" />
         <span className="text-foreground font-medium">{subject?.name ?? "..."}</span>
       </div>
       <div className="flex items-center justify-between mb-8">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <Link href={`/courses/${subject?.courseId}/subjects`}><a className="p-1 rounded hover:bg-muted"><ChevronLeft className="w-4 h-4" /></a></Link>
+            <Link href={`/courses/${subject?.courseId}/subjects`} className="p-1 rounded hover:bg-muted inline-flex"><ChevronLeft className="w-4 h-4" /></Link>
             <h1 className="text-2xl font-bold">Chapters</h1>
           </div>
           <p className="text-sm text-muted-foreground">Chapters in {subject?.name}</p>
@@ -100,9 +100,7 @@ export default function ChaptersPage() {
                 </button>
                 <button onClick={() => openEdit(c)} className="p-1.5 rounded hover:bg-muted"><Pencil className="w-3.5 h-3.5 text-muted-foreground" /></button>
                 <button onClick={() => setDeleteId(c.id)} className="p-1.5 rounded hover:bg-muted"><Trash2 className="w-3.5 h-3.5 text-destructive" /></button>
-                <Link href={`/chapters/${c.id}/topics`}>
-                  <a className="p-1.5 rounded hover:bg-muted"><ChevronRight className="w-4 h-4 text-muted-foreground" /></a>
-                </Link>
+                <Link href={`/chapters/${c.id}/topics`} className="p-1.5 rounded hover:bg-muted inline-flex"><ChevronRight className="w-4 h-4 text-muted-foreground" /></Link>
               </div>
             </div>
           ))}
