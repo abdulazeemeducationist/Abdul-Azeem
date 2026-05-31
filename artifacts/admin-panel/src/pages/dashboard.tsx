@@ -29,37 +29,33 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {/* Staff card */}
-        <Link href="/staff">
-          <a className="bg-card border border-card-border rounded-xl p-5 hover:border-primary/40 hover:shadow-sm transition-all cursor-pointer block">
+        <Link href="/staff" className="bg-card border border-card-border rounded-xl p-5 hover:border-primary/40 hover:shadow-sm transition-all cursor-pointer block">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Staff</span>
+            <UserCog className="w-4 h-4 text-amber-500" />
+          </div>
+          {isLoading ? (
+            <Skeleton className="h-8 w-16" />
+          ) : (
+            <p className="text-3xl font-bold text-foreground">{(extStats?.totalStaff ?? 0).toLocaleString()}</p>
+          )}
+        </Link>
+
+        {statCards.map(({ key, label, icon: Icon, color, isPercent, href }) => (
+          <Link key={key} href={href} className="bg-card border border-card-border rounded-xl p-5 hover:border-primary/40 hover:shadow-sm transition-all cursor-pointer block">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Staff</span>
-              <UserCog className="w-4 h-4 text-amber-500" />
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{label}</span>
+              <Icon className={`w-4 h-4 ${color}`} />
             </div>
             {isLoading ? (
               <Skeleton className="h-8 w-16" />
             ) : (
-              <p className="text-3xl font-bold text-foreground">{(extStats?.totalStaff ?? 0).toLocaleString()}</p>
+              <p className="text-3xl font-bold text-foreground">
+                {isPercent
+                  ? `${(stats?.averageScore ?? 0).toFixed(1)}%`
+                  : (stats?.[key] ?? 0).toLocaleString()}
+              </p>
             )}
-          </a>
-        </Link>
-
-        {statCards.map(({ key, label, icon: Icon, color, isPercent, href }) => (
-          <Link key={key} href={href}>
-            <a className="bg-card border border-card-border rounded-xl p-5 hover:border-primary/40 hover:shadow-sm transition-all cursor-pointer block">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{label}</span>
-                <Icon className={`w-4 h-4 ${color}`} />
-              </div>
-              {isLoading ? (
-                <Skeleton className="h-8 w-16" />
-              ) : (
-                <p className="text-3xl font-bold text-foreground">
-                  {isPercent
-                    ? `${(stats?.averageScore ?? 0).toFixed(1)}%`
-                    : (stats?.[key] ?? 0).toLocaleString()}
-                </p>
-              )}
-            </a>
           </Link>
         ))}
       </div>
