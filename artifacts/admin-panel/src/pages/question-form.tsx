@@ -25,6 +25,7 @@ interface QForm {
   explanationHtml: string;
   explanationText: string;
   difficulty: "easy" | "medium" | "hard";
+  marks: number;
   tags: string[];
 }
 
@@ -37,6 +38,7 @@ const EMPTY_FORM: QForm = {
   explanationHtml: "",
   explanationText: "",
   difficulty: "medium",
+  marks: 1,
   tags: [],
 };
 
@@ -139,6 +141,7 @@ export default function QuestionFormPage() {
         explanationHtml: existing.explanation ?? "",
         explanationText: existing.explanation ?? "",
         difficulty: (existing.difficulty as "easy" | "medium" | "hard") ?? "medium",
+        marks: existing.marks ?? 1,
         tags: [],
       });
     }
@@ -230,7 +233,7 @@ export default function QuestionFormPage() {
       explanation: form.explanationHtml || form.explanationText,
       questionType: form.multipleCorrect ? "multiple" as const : "single" as const,
       difficulty: form.difficulty,
-      marks: 1,
+      marks: form.marks,
     };
 
     const go = () => {
@@ -458,19 +461,35 @@ export default function QuestionFormPage() {
         {/* Metadata */}
         <SectionCard title="Metadata">
           <div className="space-y-4">
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-slate-700">Difficulty</label>
-              <div className="relative">
-                <select
-                  value={form.difficulty}
-                  onChange={e => setForm(f => ({ ...f, difficulty: e.target.value as "easy" | "medium" | "hard" }))}
-                  className="w-full appearance-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 pr-9 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-colors cursor-pointer"
-                >
-                  <option value="easy">Easy</option>
-                  <option value="medium">Medium</option>
-                  <option value="hard">Hard</option>
-                </select>
-                <ChevronRight className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rotate-90 w-4 h-4 text-slate-400" />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-slate-700">Marks</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={form.marks}
+                  onChange={e => {
+                    const v = parseInt(e.target.value);
+                    setForm(f => ({ ...f, marks: isNaN(v) || v < 1 ? 1 : v }));
+                  }}
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-colors"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-slate-700">Difficulty</label>
+                <div className="relative">
+                  <select
+                    value={form.difficulty}
+                    onChange={e => setForm(f => ({ ...f, difficulty: e.target.value as "easy" | "medium" | "hard" }))}
+                    className="w-full appearance-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 pr-9 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-colors cursor-pointer"
+                  >
+                    <option value="easy">Easy</option>
+                    <option value="medium">Medium</option>
+                    <option value="hard">Hard</option>
+                  </select>
+                  <ChevronRight className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rotate-90 w-4 h-4 text-slate-400" />
+                </div>
               </div>
             </div>
 
