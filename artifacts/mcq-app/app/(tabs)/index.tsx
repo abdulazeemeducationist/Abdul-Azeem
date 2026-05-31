@@ -78,7 +78,7 @@ function ProgramCard({ course }: { course: Course }) {
           <Text style={styles.footerStatsText}>{course.subjectCount} Courses</Text>
           <Text style={styles.footerDot}>·</Text>
           <Ionicons name="help-circle-outline" size={13} color={Colors.light.textMuted} />
-          <Text style={styles.footerStatsText}>{course.questionCount} MCQs</Text>
+          <Text style={styles.footerStatsText}>{course.questionCount} OTQs</Text>
         </View>
         <View style={styles.goRow}>
           <Text style={[styles.goText, { color: meta.bg }]}>

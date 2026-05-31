@@ -42,7 +42,7 @@ function TopicCard({ topic }: { topic: Topic }) {
           <View style={styles.statChip}>
             <Ionicons name="help-circle-outline" size={12} color={hasQuestions ? Colors.light.primary : Colors.light.textMuted} />
             <Text style={[styles.statChipText, hasQuestions && { color: Colors.light.primary }]}>
-              {hasQuestions ? `${topic.questionCount} MCQs` : "No questions yet"}
+              {hasQuestions ? `${topic.questionCount} OTQs` : "No questions yet"}
             </Text>
           </View>
         </View>

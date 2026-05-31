@@ -23,28 +23,46 @@ import QuestionBody, { isImageQuestion } from "@/components/QuestionBody";
 const OPTIONS = ["A", "B", "C", "D"] as const;
 type Option = typeof OPTIONS[number];
 
+const CURRENCY_SYMBOLS = ['$', '£', '€', '¥', '₹', '₦', '₱', '₲', '₴', '₵', '₸', '₼', '₾', '¢', '฿'];
+function isCurrencyUnit(unit: string): boolean {
+  return CURRENCY_SYMBOLS.some(sym => unit.startsWith(sym));
+}
+
 function OptionButton({
-  option, text, selected, submitted, isCorrect, onPress,
+  option, text, selected, submitted, isCorrect, onPress, questionType,
 }: {
   option: Option; text: string; selected: boolean;
   submitted: boolean; isCorrect: boolean; onPress: () => void;
+  questionType?: string;
 }) {
+  const isMultiple = questionType === "multiple";
   let bg = Colors.light.card;
   let borderColor = Colors.light.border;
   let textColor = Colors.light.text;
-  let iconName: keyof typeof Ionicons.glyphMap = "radio-button-off-outline";
+  let iconName: keyof typeof Ionicons.glyphMap;
+  let iconColor: string;
 
   if (submitted) {
     if (isCorrect) {
       bg = Colors.light.success + "14"; borderColor = Colors.light.success; textColor = Colors.light.success;
-      iconName = selected ? "checkmark-circle" : "checkmark-circle-outline";
-    } else if (selected && !isCorrect) {
+      iconName = "checkmark-circle";
+      iconColor = Colors.light.success;
+    } else if (selected) {
       bg = Colors.light.error + "14"; borderColor = Colors.light.error; textColor = Colors.light.error;
       iconName = "close-circle";
-    } else { textColor = Colors.light.textMuted; }
+      iconColor = Colors.light.error;
+    } else {
+      textColor = Colors.light.textMuted;
+      iconName = isMultiple ? "square-outline" : "radio-button-off-outline";
+      iconColor = Colors.light.border;
+    }
   } else if (selected) {
     bg = Colors.light.primary + "12"; borderColor = Colors.light.primary; textColor = Colors.light.primary;
-    iconName = "radio-button-on";
+    iconName = isMultiple ? "checkbox" : "radio-button-on";
+    iconColor = Colors.light.primary;
+  } else {
+    iconName = isMultiple ? "square-outline" : "radio-button-off-outline";
+    iconColor = Colors.light.border;
   }
 
   return (
@@ -57,9 +75,7 @@ function OptionButton({
         <Text style={[styles.optionLabelText, { color: submitted && isCorrect ? "#FFF" : selected && !submitted ? "#FFF" : Colors.light.textMuted }]}>{option}</Text>
       </View>
       <Text style={[styles.optionText, { color: textColor }]} numberOfLines={4}>{text}</Text>
-      {submitted && (isCorrect || selected) && (
-        <Ionicons name={iconName} size={20} color={isCorrect ? Colors.light.success : Colors.light.error} style={styles.optionIcon} />
-      )}
+      <Ionicons name={iconName} size={20} color={iconColor} style={styles.optionIcon} />
     </Pressable>
   );
 }
@@ -387,6 +403,7 @@ export default function PracticeScreen() {
                 selected={selectedAnswers.includes(option)} submitted={submitted}
                 isCorrect={(currentQuestion?.correctAnswers ?? []).includes(option)}
                 onPress={() => toggleOption(option)}
+                questionType={qType}
               />
             ))}
           </View>
@@ -396,6 +413,11 @@ export default function PracticeScreen() {
         {qType === "fill_blank" && (
           <View style={styles.fillBlankContainer}>
             <View style={styles.fillBlankRow}>
+              {currentQuestion?.numericUnit && isCurrencyUnit(currentQuestion.numericUnit) ? (
+                <View style={styles.fillBlankUnit}>
+                  <Text style={styles.fillBlankUnitText}>{currentQuestion.numericUnit}</Text>
+                </View>
+              ) : null}
               <TextInput
                 style={[styles.fillBlankInput, submitted && { borderColor: isCurrentCorrect() ? Colors.light.success : Colors.light.error }]}
                 value={numericInput}
@@ -405,7 +427,7 @@ export default function PracticeScreen() {
                 placeholderTextColor={Colors.light.textMuted}
                 editable={!submitted}
               />
-              {currentQuestion?.numericUnit ? (
+              {currentQuestion?.numericUnit && !isCurrencyUnit(currentQuestion.numericUnit) ? (
                 <View style={styles.fillBlankUnit}>
                   <Text style={styles.fillBlankUnitText}>{currentQuestion.numericUnit}</Text>
                 </View>

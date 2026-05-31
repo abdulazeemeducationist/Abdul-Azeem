@@ -137,7 +137,7 @@ export default function CustomTestBuilderScreen() {
                     <View style={styles.chapterInfo}>
                       <Text style={[styles.chapterName, noQuestions && styles.textMuted]} numberOfLines={2}>{ch.name}</Text>
                       <Text style={[styles.qCount, noQuestions && styles.textMuted]}>
-                        {noQuestions ? "No questions" : `${ch.questionCount} MCQs`}
+                        {noQuestions ? "No questions" : `${ch.questionCount} OTQs`}
                       </Text>
                     </View>
                     {selected && <Ionicons name="checkmark-circle" size={20} color={Colors.light.primary} />}

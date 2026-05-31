@@ -194,7 +194,7 @@ function TopicPracticeCard({ topic }: { topic: Topic }) {
           <View style={[styles.statChip, hasQuestions && { backgroundColor: Colors.light.primary + "14" }]}>
             <Ionicons name="help-circle-outline" size={12} color={hasQuestions ? Colors.light.primary : Colors.light.textMuted} />
             <Text style={[styles.statChipText, hasQuestions && { color: Colors.light.primary }]}>
-              {hasQuestions ? `${topic.questionCount} MCQs` : "No questions yet"}
+              {hasQuestions ? `${topic.questionCount} OTQs` : "No questions yet"}
             </Text>
           </View>
         </View>
@@ -210,7 +210,7 @@ export default function ContentScreen() {
   const isWeb = Platform.OS === "web";
   const topPad = isWeb ? Math.max(insets.top, 67) : insets.top;
 
-  const [activeTab, setActiveTab] = useState<ContentTab>("videos");
+  const [activeTab, setActiveTab] = useState<ContentTab>("practice");
   const [playingVideo, setPlayingVideo] = useState<ChapterVideo | null>(null);
 
   const { data: videos, isLoading: videosLoading } = useQuery({
@@ -231,11 +231,12 @@ export default function ContentScreen() {
     enabled: !!chapterId,
   });
 
-  const tabs: { key: ContentTab; label: string; icon: string; count?: number }[] = [
+  const allTabs: { key: ContentTab; label: string; icon: string; count?: number }[] = [
     { key: "videos",   label: "Videos",   icon: "play-circle-outline",   count: videos?.length },
     { key: "notes",    label: "Notes",    icon: "document-text-outline",  count: notes?.length },
     { key: "practice", label: "Practice", icon: "help-circle-outline",    count: topics?.length },
   ];
+  const tabs = allTabs.filter(t => t.key === "practice");
 
   const renderContent = () => {
     if (activeTab === "videos") {
@@ -267,7 +268,7 @@ export default function ContentScreen() {
       if (!topics?.length) return (
         <View style={styles.emptyBox}>
           <Ionicons name="help-circle-outline" size={52} color={Colors.light.textMuted} />
-          <Text style={styles.emptyTitle}>No MCQs yet</Text>
+          <Text style={styles.emptyTitle}>No OTQs yet</Text>
           <Text style={styles.emptySubtitle}>Practice questions for this chapter will appear here</Text>
         </View>
       );
@@ -292,28 +293,30 @@ export default function ContentScreen() {
         </View>
       </View>
 
-      <View style={styles.tabBar}>
-        {tabs.map(tab => (
-          <Pressable
-            key={tab.key}
-            style={[styles.tabBtn, activeTab === tab.key && styles.tabBtnActive]}
-            onPress={() => setActiveTab(tab.key)}
-          >
-            <Ionicons
-              name={tab.icon as any}
-              size={16}
-              color={activeTab === tab.key ? Colors.light.primary : Colors.light.textMuted}
-            />
-            <Text style={[styles.tabLabel, activeTab === tab.key && styles.tabLabelActive]}>{tab.label}</Text>
-            {tab.count !== undefined && tab.count > 0 && (
-              <View style={[styles.tabBadge, activeTab === tab.key && styles.tabBadgeActive]}>
-                <Text style={[styles.tabBadgeText, activeTab === tab.key && styles.tabBadgeTextActive]}>{tab.count}</Text>
-              </View>
-            )}
-            {activeTab === tab.key && <View style={styles.tabIndicator} />}
-          </Pressable>
-        ))}
-      </View>
+      {tabs.length > 1 && (
+        <View style={styles.tabBar}>
+          {tabs.map(tab => (
+            <Pressable
+              key={tab.key}
+              style={[styles.tabBtn, activeTab === tab.key && styles.tabBtnActive]}
+              onPress={() => setActiveTab(tab.key)}
+            >
+              <Ionicons
+                name={tab.icon as any}
+                size={16}
+                color={activeTab === tab.key ? Colors.light.primary : Colors.light.textMuted}
+              />
+              <Text style={[styles.tabLabel, activeTab === tab.key && styles.tabLabelActive]}>{tab.label}</Text>
+              {tab.count !== undefined && tab.count > 0 && (
+                <View style={[styles.tabBadge, activeTab === tab.key && styles.tabBadgeActive]}>
+                  <Text style={[styles.tabBadgeText, activeTab === tab.key && styles.tabBadgeTextActive]}>{tab.count}</Text>
+                </View>
+              )}
+              {activeTab === tab.key && <View style={styles.tabIndicator} />}
+            </Pressable>
+          ))}
+        </View>
+      )}
 
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: isWeb ? 34 : 30 }]}

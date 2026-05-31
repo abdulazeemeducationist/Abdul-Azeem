@@ -52,7 +52,7 @@ function CourseCard({ subject, onLockedPress }: { subject: Subject; onLockedPres
               </View>
               <View style={styles.statChip}>
                 <Ionicons name="help-circle-outline" size={12} color={Colors.light.textMuted} />
-                <Text style={styles.statChipText}>{subject.questionCount} MCQs</Text>
+                <Text style={styles.statChipText}>{subject.questionCount} OTQs</Text>
               </View>
             </>
           ) : (

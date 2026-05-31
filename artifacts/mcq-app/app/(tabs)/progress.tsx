@@ -107,7 +107,7 @@ export default function ProgressScreen() {
                 </View>
                 <View style={styles.summaryCard}>
                   <Text style={styles.summaryValue}>{progress?.reduce((a, p) => a + p.totalQuestions, 0) ?? 0}</Text>
-                  <Text style={styles.summaryLabel}>MCQs Done</Text>
+                  <Text style={styles.summaryLabel}>OTQs Done</Text>
                 </View>
               </View>
               {total > 0 && (
