@@ -511,15 +511,24 @@ export const api = {
     questionText?: string;
     questionHtml?: string;
     questionImageUrl?: string;
-    optionA: string;
-    optionB: string;
-    optionC: string;
-    optionD: string;
-    correctAnswers: string[];
+    optionA?: string;
+    optionB?: string;
+    optionC?: string;
+    optionD?: string;
+    correctAnswers?: string[];
     explanation: string;
-    questionType: "single" | "multiple";
+    questionType: "single" | "multiple" | "fill_blank" | "matching" | "dropdown";
     difficulty: string;
     marks: number;
+    numericAnswer?: number;
+    numericUnit?: string;
+    tolerance?: number;
+    allowedDecimalPrecision?: number;
+    matchingGridRows?: string;
+    matchingGridColumns?: string;
+    matchingGridAnswers?: string;
+    dropdownOptions?: string;
+    dropdownCorrectAnswer?: string;
   }) => {
     const res = await fetch(`${API_BASE}/admin/questions`, {
       method: "POST",
@@ -568,15 +577,24 @@ export const api = {
     questionText?: string;
     questionHtml?: string;
     questionImageUrl?: string;
-    optionA: string;
-    optionB: string;
-    optionC: string;
-    optionD: string;
-    correctAnswers: string[];
+    optionA?: string;
+    optionB?: string;
+    optionC?: string;
+    optionD?: string;
+    correctAnswers?: string[];
     explanation: string;
-    questionType: "single" | "multiple";
+    questionType: "single" | "multiple" | "fill_blank" | "matching" | "dropdown";
     difficulty: string;
     marks: number;
+    numericAnswer?: number;
+    numericUnit?: string;
+    tolerance?: number;
+    allowedDecimalPrecision?: number;
+    matchingGridRows?: string;
+    matchingGridColumns?: string;
+    matchingGridAnswers?: string;
+    dropdownOptions?: string;
+    dropdownCorrectAnswer?: string;
   }) => {
     const res = await fetch(`${API_BASE}/admin/questions/${id}`, {
       method: "PUT",
