@@ -1,0 +1,232 @@
+Enhance the Question Bank and Quiz Management System to support multiple question types instead of only standard MCQs.
+
+---
+
+## Current Functionality
+
+* Four answer options are available.
+* Admin can select one correct answer (MCQ).
+* Admin can select multiple correct answers (Multiple Response).
+
+---
+
+## Required Enhancement
+
+When creating or editing a question, add a mandatory **Question Type** dropdown with the following options:
+
+1. Multiple Choice Question (Single Correct Answer)
+2. Multiple Response Question (Multiple Correct Answers)
+3. Fill in the Blank (Number Entry)
+4. Matching Question (Multiple Response Matching)
+5. Dropdown List Question (At End of Question)
+
+---
+
+# 1. Multiple Choice Question (Single Correct Answer)
+
+* Existing functionality remains unchanged.
+* Four or more options can be added.
+* Only one correct answer is allowed.
+
+---
+
+# 2. Multiple Response Question (Multiple Correct Answers)
+
+This is a type of multiple choice question where students must select more than one correct answer from a list of options.
+
+The question will specify how many answers should be selected, but the system will NOT restrict students from selecting more than that number. Students must carefully read instructions.
+
+### Requirements:
+
+* Four or more answer options.
+* Multiple correct answers allowed.
+* Student must select all correct answers for full marks.
+* No restriction on number of selections.
+
+---
+
+# 3. Fill in the Blank (Number Entry)
+
+This question type requires students to type a numeric answer into a box. The unit of measurement will be displayed outside the input box, and rounding instructions (if applicable) must be clearly shown.
+
+### Input Validation Rules:
+
+Only the following characters are allowed:
+
+* Numbers (0–9)
+* One decimal point (.)
+* One minus sign (-) at the beginning for negative values
+
+### Invalid inputs:
+
+* Commas
+* Letters
+* Special characters
+
+Example:
+
+* Valid: -10234.35
+* Invalid: 10,234.35
+
+### Requirements:
+
+* Admin can define acceptable numeric answers.
+* Optional tolerance/rounding precision.
+* Strict validation before submission.
+
+---
+
+# 4. Matching Question (Multiple Response Matching)
+
+This question type presents candidates with a grid of choices. Students must select responses for each row based on given categories.
+
+For example, a scenario may describe types of controls and students must decide whether each control is a general control or an application control.
+
+---
+
+## Key Characteristics:
+
+* Displayed as a grid (rows and columns).
+* Each row represents an item or statement.
+* Each row has multiple response choices (categories).
+* Students select ONE correct option per row.
+
+---
+
+## Marking Scheme:
+
+* Total marks for the question are displayed on screen.
+* Each row carries equal marks.
+* Partial credit is awarded for each correct row.
+
+### Example:
+
+If a question has 4 rows worth 2 total marks:
+
+* Each correct response = 0.5 marks
+* If student gets 2 correct:
+
+  * Score = 2 × 0.5 = 1 mark out of 2
+
+---
+
+## Requirements:
+
+Admin defines:
+
+* Rows (items/statements)
+* Column options (categories)
+* Correct answer for each row
+
+System must:
+
+* Automatically calculate marks per row
+* Support partial scoring
+* Store grid-based correct answers
+
+---
+
+## Student Interface:
+
+* One selection per row from a grid.
+* Clear visual grid layout.
+* Auto-mark after submission.
+
+---
+
+# 5. Dropdown List Question (At End of Question)
+
+This question type requires students to select one correct answer from a dropdown list placed **at the end of the question (below the scenario)**.
+
+### Key Characteristics:
+
+* A full question scenario is displayed first.
+* A single dropdown appears at the end of the question.
+* Students must select exactly ONE correct answer.
+* No dropdowns are embedded inside the question text.
+
+### Important Rule:
+
+* If a dropdown is placed inside the question text, it is NOT this type. That is a separate “Multitasking Question” type.
+
+---
+
+### Requirements:
+
+* Admin writes full scenario/question statement.
+* System displays a single dropdown BELOW the question.
+* Admin defines:
+
+  * List of options
+  * One correct answer
+* System evaluates only the selected dropdown response.
+
+---
+
+### Example:
+
+**Question:**
+A company purchases raw materials for production. Which accounting principle is most relevant?
+
+**Dropdown (at end of question):**
+
+* Historical Cost Principle
+* Matching Principle
+* Going Concern Principle
+* Prudence Principle
+
+**Correct Answer:**
+Historical Cost Principle
+
+---
+
+## Database Changes (Required)
+
+Update Question model/schema to include:
+
+* questionType
+* options
+* correctAnswers
+* numericAnswer
+* tolerance
+* matchingGridRows
+* matchingGridColumns
+* matchingGridAnswers
+* dropdownOptions
+* dropdownCorrectAnswer
+* allowedDecimalPrecision
+* maxSelections
+
+---
+
+## Admin Interface Requirements
+
+* Dynamic form rendering based on question type.
+* Show only relevant fields per type.
+* Grid builder UI for Matching questions.
+* Dropdown builder for end-of-question dropdowns.
+* Preview before saving.
+* Safe editing without breaking existing data.
+
+---
+
+## Student Interface Requirements
+
+* Dynamic rendering per question type:
+
+  * MCQ (radio buttons)
+  * Multiple response (checkboxes)
+  * Numeric input validation
+  * Grid-based matching interface
+  * Single dropdown at end of question
+* Auto-marking for all question types.
+* Clear scoring display per question.
+
+---
+
+## Additional Requirements
+
+* Fully backward compatible with existing MCQs and Multiple Response questions.
+* No breaking changes to database structure.
+* Fully responsive design (mobile, tablet, desktop).
+* Modular architecture to easily add future question types.
