@@ -11,7 +11,7 @@ import { setAuth } from "@/lib/auth";
 export default function LoginPage() {
   const [, setLocation] = useLocation();
   const [email, setEmail] = useState("admin@mcqapp.com");
-  const [password, setPassword] = useState("");
+  const [password, setPassword] = useState("admin123");
   const { toast } = useToast();
   const signIn = useSignIn();
 
