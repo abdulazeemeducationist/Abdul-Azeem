@@ -16,6 +16,7 @@ import QuestionFormPage from "@/pages/question-form";
 import StudentsPage from "@/pages/students";
 import StaffPage from "@/pages/staff";
 import ImportQuestionsPage from "@/pages/import-questions";
+import ChapterQuestionsPage from "@/pages/chapter-questions";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -48,6 +49,7 @@ function Router() {
         <Route path="/students" component={() => <ProtectedRoute component={StudentsPage} />} />
         <Route path="/staff" component={() => <ProtectedRoute component={StaffPage} />} />
         <Route path="/questions/import" component={() => <ProtectedRoute component={ImportQuestionsPage} />} />
+        <Route path="/chapters/:chapterId/questions" component={() => <ProtectedRoute component={ChapterQuestionsPage} />} />
         <Route path="/" component={() => <Redirect to={isAuthenticated() ? "/dashboard" : "/login"} />} />
         <Route component={NotFound} />
       </Switch>

@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from "react";
-import { ChevronRight, Upload, Download, CheckCircle2, XCircle, AlertCircle, FileText, Loader2 } from "lucide-react";
+import { ChevronRight, Upload, Download, CheckCircle2, XCircle, AlertCircle, FileText, Loader2, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getAuth } from "@/lib/auth";
 
@@ -154,6 +154,14 @@ const DIFF_BADGE: Record<string, string> = {
   hard: "bg-red-100 text-red-700",
 };
 
+interface TopicSearchResult {
+  id: number;
+  name: string;
+  chapterId: number;
+  chapterName: string;
+  subjectName: string;
+}
+
 export default function ImportQuestionsPage() {
   const { toast } = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -162,6 +170,27 @@ export default function ImportQuestionsPage() {
   const [fileName, setFileName] = useState("");
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ success: number; failed: number } | null>(null);
+
+  const [topicQuery, setTopicQuery] = useState("");
+  const [topicResults, setTopicResults] = useState<TopicSearchResult[]>([]);
+  const [topicSearching, setTopicSearching] = useState(false);
+  const topicSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function handleTopicSearch(q: string) {
+    setTopicQuery(q);
+    if (topicSearchTimeout.current) clearTimeout(topicSearchTimeout.current);
+    if (q.trim().length < 2) { setTopicResults([]); return; }
+    setTopicSearching(true);
+    topicSearchTimeout.current = setTimeout(async () => {
+      try {
+        const auth = getAuth();
+        const headers: Record<string, string> = {};
+        if (auth?.token) headers["Authorization"] = `Bearer ${auth.token}`;
+        const res = await fetch(`/api/admin/topics/search?name=${encodeURIComponent(q.trim())}`, { headers });
+        if (res.ok) setTopicResults(await res.json());
+      } catch { /* ignore */ } finally { setTopicSearching(false); }
+    }, 350);
+  }
 
   function downloadTemplate() {
     const blob = new Blob([TEMPLATE_CSV], { type: "text/csv;charset=utf-8;" });
@@ -307,6 +336,41 @@ export default function ImportQuestionsPage() {
             <span className="font-medium text-slate-500">topicId</span> must be the numeric ID of an existing topic in your database.
             Matching Grid questions cannot be imported via CSV — use the question form instead.
           </p>
+        </div>
+
+        {/* Topic Finder */}
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+          <h2 className="font-bold text-slate-800 text-sm mb-3">Topic ID Finder</h2>
+          <p className="text-xs text-slate-500 mb-3">Search for a topic by name to find its numeric ID for your CSV.</p>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            <input
+              type="text"
+              value={topicQuery}
+              onChange={e => handleTopicSearch(e.target.value)}
+              placeholder="Type a topic name…"
+              className="w-full pl-9 pr-4 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
+            />
+            {topicSearching && (
+              <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 animate-spin" />
+            )}
+          </div>
+          {topicResults.length > 0 && (
+            <div className="mt-2 border border-slate-100 rounded-lg overflow-hidden divide-y divide-slate-50">
+              {topicResults.map(t => (
+                <div key={t.id} className="flex items-center justify-between px-3 py-2 hover:bg-slate-50 text-xs">
+                  <div className="min-w-0">
+                    <span className="font-medium text-slate-800 truncate">{t.name}</span>
+                    <span className="ml-2 text-slate-400">{t.subjectName} › {t.chapterName}</span>
+                  </div>
+                  <span className="ml-3 shrink-0 font-mono font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">ID: {t.id}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {topicQuery.trim().length >= 2 && !topicSearching && topicResults.length === 0 && (
+            <p className="mt-2 text-xs text-slate-400">No topics found matching "{topicQuery}".</p>
+          )}
         </div>
 
         {/* Upload zone */}

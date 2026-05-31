@@ -5,7 +5,7 @@ import {
   usersTable, userProgressTable, userSubjectPurchasesTable, levelsTable,
   chapterVideosTable, chapterNotesTable, courseAccessLogsTable
 } from "@workspace/db";
-import { eq, count, avg, and, inArray, max, asc, or } from "drizzle-orm";
+import { eq, count, avg, and, inArray, max, asc, or, ilike } from "drizzle-orm";
 import crypto from "crypto";
 
 function hashPassword(p: string) { return crypto.createHash("sha256").update(p + "mcq-salt-2024").digest("hex"); }
@@ -512,21 +512,61 @@ router.delete("/topics/:topicId", async (req, res) => {
   }
 });
 
-router.post("/topics/reorder", async (req, res) => {
+router.patch("/topics/reorder", async (req, res) => {
   try {
-    const { orderedIds } = req.body as { orderedIds: number[] };
-    if (!Array.isArray(orderedIds) || !orderedIds.length) {
-      res.status(400).json({ error: "orderedIds array required" }); return;
+    const { topicId, direction } = req.body as { topicId: number; direction: "up" | "down" };
+    if (!topicId || !direction) {
+      res.status(400).json({ error: "topicId and direction are required" }); return;
     }
-    await Promise.all(
-      orderedIds.map((id, idx) =>
-        db.update(topicsTable).set({ orderNumber: idx + 1 }).where(eq(topicsTable.id, id))
-      )
-    );
+    const [topic] = await db.select().from(topicsTable).where(eq(topicsTable.id, topicId));
+    if (!topic) { res.status(404).json({ error: "Topic not found" }); return; }
+
+    const siblings = await db
+      .select({ id: topicsTable.id, orderNumber: topicsTable.orderNumber })
+      .from(topicsTable)
+      .where(eq(topicsTable.chapterId, topic.chapterId))
+      .orderBy(asc(topicsTable.orderNumber));
+
+    const idx = siblings.findIndex(s => s.id === topicId);
+    const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (swapIdx < 0 || swapIdx >= siblings.length) {
+      res.json({ message: "Already at boundary" }); return;
+    }
+    const curr = siblings[idx];
+    const neighbor = siblings[swapIdx];
+    await Promise.all([
+      db.update(topicsTable).set({ orderNumber: neighbor.orderNumber }).where(eq(topicsTable.id, curr.id)),
+      db.update(topicsTable).set({ orderNumber: curr.orderNumber }).where(eq(topicsTable.id, neighbor.id)),
+    ]);
     res.json({ message: "Topics reordered" });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Internal Server Error", message: "Failed to reorder topics" });
+  }
+});
+
+router.get("/topics/search", async (req, res) => {
+  try {
+    const name = ((req.query.name as string) ?? "").trim();
+    if (!name || name.length < 2) { res.json([]); return; }
+    const results = await db
+      .select({
+        id: topicsTable.id,
+        name: topicsTable.name,
+        chapterId: topicsTable.chapterId,
+        chapterName: chaptersTable.name,
+        subjectName: subjectsTable.name,
+      })
+      .from(topicsTable)
+      .innerJoin(chaptersTable, eq(chaptersTable.id, topicsTable.chapterId))
+      .innerJoin(subjectsTable, eq(subjectsTable.id, chaptersTable.subjectId))
+      .where(ilike(topicsTable.name, `%${name}%`))
+      .orderBy(asc(topicsTable.name))
+      .limit(20);
+    res.json(results);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to search topics" });
   }
 });
 
