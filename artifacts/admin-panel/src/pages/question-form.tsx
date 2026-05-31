@@ -467,7 +467,6 @@ export default function QuestionFormPage() {
                 <input
                   type="number"
                   min={1}
-                  max={100}
                   value={form.marks}
                   onChange={e => {
                     const v = parseInt(e.target.value);
