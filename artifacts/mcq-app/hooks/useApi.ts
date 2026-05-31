@@ -67,9 +67,18 @@ export interface Question {
   optionD: string;
   correctAnswers: string[];
   explanation: string;
-  questionType: "single" | "multiple";
+  questionType: "single" | "multiple" | "fill_blank" | "matching" | "dropdown";
   difficulty?: string;
   marks: number;
+  numericAnswer?: number | null;
+  numericUnit?: string | null;
+  tolerance?: number | null;
+  allowedDecimalPrecision?: number | null;
+  matchingGridRows?: string | null;
+  matchingGridColumns?: string | null;
+  matchingGridAnswers?: string | null;
+  dropdownOptions?: string | null;
+  dropdownCorrectAnswer?: string | null;
 }
 
 export interface UserProgress {

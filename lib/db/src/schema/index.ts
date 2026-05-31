@@ -88,6 +88,15 @@ export const questionsTable = pgTable("questions", {
   marks: integer("marks").notNull().default(1),
   questionHtml: text("question_html"),
   questionImageUrl: text("question_image_url"),
+  numericAnswer: numeric("numeric_answer"),
+  numericUnit: text("numeric_unit"),
+  tolerance: numeric("tolerance"),
+  allowedDecimalPrecision: integer("allowed_decimal_precision"),
+  matchingGridRows: text("matching_grid_rows"),
+  matchingGridColumns: text("matching_grid_columns"),
+  matchingGridAnswers: text("matching_grid_answers"),
+  dropdownOptions: text("dropdown_options"),
+  dropdownCorrectAnswer: text("dropdown_correct_answer"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

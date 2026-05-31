@@ -11,6 +11,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -81,6 +82,9 @@ export default function PracticeScreen() {
   const [score, setScore] = useState(0);
   const [showExplanation, setShowExplanation] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [numericInput, setNumericInput] = useState("");
+  const [matchingSelections, setMatchingSelections] = useState<Record<string, string>>({});
+  const [dropdownInput, setDropdownInput] = useState("");
 
   const { data: questions, isLoading } = useQuery({
     queryKey: ["questions", topicId],
@@ -147,29 +151,57 @@ export default function PracticeScreen() {
   };
 
   const handleSubmit = () => {
-    if (selectedAnswers.length === 0) {
-      Alert.alert("No Answer", "Please select at least one answer.");
-      return;
+    const qType = currentQuestion?.questionType ?? "single";
+    if (qType === "single" || qType === "multiple") {
+      if (selectedAnswers.length === 0) { Alert.alert("No Answer", "Please select at least one answer."); return; }
+    } else if (qType === "fill_blank") {
+      if (!numericInput.trim()) { Alert.alert("No Answer", "Please enter a number."); return; }
+    } else if (qType === "dropdown") {
+      if (!dropdownInput) { Alert.alert("No Answer", "Please select an option."); return; }
     }
     setSubmitted(true);
     setShowExplanation(false);
-    const correctSet = new Set(currentQuestion?.correctAnswers ?? []);
-    const selectedSet = new Set(selectedAnswers);
-    const isCorrect = selectedSet.size === correctSet.size && [...selectedSet].every(a => correctSet.has(a));
-    if (isCorrect) setScore(prev => prev + 1);
-    setAllSelectedAnswers(prev => {
-      const updated = [...prev];
-      updated[currentIndex] = selectedAnswers;
-      return updated;
-    });
+    if (qType === "single" || qType === "multiple") {
+      const correctSet = new Set(currentQuestion?.correctAnswers ?? []);
+      const selectedSet = new Set(selectedAnswers);
+      if (selectedSet.size === correctSet.size && [...selectedSet].every(a => correctSet.has(a))) setScore(prev => prev + 1);
+    } else if (qType === "fill_blank") {
+      const userVal = parseFloat(numericInput);
+      const correct = parseFloat(String(currentQuestion?.numericAnswer ?? "0"));
+      const tol = parseFloat(String(currentQuestion?.tolerance ?? "0"));
+      if (!isNaN(userVal) && Math.abs(userVal - correct) <= tol) setScore(prev => prev + 1);
+    } else if (qType === "matching") {
+      const rows = (() => { try { return JSON.parse(currentQuestion?.matchingGridRows ?? "[]") as {id: string}[]; } catch { return []; } })();
+      const correctMap = (() => { try { return JSON.parse(currentQuestion?.matchingGridAnswers ?? "{}") as Record<string, string>; } catch { return {}; } })();
+      const correct = rows.filter(r => matchingSelections[r.id] === correctMap[r.id]).length;
+      if (rows.length > 0 && correct === rows.length) setScore(prev => prev + 1);
+    } else if (qType === "dropdown") {
+      if (dropdownInput === currentQuestion?.dropdownCorrectAnswer) setScore(prev => prev + 1);
+    }
+    setAllSelectedAnswers(prev => { const updated = [...prev]; updated[currentIndex] = selectedAnswers; return updated; });
   };
 
   const isCurrentCorrect = useCallback(() => {
     if (!currentQuestion) return false;
-    const correctSet = new Set(currentQuestion.correctAnswers);
-    const selectedSet = new Set(selectedAnswers);
-    return selectedSet.size === correctSet.size && [...selectedSet].every(a => correctSet.has(a));
-  }, [currentQuestion, selectedAnswers]);
+    const qType = currentQuestion.questionType;
+    if (qType === "single" || qType === "multiple") {
+      const correctSet = new Set(currentQuestion.correctAnswers);
+      const selectedSet = new Set(selectedAnswers);
+      return selectedSet.size === correctSet.size && [...selectedSet].every(a => correctSet.has(a));
+    } else if (qType === "fill_blank") {
+      const userVal = parseFloat(numericInput);
+      const correct = parseFloat(String(currentQuestion.numericAnswer ?? "0"));
+      const tol = parseFloat(String(currentQuestion.tolerance ?? "0"));
+      return !isNaN(userVal) && Math.abs(userVal - correct) <= tol;
+    } else if (qType === "matching") {
+      const rows = (() => { try { return JSON.parse(currentQuestion.matchingGridRows ?? "[]") as {id: string}[]; } catch { return []; } })();
+      const correctMap = (() => { try { return JSON.parse(currentQuestion.matchingGridAnswers ?? "{}") as Record<string, string>; } catch { return {}; } })();
+      return rows.length > 0 && rows.every(r => matchingSelections[r.id] === correctMap[r.id]);
+    } else if (qType === "dropdown") {
+      return dropdownInput === currentQuestion.dropdownCorrectAnswer;
+    }
+    return false;
+  }, [currentQuestion, selectedAnswers, numericInput, matchingSelections, dropdownInput]);
 
   const handleNext = async () => {
     const nextIndex = currentIndex + 1;
@@ -189,6 +221,9 @@ export default function PracticeScreen() {
       setSelectedAnswers([]);
       setSubmitted(false);
       setShowExplanation(false);
+      setNumericInput("");
+      setMatchingSelections({});
+      setDropdownInput("");
     }
   };
 
@@ -285,6 +320,23 @@ export default function PracticeScreen() {
     );
   }
 
+  const qType = currentQuestion?.questionType ?? "single";
+  const isMCQMode = qType === "single" || qType === "multiple";
+  const canSubmit = (() => {
+    switch (qType) {
+      case "single": case "multiple": return selectedAnswers.length > 0;
+      case "fill_blank": return numericInput.trim().length > 0;
+      case "matching": {
+        try {
+          const rows = JSON.parse(currentQuestion?.matchingGridRows ?? "[]") as {id: string}[];
+          return rows.length > 0 && Object.keys(matchingSelections).length >= rows.length;
+        } catch { return false; }
+      }
+      case "dropdown": return dropdownInput.length > 0;
+      default: return selectedAnswers.length > 0;
+    }
+  })();
+
   return (
     <View style={[styles.container, { paddingTop: topPad }]}>
       <View style={styles.header}>
@@ -308,7 +360,7 @@ export default function PracticeScreen() {
         contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom + 20, 40) }]}
         showsVerticalScrollIndicator={false}
       >
-        {currentQuestion?.questionType === "multiple" && (
+        {qType === "multiple" && (
           <View style={styles.multipleHint}>
             <Ionicons name="information-circle" size={14} color={Colors.light.accent} />
             <Text style={styles.multipleHintText}>Select all correct answers</Text>
@@ -326,16 +378,136 @@ export default function PracticeScreen() {
           />
         </View>
 
-        <View style={styles.optionsContainer}>
-          {OPTIONS.map(option => (
-            <OptionButton
-              key={option} option={option} text={optionTexts[option]}
-              selected={selectedAnswers.includes(option)} submitted={submitted}
-              isCorrect={(currentQuestion?.correctAnswers ?? []).includes(option)}
-              onPress={() => toggleOption(option)}
-            />
-          ))}
-        </View>
+        {/* MCQ / MRQ options */}
+        {isMCQMode && (
+          <View style={styles.optionsContainer}>
+            {OPTIONS.map(option => (
+              <OptionButton
+                key={option} option={option} text={optionTexts[option]}
+                selected={selectedAnswers.includes(option)} submitted={submitted}
+                isCorrect={(currentQuestion?.correctAnswers ?? []).includes(option)}
+                onPress={() => toggleOption(option)}
+              />
+            ))}
+          </View>
+        )}
+
+        {/* Fill in Blank */}
+        {qType === "fill_blank" && (
+          <View style={styles.fillBlankContainer}>
+            <View style={styles.fillBlankRow}>
+              <TextInput
+                style={[styles.fillBlankInput, submitted && { borderColor: isCurrentCorrect() ? Colors.light.success : Colors.light.error }]}
+                value={numericInput}
+                onChangeText={t => { if (!submitted) setNumericInput(t.replace(/[^0-9.\-]/g, "")); }}
+                keyboardType="decimal-pad"
+                placeholder="Enter number…"
+                placeholderTextColor={Colors.light.textMuted}
+                editable={!submitted}
+              />
+              {currentQuestion?.numericUnit ? (
+                <View style={styles.fillBlankUnit}>
+                  <Text style={styles.fillBlankUnitText}>{currentQuestion.numericUnit}</Text>
+                </View>
+              ) : null}
+            </View>
+            {currentQuestion?.allowedDecimalPrecision != null && (
+              <Text style={styles.fillBlankHint}>Round to {currentQuestion.allowedDecimalPrecision} decimal place{currentQuestion.allowedDecimalPrecision !== 1 ? "s" : ""}</Text>
+            )}
+            {submitted && (
+              <View style={[styles.fillBlankResult, { backgroundColor: isCurrentCorrect() ? Colors.light.success + "14" : Colors.light.error + "14", borderColor: isCurrentCorrect() ? Colors.light.success : Colors.light.error }]}>
+                <Ionicons name={isCurrentCorrect() ? "checkmark-circle" : "close-circle"} size={16} color={isCurrentCorrect() ? Colors.light.success : Colors.light.error} />
+                <Text style={[styles.fillBlankResultText, { color: isCurrentCorrect() ? Colors.light.success : Colors.light.error }]}>
+                  {isCurrentCorrect() ? "Correct!" : `Correct answer: ${currentQuestion?.numericAnswer}${currentQuestion?.numericUnit ?? ""}${currentQuestion?.tolerance ? ` ±${currentQuestion.tolerance}` : ""}`}
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Matching Grid */}
+        {qType === "matching" && (() => {
+          const rows = (() => { try { return JSON.parse(currentQuestion?.matchingGridRows ?? "[]") as {id: string; label: string}[]; } catch { return []; } })();
+          const cols = (() => { try { return JSON.parse(currentQuestion?.matchingGridColumns ?? "[]") as {id: string; label: string}[]; } catch { return []; } })();
+          const correctMap = (() => { try { return JSON.parse(currentQuestion?.matchingGridAnswers ?? "{}") as Record<string, string>; } catch { return {}; } })();
+          return (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.matchingScroll}>
+              <View>
+                <View style={styles.matchingHeaderRow}>
+                  <View style={styles.matchingItemCell}>
+                    <Text style={styles.matchingHeaderText}>Item</Text>
+                  </View>
+                  {cols.map(col => (
+                    <View key={col.id} style={styles.matchingColCell}>
+                      <Text style={styles.matchingHeaderText} numberOfLines={2}>{col.label}</Text>
+                    </View>
+                  ))}
+                </View>
+                {rows.map((row, ri) => (
+                  <View key={row.id} style={[styles.matchingRow, ri % 2 === 0 && { backgroundColor: Colors.light.backgroundSecondary + "80" }]}>
+                    <View style={styles.matchingItemCell}>
+                      <Text style={styles.matchingItemText}>{row.label}</Text>
+                    </View>
+                    {cols.map(col => {
+                      const isSelected = matchingSelections[row.id] === col.id;
+                      const isCorrect = correctMap[row.id] === col.id;
+                      const radioColor = submitted
+                        ? (isCorrect ? Colors.light.success : isSelected ? Colors.light.error : Colors.light.border)
+                        : (isSelected ? Colors.light.primary : Colors.light.border);
+                      return (
+                        <Pressable
+                          key={col.id}
+                          style={[styles.matchingColCell, submitted && isCorrect && { backgroundColor: Colors.light.success + "14" }, submitted && isSelected && !isCorrect && { backgroundColor: Colors.light.error + "14" }]}
+                          onPress={() => { if (!submitted) setMatchingSelections(prev => ({ ...prev, [row.id]: col.id })); }}
+                        >
+                          <View style={[styles.matchingRadio, { borderColor: radioColor }]}>
+                            {isSelected && <View style={[styles.matchingRadioDot, { backgroundColor: submitted ? (isCorrect ? Colors.light.success : Colors.light.error) : Colors.light.primary }]} />}
+                          </View>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                ))}
+              </View>
+            </ScrollView>
+          );
+        })()}
+
+        {/* Dropdown */}
+        {qType === "dropdown" && (() => {
+          const opts = (() => { try { return JSON.parse(currentQuestion?.dropdownOptions ?? "[]") as string[]; } catch { return []; } })();
+          return (
+            <View style={styles.dropdownContainer}>
+              <Text style={styles.dropdownLabel}>Select your answer:</Text>
+              {opts.map((opt, i) => {
+                const isSelected = dropdownInput === opt;
+                const isCorrect = opt === currentQuestion?.dropdownCorrectAnswer;
+                let bg = Colors.light.card;
+                let borderColor = Colors.light.border;
+                let textColor = Colors.light.text;
+                let iconName: keyof typeof Ionicons.glyphMap = "radio-button-off-outline";
+                if (submitted) {
+                  if (isCorrect) { bg = Colors.light.success + "14"; borderColor = Colors.light.success; textColor = Colors.light.success; iconName = "checkmark-circle-outline"; }
+                  else if (isSelected) { bg = Colors.light.error + "14"; borderColor = Colors.light.error; textColor = Colors.light.error; iconName = "close-circle-outline"; }
+                  else { textColor = Colors.light.textMuted; }
+                } else if (isSelected) {
+                  bg = Colors.light.primary + "12"; borderColor = Colors.light.primary; textColor = Colors.light.primary; iconName = "radio-button-on";
+                }
+                return (
+                  <Pressable
+                    key={i}
+                    style={[styles.dropdownOption, { backgroundColor: bg, borderColor }]}
+                    onPress={() => { if (!submitted) setDropdownInput(opt); }}
+                    disabled={submitted}
+                  >
+                    <Ionicons name={iconName} size={18} color={submitted ? (isCorrect ? Colors.light.success : isSelected ? Colors.light.error : Colors.light.border) : (isSelected ? Colors.light.primary : Colors.light.border)} />
+                    <Text style={[styles.dropdownOptionText, { color: textColor }]}>{opt}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          );
+        })()}
 
         {submitted && (
           <View style={[styles.feedbackCard, {
@@ -363,8 +535,8 @@ export default function PracticeScreen() {
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom + 8, 24) }]}>
         {!submitted ? (
           <Pressable
-            style={({ pressed }) => [styles.submitBtn, selectedAnswers.length === 0 && styles.submitBtnDisabled, { opacity: pressed ? 0.85 : 1 }]}
-            onPress={handleSubmit} disabled={selectedAnswers.length === 0}
+            style={({ pressed }) => [styles.submitBtn, !canSubmit && styles.submitBtnDisabled, { opacity: pressed ? 0.85 : 1 }]}
+            onPress={handleSubmit} disabled={!canSubmit}
           >
             <Text style={styles.submitBtnText}>Submit Answer</Text>
           </Pressable>
@@ -395,6 +567,27 @@ const styles = StyleSheet.create({
   progressBarFill: { height: "100%", backgroundColor: Colors.light.primary, borderRadius: 3 },
   scoreBox: { flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: Colors.light.success + "18", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6 },
   scoreBoxText: { fontSize: 15, fontFamily: "Inter_700Bold", color: Colors.light.success },
+  fillBlankContainer: { gap: 10 },
+  fillBlankRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  fillBlankInput: { flex: 1, height: 52, borderWidth: 1.5, borderColor: Colors.light.border, borderRadius: 14, paddingHorizontal: 16, fontSize: 18, fontFamily: "Inter_500Medium", color: Colors.light.text, backgroundColor: Colors.light.card },
+  fillBlankUnit: { backgroundColor: Colors.light.backgroundSecondary, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12 },
+  fillBlankUnitText: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: Colors.light.textSecondary },
+  fillBlankHint: { fontSize: 12, fontFamily: "Inter_400Regular", color: Colors.light.textMuted, paddingLeft: 4 },
+  fillBlankResult: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1.5, borderRadius: 12, padding: 12 },
+  fillBlankResultText: { flex: 1, fontSize: 13, fontFamily: "Inter_500Medium" },
+  matchingScroll: { borderRadius: 14, borderWidth: 1, borderColor: Colors.light.border, overflow: "hidden" },
+  matchingHeaderRow: { flexDirection: "row", backgroundColor: Colors.light.backgroundSecondary },
+  matchingRow: { flexDirection: "row", borderTopWidth: 1, borderTopColor: Colors.light.border },
+  matchingItemCell: { width: 150, padding: 12, justifyContent: "center" },
+  matchingColCell: { width: 90, padding: 12, alignItems: "center", justifyContent: "center", borderLeftWidth: 1, borderLeftColor: Colors.light.border },
+  matchingHeaderText: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: Colors.light.textSecondary, textAlign: "center" },
+  matchingItemText: { fontSize: 13, fontFamily: "Inter_400Regular", color: Colors.light.text },
+  matchingRadio: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, alignItems: "center", justifyContent: "center" },
+  matchingRadioDot: { width: 10, height: 10, borderRadius: 5 },
+  dropdownContainer: { gap: 10 },
+  dropdownLabel: { fontSize: 13, fontFamily: "Inter_500Medium", color: Colors.light.textSecondary },
+  dropdownOption: { flexDirection: "row", alignItems: "center", gap: 12, borderWidth: 1.5, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14 },
+  dropdownOptionText: { flex: 1, fontSize: 15, fontFamily: "Inter_400Regular" },
   resumeScreen: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24 },
   resumeCard: {
     width: "100%", backgroundColor: Colors.light.card, borderRadius: 20, padding: 28,

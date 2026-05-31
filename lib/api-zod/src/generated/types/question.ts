@@ -26,5 +26,23 @@ export interface Question {
   questionType: QuestionQuestionType;
   difficulty?: QuestionDifficulty;
   marks?: number;
+  /** @nullable */
+  numericAnswer?: number | null;
+  /** @nullable */
+  numericUnit?: string | null;
+  /** @nullable */
+  tolerance?: number | null;
+  /** @nullable */
+  allowedDecimalPrecision?: number | null;
+  /** @nullable */
+  matchingGridRows?: string | null;
+  /** @nullable */
+  matchingGridColumns?: string | null;
+  /** @nullable */
+  matchingGridAnswers?: string | null;
+  /** @nullable */
+  dropdownOptions?: string | null;
+  /** @nullable */
+  dropdownCorrectAnswer?: string | null;
   createdAt: Date;
 }

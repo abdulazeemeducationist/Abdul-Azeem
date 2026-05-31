@@ -12,4 +12,7 @@ export type QuestionInputQuestionType =
 export const QuestionInputQuestionType = {
   single: "single",
   multiple: "multiple",
+  fill_blank: "fill_blank",
+  matching: "matching",
+  dropdown: "dropdown",
 } as const;

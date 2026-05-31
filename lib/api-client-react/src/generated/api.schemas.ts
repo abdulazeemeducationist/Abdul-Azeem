@@ -181,6 +181,9 @@ export type QuestionQuestionType =
 export const QuestionQuestionType = {
   single: "single",
   multiple: "multiple",
+  fill_blank: "fill_blank",
+  matching: "matching",
+  dropdown: "dropdown",
 } as const;
 
 export type QuestionDifficulty =
@@ -210,6 +213,24 @@ export interface Question {
   questionType: QuestionQuestionType;
   difficulty?: QuestionDifficulty;
   marks?: number;
+  /** @nullable */
+  numericAnswer?: number | null;
+  /** @nullable */
+  numericUnit?: string | null;
+  /** @nullable */
+  tolerance?: number | null;
+  /** @nullable */
+  allowedDecimalPrecision?: number | null;
+  /** @nullable */
+  matchingGridRows?: string | null;
+  /** @nullable */
+  matchingGridColumns?: string | null;
+  /** @nullable */
+  matchingGridAnswers?: string | null;
+  /** @nullable */
+  dropdownOptions?: string | null;
+  /** @nullable */
+  dropdownCorrectAnswer?: string | null;
   createdAt: string;
 }
 
@@ -219,6 +240,9 @@ export type QuestionInputQuestionType =
 export const QuestionInputQuestionType = {
   single: "single",
   multiple: "multiple",
+  fill_blank: "fill_blank",
+  matching: "matching",
+  dropdown: "dropdown",
 } as const;
 
 export type QuestionInputDifficulty =
@@ -235,15 +259,24 @@ export interface QuestionInput {
   questionText?: string;
   questionHtml?: string;
   questionImageUrl?: string;
-  optionA: string;
-  optionB: string;
-  optionC: string;
-  optionD: string;
-  correctAnswers: string[];
-  explanation: string;
+  optionA?: string;
+  optionB?: string;
+  optionC?: string;
+  optionD?: string;
+  correctAnswers?: string[];
+  explanation?: string;
   questionType: QuestionInputQuestionType;
   difficulty?: QuestionInputDifficulty;
   marks?: number;
+  numericAnswer?: number;
+  numericUnit?: string;
+  tolerance?: number;
+  allowedDecimalPrecision?: number;
+  matchingGridRows?: string;
+  matchingGridColumns?: string;
+  matchingGridAnswers?: string;
+  dropdownOptions?: string;
+  dropdownCorrectAnswer?: string;
 }
 
 export interface QuestionImportInput {

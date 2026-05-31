@@ -13,13 +13,22 @@ export interface QuestionInput {
   questionText?: string;
   questionHtml?: string;
   questionImageUrl?: string;
-  optionA: string;
-  optionB: string;
-  optionC: string;
-  optionD: string;
-  correctAnswers: string[];
-  explanation: string;
+  optionA?: string;
+  optionB?: string;
+  optionC?: string;
+  optionD?: string;
+  correctAnswers?: string[];
+  explanation?: string;
   questionType: QuestionInputQuestionType;
   difficulty?: QuestionInputDifficulty;
   marks?: number;
+  numericAnswer?: number;
+  numericUnit?: string;
+  tolerance?: number;
+  allowedDecimalPrecision?: number;
+  matchingGridRows?: string;
+  matchingGridColumns?: string;
+  matchingGridAnswers?: string;
+  dropdownOptions?: string;
+  dropdownCorrectAnswer?: string;
 }

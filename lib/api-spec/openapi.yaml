@@ -1316,12 +1316,30 @@ components:
           type: string
         questionType:
           type: string
-          enum: [single, multiple]
+          enum: [single, multiple, fill_blank, matching, dropdown]
         difficulty:
           type: string
           enum: [easy, medium, hard]
         marks:
           type: integer
+        numericAnswer:
+          type: ["number", "null"]
+        numericUnit:
+          type: ["string", "null"]
+        tolerance:
+          type: ["number", "null"]
+        allowedDecimalPrecision:
+          type: ["integer", "null"]
+        matchingGridRows:
+          type: ["string", "null"]
+        matchingGridColumns:
+          type: ["string", "null"]
+        matchingGridAnswers:
+          type: ["string", "null"]
+        dropdownOptions:
+          type: ["string", "null"]
+        dropdownCorrectAnswer:
+          type: ["string", "null"]
         createdAt:
           type: string
           format: date-time
@@ -1364,20 +1382,32 @@ components:
           type: string
         questionType:
           type: string
-          enum: [single, multiple]
+          enum: [single, multiple, fill_blank, matching, dropdown]
         difficulty:
           type: string
           enum: [easy, medium, hard]
         marks:
           type: integer
+        numericAnswer:
+          type: number
+        numericUnit:
+          type: string
+        tolerance:
+          type: number
+        allowedDecimalPrecision:
+          type: integer
+        matchingGridRows:
+          type: string
+        matchingGridColumns:
+          type: string
+        matchingGridAnswers:
+          type: string
+        dropdownOptions:
+          type: string
+        dropdownCorrectAnswer:
+          type: string
       required:
         - topicId
-        - optionA
-        - optionB
-        - optionC
-        - optionD
-        - correctAnswers
-        - explanation
         - questionType
 
     QuestionImportInput:

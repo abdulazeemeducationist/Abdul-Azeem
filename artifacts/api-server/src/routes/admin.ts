@@ -371,7 +371,7 @@ router.post("/topics", async (req, res) => {
   try {
     const { chapterId, name, orderNumber } = req.body;
     if (!chapterId || !name?.trim()) {
-      return res.status(400).json({ error: "Bad Request", message: "chapterId and name are required" });
+      res.status(400).json({ error: "Bad Request", message: "chapterId and name are required" }); return;
     }
     const [topic] = await db.insert(topicsTable).values({ chapterId, name: name.trim(), orderNumber }).returning();
     res.status(201).json({ ...topic, questionCount: 0 });
@@ -386,13 +386,13 @@ router.put("/topics/:topicId", async (req, res) => {
     const id = parseInt(req.params.topicId);
     const { name, orderNumber } = req.body;
     if (!name?.trim()) {
-      return res.status(400).json({ error: "Bad Request", message: "name is required" });
+      res.status(400).json({ error: "Bad Request", message: "name is required" }); return;
     }
     const [topic] = await db.update(topicsTable)
       .set({ name: name.trim(), orderNumber })
       .where(eq(topicsTable.id, id))
       .returning();
-    if (!topic) return res.status(404).json({ error: "Not Found" });
+    if (!topic) { res.status(404).json({ error: "Not Found" }); return; }
     res.json(topic);
   } catch (err) {
     console.error(err);
@@ -417,7 +417,7 @@ router.post("/topics/reorder", async (req, res) => {
   try {
     const { orderedIds } = req.body as { orderedIds: number[] };
     if (!Array.isArray(orderedIds) || !orderedIds.length) {
-      return res.status(400).json({ error: "orderedIds array required" });
+      res.status(400).json({ error: "orderedIds array required" }); return;
     }
     await Promise.all(
       orderedIds.map((id, idx) =>
@@ -484,23 +484,57 @@ router.get("/questions", async (req, res) => {
 
 router.post("/questions", async (req, res) => {
   try {
-    const { topicId, questionText, questionHtml, questionImageUrl, optionA, optionB, optionC, optionD, correctAnswers, explanation, questionType, difficulty, marks } = req.body;
+    const {
+      topicId, questionText, questionHtml, questionImageUrl,
+      optionA, optionB, optionC, optionD, correctAnswers,
+      explanation, questionType, difficulty, marks,
+      numericAnswer, numericUnit, tolerance, allowedDecimalPrecision,
+      matchingGridRows, matchingGridColumns, matchingGridAnswers,
+      dropdownOptions, dropdownCorrectAnswer,
+    } = req.body;
     if (!topicId || isNaN(Number(topicId))) {
-      return res.status(400).json({ error: "Bad Request", message: "topicId is required and must be a valid number" });
+      res.status(400).json({ error: "Bad Request", message: "topicId is required and must be a valid number" }); return;
     }
-    const hasBody = questionText || questionHtml || questionImageUrl;
-    if (!hasBody || !optionA || !optionB || !optionC || !optionD || !correctAnswers?.length || !explanation) {
-      return res.status(400).json({ error: "Bad Request", message: "All question fields are required" });
+    if (!explanation) {
+      res.status(400).json({ error: "Bad Request", message: "explanation is required" }); return;
+    }
+    const qType = questionType ?? "single";
+    const isMCQType = qType === "single" || qType === "multiple";
+    if (isMCQType && (!optionA || !optionB || !correctAnswers?.length)) {
+      res.status(400).json({ error: "Bad Request", message: "MCQ requires at least 2 options and a correct answer" }); return;
+    }
+    if (qType === "fill_blank" && (numericAnswer === undefined || numericAnswer === null || numericAnswer === "")) {
+      res.status(400).json({ error: "Bad Request", message: "fill_blank requires numericAnswer" }); return;
+    }
+    if (qType === "matching" && (!matchingGridRows || !matchingGridColumns || !matchingGridAnswers)) {
+      res.status(400).json({ error: "Bad Request", message: "matching requires grid rows, columns, and answers" }); return;
+    }
+    if (qType === "dropdown" && (!dropdownOptions || !dropdownCorrectAnswer)) {
+      res.status(400).json({ error: "Bad Request", message: "dropdown requires options and a correct answer" }); return;
     }
     const [question] = await db.insert(questionsTable).values({
-      topicId,
+      topicId: Number(topicId),
       questionText: questionText ?? "",
       questionHtml: questionHtml ?? null,
       questionImageUrl: questionImageUrl ?? null,
-      optionA, optionB, optionC, optionD,
-      correctAnswers: JSON.stringify(correctAnswers),
-      explanation, questionType, difficulty: difficulty ?? "medium",
+      optionA: optionA ?? "",
+      optionB: optionB ?? "",
+      optionC: optionC ?? "",
+      optionD: optionD ?? "",
+      correctAnswers: JSON.stringify(correctAnswers ?? []),
+      explanation,
+      questionType: qType,
+      difficulty: difficulty ?? "medium",
       marks: marks ? Number(marks) : 1,
+      numericAnswer: numericAnswer != null ? String(numericAnswer) : null,
+      numericUnit: numericUnit ?? null,
+      tolerance: tolerance != null ? String(tolerance) : null,
+      allowedDecimalPrecision: allowedDecimalPrecision != null ? Number(allowedDecimalPrecision) : null,
+      matchingGridRows: matchingGridRows ?? null,
+      matchingGridColumns: matchingGridColumns ?? null,
+      matchingGridAnswers: matchingGridAnswers ?? null,
+      dropdownOptions: dropdownOptions ?? null,
+      dropdownCorrectAnswer: dropdownCorrectAnswer ?? null,
     }).returning();
     res.status(201).json({ ...question, correctAnswers: JSON.parse(question.correctAnswers) });
   } catch (err) {
@@ -513,7 +547,7 @@ router.get("/questions/:questionId", async (req, res) => {
   try {
     const id = parseInt(req.params.questionId);
     const [question] = await db.select().from(questionsTable).where(eq(questionsTable.id, id));
-    if (!question) return res.status(404).json({ error: "Question not found" });
+    if (!question) { res.status(404).json({ error: "Question not found" }); return; }
     res.json({ ...question, correctAnswers: JSON.parse(question.correctAnswers) });
   } catch (err) {
     console.error(err);
@@ -536,7 +570,7 @@ router.post("/questions/import", async (req, res) => {
       difficulty?: string;
     }> };
     if (!Array.isArray(questions) || !questions.length) {
-      return res.status(400).json({ error: "No questions provided" });
+      res.status(400).json({ error: "No questions provided" }); return;
     }
     const values = questions.map(q => ({
       topicId: q.topicId,
@@ -561,16 +595,37 @@ router.post("/questions/import", async (req, res) => {
 router.put("/questions/:questionId", async (req, res) => {
   try {
     const id = parseInt(req.params.questionId);
-    const { topicId, questionText, questionHtml, questionImageUrl, optionA, optionB, optionC, optionD, correctAnswers, explanation, questionType, difficulty, marks } = req.body;
+    const {
+      topicId, questionText, questionHtml, questionImageUrl,
+      optionA, optionB, optionC, optionD, correctAnswers,
+      explanation, questionType, difficulty, marks,
+      numericAnswer, numericUnit, tolerance, allowedDecimalPrecision,
+      matchingGridRows, matchingGridColumns, matchingGridAnswers,
+      dropdownOptions, dropdownCorrectAnswer,
+    } = req.body;
     const [question] = await db.update(questionsTable).set({
       topicId,
       questionText: questionText ?? "",
       questionHtml: questionHtml ?? null,
       questionImageUrl: questionImageUrl ?? null,
-      optionA, optionB, optionC, optionD,
-      correctAnswers: JSON.stringify(correctAnswers),
-      explanation, questionType, difficulty: difficulty ?? "medium",
+      optionA: optionA ?? "",
+      optionB: optionB ?? "",
+      optionC: optionC ?? "",
+      optionD: optionD ?? "",
+      correctAnswers: JSON.stringify(correctAnswers ?? []),
+      explanation,
+      questionType,
+      difficulty: difficulty ?? "medium",
       marks: marks ? Number(marks) : 1,
+      numericAnswer: numericAnswer != null ? String(numericAnswer) : null,
+      numericUnit: numericUnit ?? null,
+      tolerance: tolerance != null ? String(tolerance) : null,
+      allowedDecimalPrecision: allowedDecimalPrecision != null ? Number(allowedDecimalPrecision) : null,
+      matchingGridRows: matchingGridRows ?? null,
+      matchingGridColumns: matchingGridColumns ?? null,
+      matchingGridAnswers: matchingGridAnswers ?? null,
+      dropdownOptions: dropdownOptions ?? null,
+      dropdownCorrectAnswer: dropdownCorrectAnswer ?? null,
     }).where(eq(questionsTable.id, id)).returning();
     res.json({ ...question, correctAnswers: JSON.parse(question.correctAnswers) });
   } catch (err) {
