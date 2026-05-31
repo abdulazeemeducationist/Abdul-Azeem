@@ -880,15 +880,13 @@ export const GetStudentsResponseItem = zod.object({
   assignedSubjects: zod.array(
     zod.object({
       id: zod.number(),
-      courseId: zod.number(),
-      levelId: zod.number().nullish(),
       name: zod.string(),
       code: zod.string(),
-      description: zod.string().nullish(),
-      isActive: zod.boolean().optional(),
-      chapterCount: zod.number().nullish(),
-      questionCount: zod.number().nullish(),
-      createdAt: zod.date(),
+      assignedAt: zod.date(),
+      expiresAt: zod.date().nullish(),
+      isBlocked: zod.boolean(),
+      blockedAt: zod.date().nullish(),
+      accessStatus: zod.enum(["active", "expired", "blocked"]),
     }),
   ),
 });
@@ -958,9 +956,29 @@ export const AssignSubjectToStudentParams = zod.object({
 
 export const AssignSubjectToStudentBody = zod.object({
   subjectId: zod.number(),
+  expiresAt: zod.date().nullish(),
+  performedBy: zod.number().nullish(),
 });
 
 export const AssignSubjectToStudentResponse = zod.object({
+  message: zod.string(),
+});
+
+/**
+ * @summary Block, unblock, or update expiry for a student's subject access
+ */
+export const UpdateSubjectAccessParams = zod.object({
+  userId: zod.coerce.number(),
+  subjectId: zod.coerce.number(),
+});
+
+export const UpdateSubjectAccessBody = zod.object({
+  action: zod.enum(["block", "unblock", "set_expiry"]),
+  expiresAt: zod.date().nullish(),
+  performedBy: zod.number().nullish(),
+});
+
+export const UpdateSubjectAccessResponse = zod.object({
   message: zod.string(),
 });
 
@@ -975,3 +993,26 @@ export const RevokeSubjectFromStudentParams = zod.object({
 export const RevokeSubjectFromStudentResponse = zod.object({
   message: zod.string(),
 });
+
+/**
+ * @summary Get access change audit log for a student
+ */
+export const GetStudentAccessLogsParams = zod.object({
+  userId: zod.coerce.number(),
+});
+
+export const GetStudentAccessLogsResponseItem = zod.object({
+  id: zod.number(),
+  userId: zod.number(),
+  subjectId: zod.number(),
+  subjectName: zod.string(),
+  subjectCode: zod.string(),
+  action: zod.string(),
+  performedBy: zod.number().nullish(),
+  performedByName: zod.string().nullish(),
+  performedAt: zod.date(),
+  notes: zod.string().nullish(),
+});
+export const GetStudentAccessLogsResponse = zod.array(
+  GetStudentAccessLogsResponseItem,
+);

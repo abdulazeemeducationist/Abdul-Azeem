@@ -1,0 +1,1 @@
+- [Access control pattern](access-control.md) — per-subject expiry/blocking in userSubjectPurchasesTable; accessStatus computed at query time; audit trail in courseAccessLogsTable.

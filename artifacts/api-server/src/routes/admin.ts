@@ -3,7 +3,7 @@ import { db } from "@workspace/db";
 import {
   coursesTable, subjectsTable, chaptersTable, topicsTable, questionsTable,
   usersTable, userProgressTable, userSubjectPurchasesTable, levelsTable,
-  chapterVideosTable, chapterNotesTable
+  chapterVideosTable, chapterNotesTable, courseAccessLogsTable
 } from "@workspace/db";
 import { eq, count, avg, and, inArray, max, asc, or } from "drizzle-orm";
 import crypto from "crypto";
@@ -40,6 +40,12 @@ router.get("/stats", async (_req, res) => {
   }
 });
 
+function computeAccessStatus(record: { isBlocked: boolean; expiresAt: Date | null }): 'active' | 'expired' | 'blocked' {
+  if (record.isBlocked) return 'blocked';
+  if (record.expiresAt && record.expiresAt < new Date()) return 'expired';
+  return 'active';
+}
+
 router.get("/students", async (_req, res) => {
   try {
     const students = await db
@@ -50,15 +56,24 @@ router.get("/students", async (_req, res) => {
     const result = await Promise.all(students.map(async (s) => {
       const purchases = await db
         .select({
-          subjectId: userSubjectPurchasesTable.subjectId,
-          subjectName: subjectsTable.name,
-          subjectCode: subjectsTable.code,
+          id: userSubjectPurchasesTable.subjectId,
+          name: subjectsTable.name,
+          code: subjectsTable.code,
           assignedAt: userSubjectPurchasesTable.assignedAt,
+          expiresAt: userSubjectPurchasesTable.expiresAt,
+          isBlocked: userSubjectPurchasesTable.isBlocked,
+          blockedAt: userSubjectPurchasesTable.blockedAt,
         })
         .from(userSubjectPurchasesTable)
         .innerJoin(subjectsTable, eq(userSubjectPurchasesTable.subjectId, subjectsTable.id))
         .where(eq(userSubjectPurchasesTable.userId, s.id));
-      return { ...s, purchasedSubjects: purchases };
+
+      const assignedSubjects = purchases.map(p => ({
+        ...p,
+        accessStatus: computeAccessStatus(p),
+      }));
+
+      return { ...s, assignedSubjects };
     }));
 
     res.json(result);
@@ -71,7 +86,7 @@ router.get("/students", async (_req, res) => {
 router.post("/students/:userId/subjects", async (req, res) => {
   try {
     const userId = parseInt(req.params.userId);
-    const { subjectId, assignedBy } = req.body;
+    const { subjectId, assignedBy, expiresAt } = req.body;
     if (!subjectId) { res.status(400).json({ error: "subjectId is required" }); return; }
 
     const existing = await db.select().from(userSubjectPurchasesTable)
@@ -83,8 +98,15 @@ router.post("/students/:userId/subjects", async (req, res) => {
     }
 
     const [purchase] = await db.insert(userSubjectPurchasesTable)
-      .values({ userId, subjectId, assignedBy: assignedBy ?? null })
+      .values({ userId, subjectId, assignedBy: assignedBy ?? null, expiresAt: expiresAt ? new Date(expiresAt) : null })
       .returning();
+
+    await db.insert(courseAccessLogsTable).values({
+      userId, subjectId, action: 'assigned',
+      performedBy: assignedBy ?? null,
+      notes: expiresAt ? `Expires: ${expiresAt}` : null,
+    });
+
     res.status(201).json(purchase);
   } catch (err) {
     console.error(err);
@@ -92,16 +114,93 @@ router.post("/students/:userId/subjects", async (req, res) => {
   }
 });
 
+router.patch("/students/:userId/subjects/:subjectId", async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    const subjectId = parseInt(req.params.subjectId);
+    const { action, expiresAt, performedBy } = req.body;
+    if (!action) { res.status(400).json({ error: "action is required" }); return; }
+
+    const existing = await db.select().from(userSubjectPurchasesTable)
+      .where(and(eq(userSubjectPurchasesTable.userId, userId), eq(userSubjectPurchasesTable.subjectId, subjectId)))
+      .limit(1);
+    if (!existing.length) { res.status(404).json({ error: "Not found", message: "Access record not found" }); return; }
+
+    const now = new Date();
+    let updateValues: Record<string, unknown> = {};
+    let logNote: string | null = null;
+
+    if (action === 'block') {
+      updateValues = { isBlocked: true, blockedAt: now, blockedBy: performedBy ?? null };
+      logNote = 'Manual block';
+    } else if (action === 'unblock') {
+      updateValues = { isBlocked: false, blockedAt: null, blockedBy: null };
+      logNote = 'Access unblocked';
+    } else if (action === 'set_expiry') {
+      updateValues = { expiresAt: expiresAt ? new Date(expiresAt) : null };
+      logNote = expiresAt ? `Expiry set to: ${expiresAt}` : 'Expiry removed';
+    } else {
+      res.status(400).json({ error: "Invalid action" }); return;
+    }
+
+    await db.update(userSubjectPurchasesTable)
+      .set(updateValues)
+      .where(and(eq(userSubjectPurchasesTable.userId, userId), eq(userSubjectPurchasesTable.subjectId, subjectId)));
+
+    await db.insert(courseAccessLogsTable).values({
+      userId, subjectId, action, performedBy: performedBy ?? null, notes: logNote,
+    });
+
+    res.json({ message: "Access updated" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to update access" });
+  }
+});
+
 router.delete("/students/:userId/subjects/:subjectId", async (req, res) => {
   try {
     const userId = parseInt(req.params.userId);
     const subjectId = parseInt(req.params.subjectId);
+
+    await db.insert(courseAccessLogsTable).values({
+      userId, subjectId, action: 'revoked', performedBy: null, notes: null,
+    }).catch(() => {});
+
     await db.delete(userSubjectPurchasesTable)
       .where(and(eq(userSubjectPurchasesTable.userId, userId), eq(userSubjectPurchasesTable.subjectId, subjectId)));
     res.json({ message: "Paper access revoked" });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Internal Server Error", message: "Failed to revoke paper" });
+  }
+});
+
+router.get("/students/:userId/access-logs", async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    const logs = await db
+      .select({
+        id: courseAccessLogsTable.id,
+        userId: courseAccessLogsTable.userId,
+        subjectId: courseAccessLogsTable.subjectId,
+        subjectName: subjectsTable.name,
+        subjectCode: subjectsTable.code,
+        action: courseAccessLogsTable.action,
+        performedBy: courseAccessLogsTable.performedBy,
+        performedByName: usersTable.name,
+        performedAt: courseAccessLogsTable.performedAt,
+        notes: courseAccessLogsTable.notes,
+      })
+      .from(courseAccessLogsTable)
+      .innerJoin(subjectsTable, eq(courseAccessLogsTable.subjectId, subjectsTable.id))
+      .leftJoin(usersTable, eq(courseAccessLogsTable.performedBy, usersTable.id))
+      .where(eq(courseAccessLogsTable.userId, userId))
+      .orderBy(asc(courseAccessLogsTable.performedAt));
+    res.json(logs);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error", message: "Failed to get access logs" });
   }
 });
 

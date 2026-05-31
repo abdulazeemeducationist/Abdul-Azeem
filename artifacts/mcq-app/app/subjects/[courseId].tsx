@@ -56,9 +56,23 @@ function CourseCard({ subject, onLockedPress }: { subject: Subject; onLockedPres
               </View>
             </>
           ) : (
-            <View style={styles.lockedBadge}>
-              <Ionicons name="lock-closed" size={11} color="#6B7280" />
-              <Text style={styles.lockedText}>Locked — Contact admin</Text>
+            <View style={[
+              styles.lockedBadge,
+              subject.accessStatus === 'expired' && styles.lockedBadgeExpired,
+              subject.accessStatus === 'blocked' && styles.lockedBadgeBlocked,
+            ]}>
+              <Ionicons
+                name={subject.accessStatus === 'expired' ? 'time-outline' : subject.accessStatus === 'blocked' ? 'ban-outline' : 'lock-closed'}
+                size={11}
+                color={subject.accessStatus === 'expired' ? '#D97706' : subject.accessStatus === 'blocked' ? '#DC2626' : '#6B7280'}
+              />
+              <Text style={[
+                styles.lockedText,
+                subject.accessStatus === 'expired' && styles.lockedTextExpired,
+                subject.accessStatus === 'blocked' && styles.lockedTextBlocked,
+              ]}>
+                {subject.accessStatus === 'expired' ? 'Access Expired' : subject.accessStatus === 'blocked' ? 'Access Blocked' : 'Locked — Contact admin'}
+              </Text>
             </View>
           )}
         </View>
@@ -66,7 +80,11 @@ function CourseCard({ subject, onLockedPress }: { subject: Subject; onLockedPres
       {subject.purchased ? (
         <Ionicons name="chevron-forward" size={18} color={Colors.light.textMuted} />
       ) : (
-        <Ionicons name="lock-closed-outline" size={18} color="#9CA3AF" />
+        <Ionicons
+          name={subject.accessStatus === 'expired' ? 'time-outline' : subject.accessStatus === 'blocked' ? 'ban-outline' : 'lock-closed-outline'}
+          size={18}
+          color={subject.accessStatus === 'expired' ? '#D97706' : subject.accessStatus === 'blocked' ? '#DC2626' : '#9CA3AF'}
+        />
       )}
     </Pressable>
   );
@@ -116,9 +134,16 @@ export default function SubjectsScreen() {
           renderItem={({ item }) => (
             <CourseCard
               subject={item}
-              onLockedPress={() =>
-                Alert.alert("Course Locked", "This course is not included in your plan. Please contact your admin to unlock access.", [{ text: "OK" }])
-              }
+              onLockedPress={() => {
+                const s = item;
+                const title = s.accessStatus === 'expired' ? "Access Expired" : s.accessStatus === 'blocked' ? "Access Blocked" : "Course Locked";
+                const msg = s.accessStatus === 'expired'
+                  ? "Your access to this course has expired. Please contact your admin to renew."
+                  : s.accessStatus === 'blocked'
+                  ? "Access to this course has been blocked. Please contact your admin."
+                  : "This course is not included in your plan. Please contact your admin to unlock access.";
+                Alert.alert(title, msg, [{ text: "OK" }]);
+              }}
             />
           )}
           contentContainerStyle={[styles.list, { paddingBottom: isWeb ? 34 : 30 }]}
@@ -159,7 +184,11 @@ const styles = StyleSheet.create({
   statChip: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: Colors.light.backgroundSecondary, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 3 },
   statChipText: { fontSize: 11, fontFamily: "Inter_500Medium", color: Colors.light.textMuted },
   lockedBadge: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "#F3F4F6", borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3 },
+  lockedBadgeExpired: { backgroundColor: "#FEF3C7" },
+  lockedBadgeBlocked: { backgroundColor: "#FEE2E2" },
   lockedText: { fontSize: 11, fontFamily: "Inter_500Medium", color: "#6B7280" },
+  lockedTextExpired: { color: "#D97706" },
+  lockedTextBlocked: { color: "#DC2626" },
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
   errorText: { fontSize: 16, fontFamily: "Inter_500Medium", color: Colors.light.error },
   retryBtn: { paddingHorizontal: 20, paddingVertical: 10, backgroundColor: Colors.light.primary, borderRadius: 10 },

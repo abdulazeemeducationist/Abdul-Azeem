@@ -5,9 +5,10 @@
  * MCQ Practice App API
  * OpenAPI spec version: 0.1.0
  */
+import type { SubjectAccessUpdateInputAction } from "./subjectAccessUpdateInputAction";
 
-export interface SubjectAssignInput {
-  subjectId: number;
+export interface SubjectAccessUpdateInput {
+  action: SubjectAccessUpdateInputAction;
   /** @nullable */
   expiresAt?: Date | null;
   /** @nullable */

@@ -5,7 +5,7 @@
  * MCQ Practice App API
  * OpenAPI spec version: 0.1.0
  */
-import type { Subject } from "./subject";
+import type { AssignedSubjectDetail } from "./assignedSubjectDetail";
 
 export interface StudentDetail {
   id: number;
@@ -15,5 +15,5 @@ export interface StudentDetail {
   whatsappNumber?: string | null;
   isBlocked: boolean;
   createdAt: Date;
-  assignedSubjects: Subject[];
+  assignedSubjects: AssignedSubjectDetail[];
 }

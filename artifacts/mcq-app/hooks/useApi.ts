@@ -35,6 +35,7 @@ export interface Subject {
   chapterCount: number;
   questionCount: number;
   purchased: boolean;
+  accessStatus?: 'active' | 'expired' | 'blocked' | null;
 }
 
 export interface Chapter {

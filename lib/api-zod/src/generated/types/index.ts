@@ -6,7 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./accessLogEntry";
 export * from "./adminStats";
+export * from "./assignedSubjectDetail";
+export * from "./assignedSubjectDetailAccessStatus";
 export * from "./authResponse";
 export * from "./blockInput";
 export * from "./chapter";
@@ -35,6 +38,8 @@ export * from "./signUpInput";
 export * from "./studentDetail";
 export * from "./studentInput";
 export * from "./subject";
+export * from "./subjectAccessUpdateInput";
+export * from "./subjectAccessUpdateInputAction";
 export * from "./subjectAssignInput";
 export * from "./subjectInput";
 export * from "./toggleActiveInput";

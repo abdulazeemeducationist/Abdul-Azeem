@@ -290,6 +290,28 @@ export interface ImportResult {
   message: string;
 }
 
+export type AssignedSubjectDetailAccessStatus =
+  (typeof AssignedSubjectDetailAccessStatus)[keyof typeof AssignedSubjectDetailAccessStatus];
+
+export const AssignedSubjectDetailAccessStatus = {
+  active: "active",
+  expired: "expired",
+  blocked: "blocked",
+} as const;
+
+export interface AssignedSubjectDetail {
+  id: number;
+  name: string;
+  code: string;
+  assignedAt: string;
+  /** @nullable */
+  expiresAt?: string | null;
+  isBlocked: boolean;
+  /** @nullable */
+  blockedAt?: string | null;
+  accessStatus: AssignedSubjectDetailAccessStatus;
+}
+
 export interface StudentDetail {
   id: number;
   name: string;
@@ -298,7 +320,7 @@ export interface StudentDetail {
   whatsappNumber?: string | null;
   isBlocked: boolean;
   createdAt: string;
-  assignedSubjects: Subject[];
+  assignedSubjects: AssignedSubjectDetail[];
 }
 
 export interface StudentInput {
@@ -314,6 +336,43 @@ export interface BlockInput {
 
 export interface SubjectAssignInput {
   subjectId: number;
+  /** @nullable */
+  expiresAt?: string | null;
+  /** @nullable */
+  performedBy?: number | null;
+}
+
+export type SubjectAccessUpdateInputAction =
+  (typeof SubjectAccessUpdateInputAction)[keyof typeof SubjectAccessUpdateInputAction];
+
+export const SubjectAccessUpdateInputAction = {
+  block: "block",
+  unblock: "unblock",
+  set_expiry: "set_expiry",
+} as const;
+
+export interface SubjectAccessUpdateInput {
+  action: SubjectAccessUpdateInputAction;
+  /** @nullable */
+  expiresAt?: string | null;
+  /** @nullable */
+  performedBy?: number | null;
+}
+
+export interface AccessLogEntry {
+  id: number;
+  userId: number;
+  subjectId: number;
+  subjectName: string;
+  subjectCode: string;
+  action: string;
+  /** @nullable */
+  performedBy?: number | null;
+  /** @nullable */
+  performedByName?: string | null;
+  performedAt: string;
+  /** @nullable */
+  notes?: string | null;
 }
 
 export interface UserProgress {

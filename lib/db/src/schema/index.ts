@@ -114,6 +114,20 @@ export const userSubjectPurchasesTable = pgTable("user_subject_purchases", {
   subjectId: integer("subject_id").notNull().references(() => subjectsTable.id, { onDelete: "cascade" }),
   assignedAt: timestamp("assigned_at").notNull().defaultNow(),
   assignedBy: integer("assigned_by").references(() => usersTable.id),
+  expiresAt: timestamp("expires_at"),
+  isBlocked: boolean("is_blocked").notNull().default(false),
+  blockedAt: timestamp("blocked_at"),
+  blockedBy: integer("blocked_by").references(() => usersTable.id),
+});
+
+export const courseAccessLogsTable = pgTable("course_access_logs", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+  subjectId: integer("subject_id").notNull().references(() => subjectsTable.id, { onDelete: "cascade" }),
+  action: varchar("action", { length: 50 }).notNull(),
+  performedBy: integer("performed_by").references(() => usersTable.id),
+  performedAt: timestamp("performed_at").notNull().defaultNow(),
+  notes: text("notes"),
 });
 
 export const userProgressTable = pgTable("user_progress", {
@@ -159,6 +173,7 @@ export const insertQuestionSchema = createInsertSchema(questionsTable).omit({ id
 export const insertProgressSchema = createInsertSchema(userProgressTable).omit({ id: true, lastAttemptAt: true });
 export const insertUserCourseSchema = createInsertSchema(userCoursesTable).omit({ id: true, assignedAt: true });
 export const insertUserSubjectPurchaseSchema = createInsertSchema(userSubjectPurchasesTable).omit({ id: true, assignedAt: true });
+export const insertCourseAccessLogSchema = createInsertSchema(courseAccessLogsTable).omit({ id: true, performedAt: true });
 export const insertChapterVideoSchema = createInsertSchema(chapterVideosTable).omit({ id: true, createdAt: true });
 export const insertChapterNoteSchema = createInsertSchema(chapterNotesTable).omit({ id: true, createdAt: true });
 

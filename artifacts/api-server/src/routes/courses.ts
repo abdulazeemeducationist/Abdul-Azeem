@@ -77,12 +77,23 @@ router.get("/:courseId/subjects", async (req, res) => {
     const userId = req.query.userId ? parseInt(req.query.userId as string) : null;
     const isAdmin = req.query.admin === "true";
 
+    type PurchaseRecord = { subjectId: number; isBlocked: boolean; expiresAt: Date | null };
+    let allPurchases: PurchaseRecord[] = [];
     let purchasedIds = new Set<number>();
     if (userId) {
-      const purchases = await db.select({ subjectId: userSubjectPurchasesTable.subjectId })
+      allPurchases = await db.select({
+        subjectId: userSubjectPurchasesTable.subjectId,
+        isBlocked: userSubjectPurchasesTable.isBlocked,
+        expiresAt: userSubjectPurchasesTable.expiresAt,
+      })
         .from(userSubjectPurchasesTable)
         .where(eq(userSubjectPurchasesTable.userId, userId));
-      purchasedIds = new Set(purchases.map(p => p.subjectId));
+      const now = new Date();
+      purchasedIds = new Set(
+        allPurchases
+          .filter(p => !p.isBlocked && (!p.expiresAt || p.expiresAt > now))
+          .map(p => p.subjectId)
+      );
     }
 
     const whereClause = isAdmin
@@ -106,11 +117,17 @@ router.get("/:courseId/subjects", async (req, res) => {
           questionCount = Number(qc);
         }
       }
+      const purchase = userId ? allPurchases.find(p => p.subjectId === s.id) : null;
+      const now = new Date();
+      const accessStatus = purchase
+        ? (purchase.isBlocked ? 'blocked' : (purchase.expiresAt && purchase.expiresAt < now ? 'expired' : 'active'))
+        : null;
       return {
         ...s,
         chapterCount: chapterIds.length,
         questionCount,
         purchased: userId ? purchasedIds.has(s.id) : true,
+        accessStatus,
       };
     }));
     res.json(result);

@@ -954,6 +954,34 @@ paths:
                 $ref: "#/components/schemas/MessageResponse"
 
   /admin/students/{userId}/subjects/{subjectId}:
+    patch:
+      operationId: updateSubjectAccess
+      tags: [admin]
+      summary: Block, unblock, or update expiry for a student's subject access
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: subjectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubjectAccessUpdateInput"
+      responses:
+        "200":
+          description: Access updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
     delete:
       operationId: revokeSubjectFromStudent
       tags: [admin]
@@ -976,6 +1004,27 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MessageResponse"
+
+  /admin/students/{userId}/access-logs:
+    get:
+      operationId: getStudentAccessLogs
+      tags: [admin]
+      summary: Get access change audit log for a student
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of access log entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AccessLogEntry"
 
 components:
   schemas:
@@ -1456,7 +1505,7 @@ components:
         assignedSubjects:
           type: array
           items:
-            $ref: "#/components/schemas/Subject"
+            $ref: "#/components/schemas/AssignedSubjectDetail"
       required:
         - id
         - name
@@ -1494,8 +1543,91 @@ components:
       properties:
         subjectId:
           type: integer
+        expiresAt:
+          type: ["string", "null"]
+          format: date-time
+        performedBy:
+          type: ["integer", "null"]
       required:
         - subjectId
+
+    SubjectAccessUpdateInput:
+      type: object
+      properties:
+        action:
+          type: string
+          enum: [block, unblock, set_expiry]
+        expiresAt:
+          type: ["string", "null"]
+          format: date-time
+        performedBy:
+          type: ["integer", "null"]
+      required:
+        - action
+
+    AssignedSubjectDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        code:
+          type: string
+        assignedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: ["string", "null"]
+          format: date-time
+        isBlocked:
+          type: boolean
+        blockedAt:
+          type: ["string", "null"]
+          format: date-time
+        accessStatus:
+          type: string
+          enum: [active, expired, blocked]
+      required:
+        - id
+        - name
+        - code
+        - assignedAt
+        - isBlocked
+        - accessStatus
+
+    AccessLogEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        subjectId:
+          type: integer
+        subjectName:
+          type: string
+        subjectCode:
+          type: string
+        action:
+          type: string
+        performedBy:
+          type: ["integer", "null"]
+        performedByName:
+          type: ["string", "null"]
+        performedAt:
+          type: string
+          format: date-time
+        notes:
+          type: ["string", "null"]
+      required:
+        - id
+        - userId
+        - subjectId
+        - subjectName
+        - subjectCode
+        - action
+        - performedAt
 
     UserProgress:
       type: object

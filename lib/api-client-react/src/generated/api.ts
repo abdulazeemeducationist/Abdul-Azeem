@@ -17,6 +17,7 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  AccessLogEntry,
   AdminStats,
   AuthResponse,
   BlockInput,
@@ -41,6 +42,7 @@ import type {
   StudentDetail,
   StudentInput,
   Subject,
+  SubjectAccessUpdateInput,
   SubjectAssignInput,
   SubjectInput,
   ToggleActiveInput,
@@ -3910,6 +3912,121 @@ export const useAssignSubjectToStudent = <
 };
 
 /**
+ * @summary Block, unblock, or update expiry for a student's subject access
+ */
+export const getUpdateSubjectAccessUrl = (
+  userId: number,
+  subjectId: number,
+) => {
+  return `/api/admin/students/${userId}/subjects/${subjectId}`;
+};
+
+export const updateSubjectAccess = async (
+  userId: number,
+  subjectId: number,
+  subjectAccessUpdateInput: SubjectAccessUpdateInput,
+  options?: RequestInit,
+): Promise<MessageResponse> => {
+  return customFetch<MessageResponse>(
+    getUpdateSubjectAccessUrl(userId, subjectId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(subjectAccessUpdateInput),
+    },
+  );
+};
+
+export const getUpdateSubjectAccessMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateSubjectAccess>>,
+    TError,
+    {
+      userId: number;
+      subjectId: number;
+      data: BodyType<SubjectAccessUpdateInput>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateSubjectAccess>>,
+  TError,
+  {
+    userId: number;
+    subjectId: number;
+    data: BodyType<SubjectAccessUpdateInput>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateSubjectAccess"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateSubjectAccess>>,
+    {
+      userId: number;
+      subjectId: number;
+      data: BodyType<SubjectAccessUpdateInput>;
+    }
+  > = (props) => {
+    const { userId, subjectId, data } = props ?? {};
+
+    return updateSubjectAccess(userId, subjectId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateSubjectAccessMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateSubjectAccess>>
+>;
+export type UpdateSubjectAccessMutationBody =
+  BodyType<SubjectAccessUpdateInput>;
+export type UpdateSubjectAccessMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Block, unblock, or update expiry for a student's subject access
+ */
+export const useUpdateSubjectAccess = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateSubjectAccess>>,
+    TError,
+    {
+      userId: number;
+      subjectId: number;
+      data: BodyType<SubjectAccessUpdateInput>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateSubjectAccess>>,
+  TError,
+  {
+    userId: number;
+    subjectId: number;
+    data: BodyType<SubjectAccessUpdateInput>;
+  },
+  TContext
+> => {
+  return useMutation(getUpdateSubjectAccessMutationOptions(options));
+};
+
+/**
  * @summary Revoke subject access from a student
  */
 export const getRevokeSubjectFromStudentUrl = (
@@ -3999,3 +4116,92 @@ export const useRevokeSubjectFromStudent = <
 > => {
   return useMutation(getRevokeSubjectFromStudentMutationOptions(options));
 };
+
+/**
+ * @summary Get access change audit log for a student
+ */
+export const getGetStudentAccessLogsUrl = (userId: number) => {
+  return `/api/admin/students/${userId}/access-logs`;
+};
+
+export const getStudentAccessLogs = async (
+  userId: number,
+  options?: RequestInit,
+): Promise<AccessLogEntry[]> => {
+  return customFetch<AccessLogEntry[]>(getGetStudentAccessLogsUrl(userId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetStudentAccessLogsQueryKey = (userId: number) => {
+  return [`/api/admin/students/${userId}/access-logs`] as const;
+};
+
+export const getGetStudentAccessLogsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getStudentAccessLogs>>,
+  TError = ErrorType<unknown>,
+>(
+  userId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getStudentAccessLogs>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetStudentAccessLogsQueryKey(userId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getStudentAccessLogs>>
+  > = ({ signal }) =>
+    getStudentAccessLogs(userId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!userId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getStudentAccessLogs>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetStudentAccessLogsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getStudentAccessLogs>>
+>;
+export type GetStudentAccessLogsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get access change audit log for a student
+ */
+
+export function useGetStudentAccessLogs<
+  TData = Awaited<ReturnType<typeof getStudentAccessLogs>>,
+  TError = ErrorType<unknown>,
+>(
+  userId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getStudentAccessLogs>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetStudentAccessLogsQueryOptions(userId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
