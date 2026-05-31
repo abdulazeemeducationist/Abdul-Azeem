@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, ChevronRight, HelpCircle } from "lucide-react";
+import { Plus, Pencil, Trash2, ChevronRight, HelpCircle, Upload } from "lucide-react";
 
 const diffColor: Record<string, string> = {
   easy: "bg-green-100 text-green-700 border-green-200",
@@ -50,9 +50,14 @@ export default function QuestionsPage() {
           <h1 className="text-2xl font-bold">Questions</h1>
           <p className="text-sm text-muted-foreground mt-1">Topic {tId} · {questions?.length ?? 0} questions</p>
         </div>
-        <Button onClick={() => setLocation(`/questions/new?topicId=${tId}`)} className="gap-2">
-          <Plus className="w-4 h-4" /> New Question
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={() => setLocation(`/questions/new?topicId=${tId}`)} className="gap-2">
+            <Plus className="w-4 h-4" /> New Question
+          </Button>
+          <Button variant="outline" onClick={() => setLocation(`/questions/import?topicId=${tId}`)} className="gap-2">
+            <Upload className="w-4 h-4" /> Import Questions
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (

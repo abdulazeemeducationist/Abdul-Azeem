@@ -7,7 +7,6 @@ import {
   LogOut,
   GraduationCap,
   ChevronRight,
-  FileUp,
 } from "lucide-react";
 import { clearAuth, getAuth } from "@/lib/auth";
 
@@ -16,7 +15,6 @@ const navItems = [
   { href: "/courses", label: "Programs", icon: BookOpen },
   { href: "/students", label: "Students", icon: Users },
   { href: "/staff", label: "Staff", icon: UserCog },
-  { href: "/questions/import", label: "Import Questions", icon: FileUp },
 ];
 
 export function Sidebar() {
