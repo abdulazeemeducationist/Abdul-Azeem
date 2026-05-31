@@ -190,3 +190,33 @@
     @apply font-sans antialiased bg-background text-foreground;
   }
 }
+
+/* Tiptap rich text editor */
+.tiptap-content {
+  color: #111827;
+  line-height: 1.6;
+  font-size: 0.875rem;
+}
+.tiptap-content p { margin: 0 0 0.5em; }
+.tiptap-content p:last-child { margin-bottom: 0; }
+.tiptap-content h1 { font-size: 1.25rem; font-weight: 700; margin: 0.5em 0; }
+.tiptap-content h2 { font-size: 1.1rem; font-weight: 700; margin: 0.5em 0; }
+.tiptap-content strong { font-weight: 700; }
+.tiptap-content em { font-style: italic; }
+.tiptap-content u { text-decoration: underline; }
+.tiptap-content code { background: #F1F5F9; border-radius: 4px; padding: 1px 5px; font-family: monospace; font-size: 0.85em; }
+.tiptap-content blockquote { border-left: 3px solid #CBD5E1; padding-left: 0.75em; margin: 0.5em 0; color: #64748B; }
+.tiptap-content ul { list-style: disc; padding-left: 1.25em; margin: 0.5em 0; }
+.tiptap-content ol { list-style: decimal; padding-left: 1.25em; margin: 0.5em 0; }
+.tiptap-content table { border-collapse: collapse; width: 100%; margin: 0.5em 0; }
+.tiptap-content th, .tiptap-content td { border: 1px solid #E2E8F0; padding: 6px 10px; }
+.tiptap-content th { background: #F8FAFC; font-weight: 600; }
+.tiptap-content a { color: #2563EB; text-decoration: underline; }
+.tiptap-content img { max-width: 100%; border-radius: 6px; margin: 4px 0; }
+.tiptap-content p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: #9CA3AF;
+  pointer-events: none;
+  float: left;
+  height: 0;
+}
