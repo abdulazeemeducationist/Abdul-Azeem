@@ -54,7 +54,7 @@ export default function StudentsPage() {
   function handleAssign() {
     if (!assignStudent || !selectedSubject) return;
     assign.mutate({ userId: assignStudent, data: { subjectId: parseInt(selectedSubject) } }, {
-      onSuccess: () => { inv(); setSelectedSubject(""); toast({ title: "Subject assigned" }); },
+      onSuccess: () => { inv(); setSelectedSubject(""); toast({ title: "Course assigned" }); },
       onError: () => toast({ title: "Already assigned", variant: "destructive" }),
     });
   }
@@ -169,12 +169,12 @@ export default function StudentsPage() {
       {/* Assign subject dialog */}
       <Dialog open={assignStudent !== null} onOpenChange={v => !v && setAssignStudent(null)}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Assign Subject to {assigningStudent?.name}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Assign Course to {assigningStudent?.name}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <Label>Select Subject</Label>
+              <Label>Select Course</Label>
               <Select value={selectedSubject} onValueChange={setSelectedSubject}>
-                <SelectTrigger><SelectValue placeholder="Choose a subject..." /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Choose a course..." /></SelectTrigger>
                 <SelectContent>
                   {subjects?.map(sub => (
                     <SelectItem key={sub.id} value={String(sub.id)}>

@@ -47,9 +47,9 @@ export default function CoursesPage() {
   function handleSave() {
     const payload = { name: form.name, code: form.code, description: form.description, icon: form.icon, color: form.color };
     if (editing) {
-      update.mutate({ courseId: editing, data: payload }, { onSuccess: () => { inv(); setOpen(false); toast({ title: "Course updated" }); }, onError: () => toast({ title: "Failed", variant: "destructive" }) });
+      update.mutate({ courseId: editing, data: payload }, { onSuccess: () => { inv(); setOpen(false); toast({ title: "Program updated" }); }, onError: () => toast({ title: "Failed", variant: "destructive" }) });
     } else {
-      create.mutate({ data: payload }, { onSuccess: () => { inv(); setOpen(false); toast({ title: "Course created" }); }, onError: () => toast({ title: "Failed", variant: "destructive" }) });
+      create.mutate({ data: payload }, { onSuccess: () => { inv(); setOpen(false); toast({ title: "Program created" }); }, onError: () => toast({ title: "Failed", variant: "destructive" }) });
     }
   }
 
@@ -57,11 +57,11 @@ export default function CoursesPage() {
     <div className="p-8">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold">Courses</h1>
+          <h1 className="text-2xl font-bold">Programs</h1>
           <p className="text-sm text-muted-foreground mt-1">Manage exam programs and qualifications</p>
         </div>
         <Button data-testid="button-create-course" onClick={openCreate} className="gap-2">
-          <Plus className="w-4 h-4" /> New Course
+          <Plus className="w-4 h-4" /> New Program
         </Button>
       </div>
 
@@ -70,7 +70,7 @@ export default function CoursesPage() {
       ) : !courses?.length ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <BookOpen className="w-12 h-12 text-muted-foreground/30 mb-4" />
-          <p className="text-muted-foreground">No courses yet. Create your first one.</p>
+          <p className="text-muted-foreground">No programs yet. Create your first one.</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -86,7 +86,7 @@ export default function CoursesPage() {
                   <Badge variant={c.isActive ? "default" : "secondary"} className="text-xs">{c.isActive ? "Active" : "Inactive"}</Badge>
                 </div>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  {c.subjectCount ?? 0} subjects
+                  {c.subjectCount ?? 0} courses
                 </p>
               </div>
               <div className="flex items-center gap-1">
@@ -118,7 +118,7 @@ export default function CoursesPage() {
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>{editing ? "Edit Course" : "New Course"}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editing ? "Edit Program" : "New Program"}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
@@ -160,14 +160,14 @@ export default function CoursesPage() {
       <AlertDialog open={deleteId !== null} onOpenChange={v => !v && setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Course?</AlertDialogTitle>
-            <AlertDialogDescription>This will permanently delete the course and all its subjects, chapters, topics, and questions.</AlertDialogDescription>
+            <AlertDialogTitle>Delete Program?</AlertDialogTitle>
+            <AlertDialogDescription>This will permanently delete the program and all its courses, chapters, topics, and questions.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => {
-                if (deleteId) remove.mutate({ courseId: deleteId }, { onSuccess: () => { inv(); setDeleteId(null); toast({ title: "Course deleted" }); } });
+                if (deleteId) remove.mutate({ courseId: deleteId }, { onSuccess: () => { inv(); setDeleteId(null); toast({ title: "Program deleted" }); } });
               }}>Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

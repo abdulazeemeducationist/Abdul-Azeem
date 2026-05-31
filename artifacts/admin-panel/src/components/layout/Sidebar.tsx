@@ -12,7 +12,7 @@ import { clearAuth, getAuth } from "@/lib/auth";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/courses", label: "Courses", icon: BookOpen },
+  { href: "/courses", label: "Programs", icon: BookOpen },
   { href: "/students", label: "Students", icon: Users },
   { href: "/staff", label: "Staff", icon: UserCog },
 ];

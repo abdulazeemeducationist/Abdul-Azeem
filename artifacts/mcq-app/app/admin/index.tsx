@@ -2443,7 +2443,7 @@ export default function AdminScreen() {
 
             {/* ── Topic Picker ── */}
             <View style={styles.formField}>
-              <Text style={styles.formLabel}>Course (Subject)</Text>
+              <Text style={styles.formLabel}>Course</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 4 }}>
                 <View style={{ flexDirection: "row", gap: 8 }}>
                   {(allSubjects ?? []).map((s: any) => (

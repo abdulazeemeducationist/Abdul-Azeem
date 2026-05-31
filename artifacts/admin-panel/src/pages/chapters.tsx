@@ -58,9 +58,9 @@ export default function ChaptersPage() {
   return (
     <div className="p-8">
       <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
-        <Link href="/courses"><a className="hover:text-foreground">Courses</a></Link>
+        <Link href="/courses"><a className="hover:text-foreground">Programs</a></Link>
         <ChevronRight className="w-3.5 h-3.5" />
-        <Link href={`/courses/${subject?.courseId}/subjects`}><a className="hover:text-foreground">Subjects</a></Link>
+        <Link href={`/courses/${subject?.courseId}/subjects`}><a className="hover:text-foreground">Courses</a></Link>
         <ChevronRight className="w-3.5 h-3.5" />
         <span className="text-foreground font-medium">{subject?.name ?? "..."}</span>
       </div>

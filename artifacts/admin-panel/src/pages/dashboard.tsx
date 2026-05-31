@@ -7,8 +7,8 @@ type StatKey = "totalUsers" | "totalCourses" | "totalSubjects" | "totalChapters"
 
 const statCards: { key: StatKey; label: string; icon: React.ElementType; color: string; isPercent?: boolean; href: string }[] = [
   { key: "totalUsers", label: "Students", icon: Users, color: "text-blue-500", href: "/students" },
-  { key: "totalCourses", label: "Courses", icon: BookOpen, color: "text-violet-500", href: "/courses" },
-  { key: "totalSubjects", label: "Subjects", icon: FileText, color: "text-indigo-500", href: "/courses" },
+  { key: "totalCourses", label: "Programs", icon: BookOpen, color: "text-violet-500", href: "/courses" },
+  { key: "totalSubjects", label: "Courses", icon: FileText, color: "text-indigo-500", href: "/courses" },
   { key: "totalChapters", label: "Chapters", icon: Layers, color: "text-cyan-500", href: "/courses" },
   { key: "totalTopics", label: "Topics", icon: Hash, color: "text-teal-500", href: "/courses" },
   { key: "totalQuestions", label: "Questions", icon: HelpCircle, color: "text-green-500", href: "/courses" },

@@ -63,9 +63,9 @@ export default function TopicsPage() {
   return (
     <div className="p-8">
       <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
-        <Link href="/courses"><a className="hover:text-foreground">Courses</a></Link>
+        <Link href="/courses"><a className="hover:text-foreground">Programs</a></Link>
         <ChevronRight className="w-3.5 h-3.5" />
-        <span>Subjects</span>
+        <span>Courses</span>
         <ChevronRight className="w-3.5 h-3.5" />
         <Link href={`/subjects/${cId}/chapters`}><a className="hover:text-foreground">Chapters</a></Link>
         <ChevronRight className="w-3.5 h-3.5" />

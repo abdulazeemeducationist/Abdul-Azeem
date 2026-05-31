@@ -49,16 +49,16 @@ export default function SubjectsPage() {
   function handleSave() {
     const payload = { courseId: cId, name: form.name, code: form.code, description: form.description };
     if (editing) {
-      update.mutate({ subjectId: editing, data: payload }, { onSuccess: () => { inv(); setOpen(false); toast({ title: "Subject updated" }); } });
+      update.mutate({ subjectId: editing, data: payload }, { onSuccess: () => { inv(); setOpen(false); toast({ title: "Course updated" }); } });
     } else {
-      create.mutate({ data: payload }, { onSuccess: () => { inv(); setOpen(false); toast({ title: "Subject created" }); } });
+      create.mutate({ data: payload }, { onSuccess: () => { inv(); setOpen(false); toast({ title: "Course created" }); } });
     }
   }
 
   return (
     <div className="p-8">
       <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
-        <Link href="/courses"><a className="hover:text-foreground transition-colors">Courses</a></Link>
+        <Link href="/courses"><a className="hover:text-foreground transition-colors">Programs</a></Link>
         <ChevronRight className="w-3.5 h-3.5" />
         <span className="text-foreground font-medium">{course?.name ?? "..."}</span>
       </div>
@@ -66,11 +66,11 @@ export default function SubjectsPage() {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <Link href="/courses"><a className="p-1 rounded hover:bg-muted"><ChevronLeft className="w-4 h-4" /></a></Link>
-            <h1 className="text-2xl font-bold">Subjects</h1>
+            <h1 className="text-2xl font-bold">Courses</h1>
           </div>
-          <p className="text-sm text-muted-foreground">Papers and subjects in {course?.name}</p>
+          <p className="text-sm text-muted-foreground">Courses in {course?.name}</p>
         </div>
-        <Button onClick={openCreate} className="gap-2"><Plus className="w-4 h-4" /> New Subject</Button>
+        <Button onClick={openCreate} className="gap-2"><Plus className="w-4 h-4" /> New Course</Button>
       </div>
 
       {isLoading ? (
@@ -78,7 +78,7 @@ export default function SubjectsPage() {
       ) : !subjects.length ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <FileText className="w-12 h-12 text-muted-foreground/30 mb-4" />
-          <p className="text-muted-foreground">No subjects yet. Add the first one.</p>
+          <p className="text-muted-foreground">No courses yet. Add the first one.</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -109,7 +109,7 @@ export default function SubjectsPage() {
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>{editing ? "Edit Subject" : "New Subject"}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editing ? "Edit Course" : "New Course"}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5"><Label>Name *</Label><Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Financial Reporting" /></div>
@@ -127,12 +127,12 @@ export default function SubjectsPage() {
       <AlertDialog open={deleteId !== null} onOpenChange={v => !v && setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Subject?</AlertDialogTitle>
-            <AlertDialogDescription>This will permanently delete the subject and all its chapters, topics, and questions.</AlertDialogDescription>
+            <AlertDialogTitle>Delete Course?</AlertDialogTitle>
+            <AlertDialogDescription>This will permanently delete the course and all its chapters, topics, and questions.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => { if (deleteId) remove.mutate({ subjectId: deleteId }, { onSuccess: () => { inv(); setDeleteId(null); toast({ title: "Subject deleted" }); } }); }}>Delete</AlertDialogAction>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => { if (deleteId) remove.mutate({ subjectId: deleteId }, { onSuccess: () => { inv(); setDeleteId(null); toast({ title: "Course deleted" }); } }); }}>Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
