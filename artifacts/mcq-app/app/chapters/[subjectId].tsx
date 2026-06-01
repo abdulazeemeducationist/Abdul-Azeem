@@ -62,14 +62,6 @@ function ChapterCard({ chapter }: { chapter: Chapter }) {
         <Text style={styles.chapterName}>{chapter.name}</Text>
         <View style={styles.statsRow}>
           <View style={styles.statChip}>
-            <Ionicons name="play-circle-outline" size={12} color={Colors.light.textMuted} />
-            <Text style={styles.statChipText}>Videos</Text>
-          </View>
-          <View style={styles.statChip}>
-            <Ionicons name="document-text-outline" size={12} color={Colors.light.textMuted} />
-            <Text style={styles.statChipText}>Notes</Text>
-          </View>
-          <View style={styles.statChip}>
             <Ionicons name="pencil-outline" size={12} color={Colors.light.textMuted} />
             <Text style={styles.statChipText}>Practice</Text>
           </View>
