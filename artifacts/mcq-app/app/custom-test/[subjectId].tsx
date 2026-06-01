@@ -16,6 +16,15 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
 import { api, Chapter } from "@/hooks/useApi";
 
+type Difficulty = "mixed" | "easy" | "medium" | "hard";
+
+const DIFFICULTY_OPTIONS: { key: Difficulty; label: string; icon: string; color: string }[] = [
+  { key: "mixed",  label: "Mixed",  icon: "shuffle-outline",       color: Colors.light.primary },
+  { key: "easy",   label: "Easy",   icon: "happy-outline",         color: "#16A34A" },
+  { key: "medium", label: "Medium", icon: "remove-circle-outline", color: "#D97706" },
+  { key: "hard",   label: "Hard",   icon: "flame-outline",         color: "#DC2626" },
+];
+
 export default function CustomTestBuilderScreen() {
   const { subjectId, subjectName } = useLocalSearchParams<{ subjectId: string; subjectName: string }>();
   const insets = useSafeAreaInsets();
@@ -23,6 +32,7 @@ export default function CustomTestBuilderScreen() {
   const topPad = isWeb ? Math.max(insets.top, 67) : insets.top;
 
   const [selectedChapterIds, setSelectedChapterIds] = useState<Set<number>>(new Set());
+  const [difficulty, setDifficulty] = useState<Difficulty>("mixed");
   const [questionCount, setQuestionCount] = useState("");
 
   const { data: chapters, isLoading } = useQuery({
@@ -31,12 +41,16 @@ export default function CustomTestBuilderScreen() {
     enabled: !!subjectId,
   });
 
-  const availableTotal = useMemo(() => {
-    if (!chapters) return 0;
-    return chapters
-      .filter(ch => selectedChapterIds.has(ch.id))
-      .reduce((sum, ch) => sum + (ch.questionCount ?? 0), 0);
-  }, [chapters, selectedChapterIds]);
+  const chapterIdsString = useMemo(
+    () => Array.from(selectedChapterIds).join(","),
+    [selectedChapterIds]
+  );
+
+  const { data: availableTotal = 0, isFetching: countFetching } = useQuery({
+    queryKey: ["custom-questions-count", chapterIdsString, difficulty],
+    queryFn: () => api.getCustomQuestionsCount(chapterIdsString, difficulty),
+    enabled: selectedChapterIds.size > 0 && chapterIdsString.length > 0,
+  });
 
   const parsedCount = parseInt(questionCount);
   const validCount = !isNaN(parsedCount) && parsedCount > 0 && parsedCount <= availableTotal;
@@ -63,12 +77,12 @@ export default function CustomTestBuilderScreen() {
   };
 
   const handleStart = () => {
-    const ids = Array.from(selectedChapterIds).join(",");
     router.push({
       pathname: "/custom-practice",
       params: {
-        chapterIds: ids,
+        chapterIds: chapterIdsString,
         limit: String(parsedCount),
+        difficulty,
         testName: subjectName ?? "Custom Test",
       },
     });
@@ -100,7 +114,7 @@ export default function CustomTestBuilderScreen() {
           contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom + 120, 140) }]}
           showsVerticalScrollIndicator={false}
         >
-          {/* Step 1 */}
+          {/* Step 1 — Select Chapters */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <View style={styles.stepBadge}><Text style={styles.stepNum}>1</Text></View>
@@ -137,7 +151,7 @@ export default function CustomTestBuilderScreen() {
                     <View style={styles.chapterInfo}>
                       <Text style={[styles.chapterName, noQuestions && styles.textMuted]} numberOfLines={2}>{ch.name}</Text>
                       <Text style={[styles.qCount, noQuestions && styles.textMuted]}>
-                        {noQuestions ? "No questions" : `${ch.questionCount} OTQs`}
+                        {noQuestions ? "No questions" : `${ch.questionCount} OTQs total`}
                       </Text>
                     </View>
                     {selected && <Ionicons name="checkmark-circle" size={20} color={Colors.light.primary} />}
@@ -148,24 +162,67 @@ export default function CustomTestBuilderScreen() {
             </View>
           </View>
 
-          {/* Step 2 */}
+          {/* Step 2 — Difficulty */}
           {selectedChapterIds.size > 0 && (
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <View style={styles.stepBadge}><Text style={styles.stepNum}>2</Text></View>
+                <Text style={styles.sectionTitle}>Difficulty Level</Text>
+              </View>
+
+              <View style={styles.difficultyGrid}>
+                {DIFFICULTY_OPTIONS.map(opt => {
+                  const active = difficulty === opt.key;
+                  return (
+                    <Pressable
+                      key={opt.key}
+                      style={({ pressed }) => [
+                        styles.difficultyCard,
+                        active && { borderColor: opt.color, backgroundColor: opt.color + "10" },
+                        { opacity: pressed ? 0.85 : 1 },
+                      ]}
+                      onPress={() => { setDifficulty(opt.key); setQuestionCount(""); }}
+                    >
+                      <Ionicons name={opt.icon as any} size={22} color={active ? opt.color : Colors.light.textMuted} />
+                      <Text style={[styles.difficultyLabel, active && { color: opt.color, fontFamily: "Inter_700Bold" }]}>
+                        {opt.label}
+                      </Text>
+                      {active && (
+                        <View style={[styles.difficultyCheckmark, { backgroundColor: opt.color }]}>
+                          <Ionicons name="checkmark" size={10} color="#FFF" />
+                        </View>
+                      )}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          )}
+
+          {/* Step 3 — Question Count */}
+          {selectedChapterIds.size > 0 && (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <View style={styles.stepBadge}><Text style={styles.stepNum}>3</Text></View>
                 <Text style={styles.sectionTitle}>Number of Questions</Text>
               </View>
 
               <View style={styles.availableRow}>
-                <Ionicons name="help-circle-outline" size={16} color={Colors.light.primary} />
-                <Text style={styles.availableText}>
-                  {availableTotal === 0
-                    ? "No questions available in selected chapters"
-                    : `${availableTotal} questions available`}
+                {countFetching ? (
+                  <ActivityIndicator size="small" color={Colors.light.primary} />
+                ) : (
+                  <Ionicons name="help-circle-outline" size={16} color={availableTotal > 0 ? Colors.light.primary : Colors.light.textMuted} />
+                )}
+                <Text style={[styles.availableText, availableTotal === 0 && styles.textMuted]}>
+                  {countFetching
+                    ? "Counting available questions…"
+                    : availableTotal === 0
+                    ? `No ${difficulty !== "mixed" ? difficulty + " " : ""}questions in selected chapters`
+                    : `${availableTotal} ${difficulty !== "mixed" ? difficulty + " " : ""}question${availableTotal !== 1 ? "s" : ""} available`}
                 </Text>
               </View>
 
-              {availableTotal > 0 && (
+              {!countFetching && availableTotal > 0 && (
                 <>
                   <TextInput
                     style={[styles.countInput, validCount && styles.countInputValid]}
@@ -183,15 +240,22 @@ export default function CustomTestBuilderScreen() {
                   )}
 
                   <View style={styles.quickPills}>
-                    {[10, 20, 30].filter(n => n <= availableTotal).map(n => (
-                      <Pressable key={n} style={[styles.pill, questionCount === String(n) && styles.pillActive]}
-                        onPress={() => setQuestionCount(String(n))}>
+                    {[10, 20, 30, 50].filter(n => n <= availableTotal).map(n => (
+                      <Pressable
+                        key={n}
+                        style={[styles.pill, questionCount === String(n) && styles.pillActive]}
+                        onPress={() => setQuestionCount(String(n))}
+                      >
                         <Text style={[styles.pillText, questionCount === String(n) && styles.pillTextActive]}>{n} Qs</Text>
                       </Pressable>
                     ))}
-                    <Pressable style={[styles.pill, questionCount === String(availableTotal) && styles.pillActive]}
-                      onPress={() => setQuestionCount(String(availableTotal))}>
-                      <Text style={[styles.pillText, questionCount === String(availableTotal) && styles.pillTextActive]}>All ({availableTotal})</Text>
+                    <Pressable
+                      style={[styles.pill, questionCount === String(availableTotal) && styles.pillActive]}
+                      onPress={() => setQuestionCount(String(availableTotal))}
+                    >
+                      <Text style={[styles.pillText, questionCount === String(availableTotal) && styles.pillTextActive]}>
+                        All ({availableTotal})
+                      </Text>
                     </Pressable>
                   </View>
                 </>
@@ -204,13 +268,19 @@ export default function CustomTestBuilderScreen() {
       {/* Start button */}
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom + 8, 24) }]}>
         <Pressable
-          style={({ pressed }) => [styles.startBtn, !canStart && styles.startBtnDisabled, { opacity: pressed && canStart ? 0.85 : 1 }]}
+          style={({ pressed }) => [
+            styles.startBtn,
+            !canStart && styles.startBtnDisabled,
+            { opacity: pressed && canStart ? 0.85 : 1 },
+          ]}
           onPress={handleStart}
           disabled={!canStart}
         >
           <Ionicons name="play" size={18} color="#FFF" />
           <Text style={styles.startBtnText}>
-            {canStart ? `Start Test · ${parsedCount} Questions` : "Configure test above"}
+            {canStart
+              ? `Start Test · ${parsedCount} Question${parsedCount !== 1 ? "s" : ""}`
+              : "Configure test above"}
           </Text>
         </Pressable>
       </View>
@@ -227,7 +297,7 @@ const styles = StyleSheet.create({
   screenTitle: { fontSize: 22, fontFamily: "Inter_700Bold", color: Colors.light.text },
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
   emptyText: { fontSize: 16, fontFamily: "Inter_500Medium", color: Colors.light.textMuted },
-  scrollContent: { paddingHorizontal: 16, paddingTop: 4, gap: 20 },
+  scrollContent: { paddingHorizontal: 16, paddingTop: 4, gap: 24 },
 
   section: { gap: 12 },
   sectionHeader: { flexDirection: "row", alignItems: "center", gap: 10 },
@@ -253,6 +323,20 @@ const styles = StyleSheet.create({
   chapterName: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: Colors.light.text, lineHeight: 18 },
   qCount: { fontSize: 11, fontFamily: "Inter_500Medium", color: Colors.light.primary, marginTop: 2 },
   textMuted: { color: Colors.light.textMuted },
+
+  difficultyGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  difficultyCard: {
+    flex: 1, minWidth: "45%", flexDirection: "column", alignItems: "center", justifyContent: "center",
+    gap: 6, paddingVertical: 16, paddingHorizontal: 12,
+    backgroundColor: Colors.light.card, borderRadius: 14, borderWidth: 1.5, borderColor: Colors.light.border,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1,
+    position: "relative",
+  },
+  difficultyLabel: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: Colors.light.textMuted },
+  difficultyCheckmark: {
+    position: "absolute", top: 8, right: 8, width: 18, height: 18, borderRadius: 9,
+    alignItems: "center", justifyContent: "center",
+  },
 
   availableRow: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: Colors.light.primary + "10", borderRadius: 10, padding: 10 },
   availableText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: Colors.light.primary },

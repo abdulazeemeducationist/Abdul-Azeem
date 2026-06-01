@@ -189,17 +189,25 @@ export const api = {
     if (!res.ok) throw new Error("Failed to fetch questions");
     return res.json();
   },
-  getCustomQuestions: async (chapterIds: string, limit?: number): Promise<Question[]> => {
-    const url = limit
-      ? `${API_BASE}/custom-questions?chapterIds=${chapterIds}&limit=${limit}`
-      : `${API_BASE}/custom-questions?chapterIds=${chapterIds}`;
-    const res = await fetch(url);
+  getCustomQuestions: async (chapterIds: string, limit?: number, difficulty?: string): Promise<Question[]> => {
+    const params = new URLSearchParams({ chapterIds });
+    if (limit) params.set("limit", String(limit));
+    if (difficulty && difficulty !== "mixed") params.set("difficulty", difficulty);
+    const res = await fetch(`${API_BASE}/custom-questions?${params}`);
     if (!res.ok) throw new Error("Failed to fetch custom questions");
     const data = await res.json();
     return data.map((q: Question & { correctAnswers: string | string[] }) => ({
       ...q,
       correctAnswers: typeof q.correctAnswers === "string" ? JSON.parse(q.correctAnswers) : q.correctAnswers,
     }));
+  },
+  getCustomQuestionsCount: async (chapterIds: string, difficulty?: string): Promise<number> => {
+    const params = new URLSearchParams({ chapterIds });
+    if (difficulty && difficulty !== "mixed") params.set("difficulty", difficulty);
+    const res = await fetch(`${API_BASE}/custom-questions/count?${params}`);
+    if (!res.ok) throw new Error("Failed to fetch question count");
+    const data = await res.json();
+    return data.count as number;
   },
   getUserProgress: async (userId: number): Promise<UserProgress[]> => {
     const res = await fetch(`${API_BASE}/progress?userId=${userId}`);

@@ -134,7 +134,7 @@ function ReviewCard({ question, userAnswers, index }: { question: Question; user
 
 // ── Main screen ────────────────────────────────────────────────────────────
 export default function CustomPracticeScreen() {
-  const { chapterIds, limit, testName } = useLocalSearchParams<{ chapterIds: string; limit: string; testName: string }>();
+  const { chapterIds, limit, testName, difficulty } = useLocalSearchParams<{ chapterIds: string; limit: string; testName: string; difficulty: string }>();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
   const topPad = isWeb ? Math.max(insets.top, 67) : insets.top;
@@ -151,8 +151,8 @@ export default function CustomPracticeScreen() {
   const [dropdownInput, setDropdownInput] = useState("");
 
   const { data: questions, isLoading } = useQuery({
-    queryKey: ["custom-questions", chapterIds, limit],
-    queryFn: () => api.getCustomQuestions(chapterIds ?? "", limit ? parseInt(limit) : undefined),
+    queryKey: ["custom-questions", chapterIds, limit, difficulty],
+    queryFn: () => api.getCustomQuestions(chapterIds ?? "", limit ? parseInt(limit) : undefined, difficulty ?? "mixed"),
     enabled: !!chapterIds,
   });
 
