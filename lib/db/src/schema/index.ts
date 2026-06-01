@@ -97,6 +97,7 @@ export const questionsTable = pgTable("questions", {
   matchingGridAnswers: text("matching_grid_answers"),
   dropdownOptions: text("dropdown_options"),
   dropdownCorrectAnswer: text("dropdown_correct_answer"),
+  timeLimitMinutes: integer("time_limit_minutes"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

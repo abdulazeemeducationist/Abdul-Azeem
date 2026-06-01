@@ -626,7 +626,7 @@ router.post("/questions", async (req, res) => {
     const {
       topicId, questionText, questionHtml, questionImageUrl,
       optionA, optionB, optionC, optionD, correctAnswers,
-      explanation, questionType, difficulty, marks,
+      explanation, questionType, difficulty, marks, timeLimitMinutes,
       numericAnswer, numericUnit, tolerance, allowedDecimalPrecision,
       matchingGridRows, matchingGridColumns, matchingGridAnswers,
       dropdownOptions, dropdownCorrectAnswer,
@@ -674,6 +674,7 @@ router.post("/questions", async (req, res) => {
       matchingGridAnswers: matchingGridAnswers ?? null,
       dropdownOptions: dropdownOptions ?? null,
       dropdownCorrectAnswer: dropdownCorrectAnswer ?? null,
+      timeLimitMinutes: timeLimitMinutes != null ? Number(timeLimitMinutes) : null,
     }).returning();
     res.status(201).json({ ...question, correctAnswers: JSON.parse(question.correctAnswers) });
   } catch (err) {
@@ -737,7 +738,7 @@ router.put("/questions/:questionId", async (req, res) => {
     const {
       topicId, questionText, questionHtml, questionImageUrl,
       optionA, optionB, optionC, optionD, correctAnswers,
-      explanation, questionType, difficulty, marks,
+      explanation, questionType, difficulty, marks, timeLimitMinutes,
       numericAnswer, numericUnit, tolerance, allowedDecimalPrecision,
       matchingGridRows, matchingGridColumns, matchingGridAnswers,
       dropdownOptions, dropdownCorrectAnswer,
@@ -765,6 +766,7 @@ router.put("/questions/:questionId", async (req, res) => {
       matchingGridAnswers: matchingGridAnswers ?? null,
       dropdownOptions: dropdownOptions ?? null,
       dropdownCorrectAnswer: dropdownCorrectAnswer ?? null,
+      timeLimitMinutes: timeLimitMinutes != null ? Number(timeLimitMinutes) : null,
     }).where(eq(questionsTable.id, id)).returning();
     res.json({ ...question, correctAnswers: JSON.parse(question.correctAnswers) });
   } catch (err) {

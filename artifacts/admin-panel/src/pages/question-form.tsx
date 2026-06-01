@@ -39,6 +39,7 @@ interface QForm {
   explanationText: string;
   difficulty: "easy" | "medium" | "hard";
   marks: number;
+  timeLimitMinutes: string;
   tags: string[];
 }
 
@@ -68,6 +69,7 @@ const EMPTY_FORM: QForm = {
   explanationText: "",
   difficulty: "medium",
   marks: 1,
+  timeLimitMinutes: "",
   tags: [],
 };
 
@@ -212,6 +214,7 @@ export default function QuestionFormPage() {
         explanationText: existing.explanation ?? "",
         difficulty: (existing.difficulty as "easy" | "medium" | "hard") ?? "medium",
         marks: existing.marks ?? 1,
+        timeLimitMinutes: existing.timeLimitMinutes != null ? String(existing.timeLimitMinutes) : "",
         tags: [],
       });
     }
@@ -404,6 +407,7 @@ export default function QuestionFormPage() {
       matchingGridAnswers: isMatching ? JSON.stringify(form.matchingAnswers) : undefined,
       dropdownOptions: isDropdown ? JSON.stringify(form.dropdownOptions.filter(o => o.trim())) : undefined,
       dropdownCorrectAnswer: isDropdown ? form.dropdownCorrectAnswer : undefined,
+      timeLimitMinutes: form.timeLimitMinutes !== "" ? parseInt(form.timeLimitMinutes) : undefined,
     };
 
     const go = () => {
@@ -896,6 +900,53 @@ export default function QuestionFormPage() {
                   <ChevronRight className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rotate-90 w-4 h-4 text-slate-400" />
                 </div>
               </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-slate-700">
+                Time Limit{" "}
+                <span className="text-slate-400 font-normal">(minutes, optional)</span>
+              </label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="number"
+                  min={1}
+                  max={180}
+                  value={form.timeLimitMinutes}
+                  onChange={e => setForm(f => ({ ...f, timeLimitMinutes: e.target.value.replace(/[^0-9]/g, "") }))}
+                  placeholder="e.g. 2"
+                  className={inputCls("max-w-[160px]")}
+                />
+                <div className="flex gap-1.5">
+                  {[1, 2, 3, 5].map(n => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setForm(f => ({ ...f, timeLimitMinutes: String(n) }))}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors
+                        ${form.timeLimitMinutes === String(n)
+                          ? "bg-blue-600 text-white border-blue-600"
+                          : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"}`}
+                    >
+                      {n} min
+                    </button>
+                  ))}
+                  {form.timeLimitMinutes !== "" && (
+                    <button
+                      type="button"
+                      onClick={() => setForm(f => ({ ...f, timeLimitMinutes: "" }))}
+                      className="px-3 py-1.5 rounded-xl text-xs font-semibold border border-slate-200 bg-white text-slate-400 hover:text-red-500 hover:border-red-200 transition-colors"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+              {form.timeLimitMinutes !== "" && (
+                <p className="text-xs text-slate-500">
+                  Students will have <span className="font-semibold text-slate-700">{form.timeLimitMinutes} minute{form.timeLimitMinutes !== "1" ? "s" : ""}</span> to answer this question ({form.marks} mark{form.marks !== 1 ? "s" : ""}).
+                </p>
+              )}
             </div>
 
             <div className="space-y-1.5">
