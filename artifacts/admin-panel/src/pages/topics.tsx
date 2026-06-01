@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { Link, useParams } from "wouter";
+import { Link, useParams, useSearch } from "wouter";
 import {
-  useGetAdminChaptersBySubject, useGetAdminTopicsByChapter, useCreateTopic, useUpdateTopic,
+  useGetAdminTopicsByChapter, useCreateTopic, useUpdateTopic,
   useDeleteTopic, useReorderTopics,
-  getGetAdminTopicsByChapterQueryKey, getGetAdminChaptersBySubjectQueryKey,
+  getGetAdminTopicsByChapterQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -18,17 +18,13 @@ import { Plus, Pencil, Trash2, ChevronRight, ChevronLeft, ChevronUp, ChevronDown
 export default function TopicsPage() {
   const { chapterId } = useParams<{ chapterId: string }>();
   const cId = parseInt(chapterId);
+  const search = useSearch();
+  const params = new URLSearchParams(search);
+  const subjectId = params.get("subjectId") ?? "";
   const qc = useQueryClient();
   const { toast } = useToast();
 
   const { data: topics, isLoading } = useGetAdminTopicsByChapter(cId, { query: { queryKey: getGetAdminTopicsByChapterQueryKey(cId) } });
-
-  // Find subject + chapter info for breadcrumbs
-  const [subjectId, setSubjectId] = useState<number | null>(null);
-  const { data: allChapters } = useGetAdminChaptersBySubject(subjectId ?? 0, {
-    query: { enabled: false, queryKey: getGetAdminChaptersBySubjectQueryKey(subjectId ?? 0) }
-  });
-  const chapter = topics?.[0] ? undefined : undefined; // We'll rely on title from topics
 
   const create = useCreateTopic();
   const update = useUpdateTopic();
@@ -65,9 +61,9 @@ export default function TopicsPage() {
       <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
         <Link href="/courses" className="hover:text-foreground">Programs</Link>
         <ChevronRight className="w-3.5 h-3.5" />
-        <span>Courses</span>
-        <ChevronRight className="w-3.5 h-3.5" />
-        <Link href={`/subjects/${cId}/chapters`} className="hover:text-foreground">Chapters</Link>
+        {subjectId
+          ? <Link href={`/subjects/${subjectId}/chapters`} className="hover:text-foreground">Chapters</Link>
+          : <span>Chapters</span>}
         <ChevronRight className="w-3.5 h-3.5" />
         <span className="text-foreground font-medium">Topics</span>
       </div>
@@ -103,7 +99,7 @@ export default function TopicsPage() {
                 <button onClick={() => reorder.mutate({ data: { topicId: t.id, direction: "down" } }, { onSuccess: inv })} disabled={idx === (topics.length - 1)} className="p-1.5 rounded hover:bg-muted disabled:opacity-30"><ChevronDown className="w-3.5 h-3.5" /></button>
                 <button onClick={() => openEdit(t)} className="p-1.5 rounded hover:bg-muted"><Pencil className="w-3.5 h-3.5 text-muted-foreground" /></button>
                 <button onClick={() => setDeleteId(t.id)} className="p-1.5 rounded hover:bg-muted"><Trash2 className="w-3.5 h-3.5 text-destructive" /></button>
-                <Link href={`/topics/${t.id}/questions`} className="p-1.5 rounded hover:bg-muted inline-flex"><ChevronRight className="w-4 h-4 text-muted-foreground" /></Link>
+                <Link href={`/topics/${t.id}/questions?chapterId=${cId}${subjectId ? `&subjectId=${subjectId}` : ""}`} className="p-1.5 rounded hover:bg-muted inline-flex"><ChevronRight className="w-4 h-4 text-muted-foreground" /></Link>
               </div>
             </div>
           ))}

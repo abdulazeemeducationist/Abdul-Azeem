@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useParams, useLocation } from "wouter";
+import { Link, useParams, useLocation, useSearch } from "wouter";
 import {
   useGetAdminQuestions, useGetAdminTopicsByChapter, useDeleteQuestion,
   getGetAdminQuestionsQueryKey,
@@ -21,6 +21,9 @@ const diffColor: Record<string, string> = {
 export default function ChapterQuestionsPage() {
   const { chapterId } = useParams<{ chapterId: string }>();
   const cId = parseInt(chapterId);
+  const search = useSearch();
+  const params = new URLSearchParams(search);
+  const subjectId = params.get("subjectId") ?? "";
   const [, setLocation] = useLocation();
   const qc = useQueryClient();
   const { toast } = useToast();
@@ -57,7 +60,9 @@ export default function ChapterQuestionsPage() {
       <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
         <Link href="/courses" className="hover:text-foreground">Programs</Link>
         <ChevronRight className="w-3.5 h-3.5" />
-        <span>Chapters</span>
+        {subjectId
+          ? <Link href={`/subjects/${subjectId}/chapters`} className="hover:text-foreground">Chapters</Link>
+          : <span>Chapters</span>}
         <ChevronRight className="w-3.5 h-3.5" />
         <span className="text-foreground font-medium">All Questions</span>
       </div>

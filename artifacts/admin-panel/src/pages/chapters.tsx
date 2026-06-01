@@ -100,8 +100,8 @@ export default function ChaptersPage() {
                 </button>
                 <button onClick={() => openEdit(c)} className="p-1.5 rounded hover:bg-muted"><Pencil className="w-3.5 h-3.5 text-muted-foreground" /></button>
                 <button onClick={() => setDeleteId(c.id)} className="p-1.5 rounded hover:bg-muted"><Trash2 className="w-3.5 h-3.5 text-destructive" /></button>
-                <Link href={`/chapters/${c.id}/questions`} title="View all questions" className="p-1.5 rounded hover:bg-muted inline-flex"><HelpCircle className="w-3.5 h-3.5 text-muted-foreground" /></Link>
-                <Link href={`/chapters/${c.id}/topics`} className="p-1.5 rounded hover:bg-muted inline-flex"><ChevronRight className="w-4 h-4 text-muted-foreground" /></Link>
+                <Link href={`/chapters/${c.id}/questions?subjectId=${sId}`} title="View all questions" className="p-1.5 rounded hover:bg-muted inline-flex"><HelpCircle className="w-3.5 h-3.5 text-muted-foreground" /></Link>
+                <Link href={`/chapters/${c.id}/topics?subjectId=${sId}`} className="p-1.5 rounded hover:bg-muted inline-flex"><ChevronRight className="w-4 h-4 text-muted-foreground" /></Link>
               </div>
             </div>
           ))}
