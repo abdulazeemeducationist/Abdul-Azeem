@@ -243,35 +243,23 @@ export default function PracticeScreen() {
     }
   };
 
-  const handleExitQuiz = () => {
-    Alert.alert(
-      "Exit Quiz",
-      "Your progress will be saved. You can resume from where you left off.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Exit & Save",
-          onPress: async () => {
-            if (user?.id) {
-              setSaving(true);
-              try {
-                const answersToSave = [...allSelectedAnswers];
-                if (submitted) answersToSave[currentIndex] = selectedAnswers;
-                await api.saveQuizState({
-                  userId: user.id, topicId: Number(topicId),
-                  lastQuestionIndex: submitted ? currentIndex : Math.max(0, currentIndex),
-                  savedAnswers: answersToSave,
-                  correctAnswers: score,
-                  totalQuestions,
-                });
-              } catch (e) { console.error("Failed to save quiz state", e); }
-              finally { setSaving(false); }
-            }
-            router.back();
-          },
-        },
-      ]
-    );
+  const handleExitQuiz = async () => {
+    if (user?.id) {
+      setSaving(true);
+      try {
+        const answersToSave = [...allSelectedAnswers];
+        if (submitted) answersToSave[currentIndex] = selectedAnswers;
+        await api.saveQuizState({
+          userId: user.id, topicId: Number(topicId),
+          lastQuestionIndex: submitted ? currentIndex : Math.max(0, currentIndex),
+          savedAnswers: answersToSave,
+          correctAnswers: score,
+          totalQuestions,
+        });
+      } catch (e) { console.error("Failed to save quiz state", e); }
+      finally { setSaving(false); }
+    }
+    router.back();
   };
 
   if (isLoading || stateLoading) {

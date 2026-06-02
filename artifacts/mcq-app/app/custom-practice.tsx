@@ -246,10 +246,16 @@ export default function CustomPracticeScreen() {
   };
 
   const handleExit = () => {
-    Alert.alert("Exit Test", "Your progress will be lost.", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Exit", style: "destructive", onPress: () => router.back() },
-    ]);
+    if (Platform.OS === "web") {
+      if (window.confirm("Exit test? Your progress will be lost.")) {
+        router.back();
+      }
+    } else {
+      Alert.alert("Exit Test", "Your progress will be lost.", [
+        { text: "Cancel", style: "cancel" },
+        { text: "Exit", style: "destructive", onPress: () => router.back() },
+      ]);
+    }
   };
 
   // ── Loading ────────────────────────────────────────────────────────────
