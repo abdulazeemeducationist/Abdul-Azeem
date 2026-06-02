@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, ChevronRight, HelpCircle, Upload } from "lucide-react";
+import { Plus, Pencil, Trash2, ChevronRight, ChevronLeft, HelpCircle, Upload } from "lucide-react";
 
 const diffColor: Record<string, string> = {
   easy: "bg-green-100 text-green-700 border-green-200",
@@ -55,8 +55,16 @@ export default function QuestionsPage() {
       </div>
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold">Questions</h1>
-          <p className="text-sm text-muted-foreground mt-1">Topic {tId} · {questions?.length ?? 0} questions</p>
+          <div className="flex items-center gap-2 mb-1">
+            <Link
+              href={chapterId ? `/chapters/${chapterId}/topics?subjectId=${subjectId}` : "/courses"}
+              className="p-1 rounded hover:bg-muted inline-flex"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </Link>
+            <h1 className="text-2xl font-bold">Questions</h1>
+          </div>
+          <p className="text-sm text-muted-foreground">Topic {tId} · {questions?.length ?? 0} questions</p>
         </div>
         <div className="flex items-center gap-2">
           <Button onClick={() => setLocation(`/questions/new?topicId=${tId}`)} className="gap-2">
