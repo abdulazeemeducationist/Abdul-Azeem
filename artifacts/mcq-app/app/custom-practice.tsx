@@ -359,7 +359,7 @@ export default function CustomPracticeScreen() {
     <View style={[styles.container, { paddingTop: topPad }]}>
       <View style={styles.header}>
         <Pressable style={styles.closeBtn} onPress={handleExit}>
-          <Ionicons name="exit-outline" size={22} color={Colors.light.text} />
+          <Ionicons name="arrow-back" size={22} color={Colors.light.text} />
         </Pressable>
         <View style={styles.headerCenter}>
           <Text style={styles.progressText}>Question {currentIndex + 1} of {totalQuestions}</Text>

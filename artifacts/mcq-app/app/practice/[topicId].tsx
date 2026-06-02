@@ -357,7 +357,7 @@ export default function PracticeScreen() {
     <View style={[styles.container, { paddingTop: topPad }]}>
       <View style={styles.header}>
         <Pressable style={styles.closeBtn} onPress={handleExitQuiz} disabled={saving}>
-          {saving ? <ActivityIndicator size="small" color={Colors.light.text} /> : <Ionicons name="exit-outline" size={22} color={Colors.light.text} />}
+          {saving ? <ActivityIndicator size="small" color={Colors.light.text} /> : <Ionicons name="arrow-back" size={22} color={Colors.light.text} />}
         </Pressable>
         <View style={styles.headerCenter}>
           <Text style={styles.progressText}>Question {currentIndex + 1} of {totalQuestions}</Text>
