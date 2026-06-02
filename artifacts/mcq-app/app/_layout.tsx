@@ -46,6 +46,7 @@ function RootLayoutNav() {
       <Stack.Screen name="papers/[levelId]" options={{ headerShown: false }} />
       <Stack.Screen name="subjects/[courseId]" options={{ headerShown: false }} />
       <Stack.Screen name="chapters/[subjectId]" options={{ headerShown: false }} />
+      <Stack.Screen name="chapters-list/[subjectId]" options={{ headerShown: false }} />
       <Stack.Screen name="topics/[chapterId]" options={{ headerShown: false }} />
       <Stack.Screen name="practice/[topicId]" options={{ headerShown: false }} />
       <Stack.Screen name="results/[topicId]" options={{ headerShown: false }} />
