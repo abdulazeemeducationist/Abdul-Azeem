@@ -407,7 +407,7 @@ export default function QuestionFormPage() {
       matchingGridAnswers: isMatching ? JSON.stringify(form.matchingAnswers) : undefined,
       dropdownOptions: isDropdown ? JSON.stringify(form.dropdownOptions.filter(o => o.trim())) : undefined,
       dropdownCorrectAnswer: isDropdown ? form.dropdownCorrectAnswer : undefined,
-      timeLimitMinutes: form.timeLimitMinutes !== "" ? parseInt(form.timeLimitMinutes) : undefined,
+      timeLimitMinutes: form.timeLimitMinutes !== "" ? parseFloat(form.timeLimitMinutes) : undefined,
     };
 
     const go = () => {
@@ -910,11 +910,12 @@ export default function QuestionFormPage() {
               <div className="flex items-center gap-3">
                 <input
                   type="number"
-                  min={1}
+                  min={0.1}
                   max={180}
+                  step={0.1}
                   value={form.timeLimitMinutes}
-                  onChange={e => setForm(f => ({ ...f, timeLimitMinutes: e.target.value.replace(/[^0-9]/g, "") }))}
-                  placeholder="e.g. 2"
+                  onChange={e => setForm(f => ({ ...f, timeLimitMinutes: e.target.value.replace(/[^0-9.]/g, "") }))}
+                  placeholder="e.g. 1.5"
                   className={inputCls("max-w-[160px]")}
                 />
                 <div className="flex gap-1.5">

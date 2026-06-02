@@ -1,4 +1,4 @@
-import { pgTable, serial, text, integer, boolean, numeric, timestamp, varchar } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, boolean, numeric, real, timestamp, varchar } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -97,7 +97,7 @@ export const questionsTable = pgTable("questions", {
   matchingGridAnswers: text("matching_grid_answers"),
   dropdownOptions: text("dropdown_options"),
   dropdownCorrectAnswer: text("dropdown_correct_answer"),
-  timeLimitMinutes: integer("time_limit_minutes"),
+  timeLimitMinutes: real("time_limit_minutes"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
