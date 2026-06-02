@@ -80,6 +80,7 @@ export interface Question {
   matchingGridAnswers?: string | null;
   dropdownOptions?: string | null;
   dropdownCorrectAnswer?: string | null;
+  timeLimitMinutes?: number | null;
 }
 
 export interface UserProgress {

@@ -20,6 +20,12 @@ import { useAuth } from "@/context/AuthContext";
 import { api, Question, QuizState } from "@/hooks/useApi";
 import QuestionBody, { isImageQuestion } from "@/components/QuestionBody";
 
+function formatTime(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
 const OPTIONS = ["A", "B", "C", "D"] as const;
 type Option = typeof OPTIONS[number];
 
@@ -101,6 +107,9 @@ export default function PracticeScreen() {
   const [numericInput, setNumericInput] = useState("");
   const [matchingSelections, setMatchingSelections] = useState<Record<string, string>>({});
   const [dropdownInput, setDropdownInput] = useState("");
+  const [timerSecondsLeft, setTimerSecondsLeft] = useState<number | null>(null);
+  const [timerVisible, setTimerVisible] = useState(true);
+  const timerInitialized = useRef(false);
 
   const { data: questions, isLoading } = useQuery({
     queryKey: ["questions", topicId],
@@ -113,6 +122,20 @@ export default function PracticeScreen() {
     queryFn: () => api.getQuizState(user!.id, Number(topicId)),
     enabled: !!topicId && !!user?.id,
   });
+
+  useEffect(() => {
+    if (questions && questions.length > 0 && !timerInitialized.current) {
+      timerInitialized.current = true;
+      const totalSecs = questions.reduce((sum, q) => sum + Math.round((q.timeLimitMinutes ?? 0) * 60), 0);
+      if (totalSecs > 0) setTimerSecondsLeft(totalSecs);
+    }
+  }, [questions]);
+
+  useEffect(() => {
+    if (timerSecondsLeft === null || timerSecondsLeft <= 0) return;
+    const id = setTimeout(() => setTimerSecondsLeft(s => (s ?? 1) - 1), 1000);
+    return () => clearTimeout(id);
+  }, [timerSecondsLeft]);
 
   useEffect(() => {
     if (!stateLoading && quizState !== undefined) {
@@ -359,6 +382,38 @@ export default function PracticeScreen() {
         </View>
       </View>
 
+      {timerSecondsLeft !== null && (
+        <View style={[styles.timerBar, timerSecondsLeft < 60 && styles.timerBarUrgent]}>
+          <Ionicons
+            name="timer-outline"
+            size={16}
+            color={timerSecondsLeft < 60 ? "#DC2626" : Colors.light.primary}
+          />
+          {timerVisible ? (
+            <>
+              <Text style={[styles.timerText, timerSecondsLeft < 60 && styles.timerTextUrgent]}>
+                {formatTime(timerSecondsLeft)}
+              </Text>
+              <Text style={[styles.timerLabel, timerSecondsLeft < 60 && styles.timerLabelUrgent]}>
+                remaining
+              </Text>
+            </>
+          ) : (
+            <Text style={styles.timerLabel}>Timer hidden</Text>
+          )}
+          <Pressable
+            style={styles.timerToggle}
+            onPress={() => setTimerVisible(v => !v)}
+          >
+            <Ionicons
+              name={timerVisible ? "eye-off-outline" : "eye-outline"}
+              size={15}
+              color={Colors.light.textMuted}
+            />
+          </Pressable>
+        </View>
+      )}
+
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom + 20, 40) }]}
@@ -568,6 +623,13 @@ export default function PracticeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.light.background },
+  timerBar: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 16, paddingVertical: 8, backgroundColor: Colors.light.primary + "10", borderBottomWidth: 1, borderBottomColor: Colors.light.primary + "20" },
+  timerBarUrgent: { backgroundColor: "#FEE2E2", borderBottomColor: "#FCA5A5" },
+  timerText: { fontSize: 15, fontFamily: "Inter_700Bold", color: Colors.light.primary },
+  timerTextUrgent: { color: "#DC2626" },
+  timerLabel: { flex: 1, fontSize: 11, fontFamily: "Inter_400Regular", color: Colors.light.textMuted },
+  timerLabelUrgent: { color: "#DC2626" },
+  timerToggle: { width: 28, height: 28, borderRadius: 8, backgroundColor: Colors.light.backgroundSecondary, alignItems: "center", justifyContent: "center" },
   header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingBottom: 12, paddingTop: 8, gap: 12 },
   closeBtn: { width: 38, height: 38, borderRadius: 12, backgroundColor: Colors.light.backgroundSecondary, alignItems: "center", justifyContent: "center" },
   headerTopicName: { flex: 1, fontSize: 15, fontFamily: "Inter_600SemiBold", color: Colors.light.text, textAlign: "center" },

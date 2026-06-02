@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -132,6 +132,12 @@ function ReviewCard({ question, userAnswers, index }: { question: Question; user
   );
 }
 
+function formatTime(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
 // ── Main screen ────────────────────────────────────────────────────────────
 export default function CustomPracticeScreen() {
   const { chapterIds, limit, testName, difficulty } = useLocalSearchParams<{ chapterIds: string; limit: string; testName: string; difficulty: string }>();
@@ -149,12 +155,34 @@ export default function CustomPracticeScreen() {
   const [numericInput, setNumericInput] = useState("");
   const [matchingSelections, setMatchingSelections] = useState<Record<string, string>>({});
   const [dropdownInput, setDropdownInput] = useState("");
+  const [timerSecondsLeft, setTimerSecondsLeft] = useState<number | null>(null);
+  const timerInitialized = useRef(false);
 
   const { data: questions, isLoading } = useQuery({
     queryKey: ["custom-questions", chapterIds, limit, difficulty],
     queryFn: () => api.getCustomQuestions(chapterIds ?? "", limit ? parseInt(limit) : undefined, difficulty ?? "mixed"),
     enabled: !!chapterIds,
   });
+
+  useEffect(() => {
+    if (questions && questions.length > 0 && !timerInitialized.current) {
+      timerInitialized.current = true;
+      const totalSecs = questions.reduce((sum, q) => sum + Math.round((q.timeLimitMinutes ?? 0) * 60), 0);
+      if (totalSecs > 0) setTimerSecondsLeft(totalSecs);
+    }
+  }, [questions]);
+
+  useEffect(() => {
+    if (timerSecondsLeft === null || timerSecondsLeft <= 0) return;
+    const id = setTimeout(() => setTimerSecondsLeft(s => (s ?? 1) - 1), 1000);
+    return () => clearTimeout(id);
+  }, [timerSecondsLeft]);
+
+  useEffect(() => {
+    if (timerSecondsLeft === 0 && screen === "quiz") {
+      setScreen("review");
+    }
+  }, [timerSecondsLeft, screen]);
 
   const totalQuestions = questions?.length ?? 0;
   const currentQuestion: Question | undefined = questions?.[currentIndex];
@@ -379,6 +407,22 @@ export default function CustomPracticeScreen() {
         </View>
       </View>
 
+      {timerSecondsLeft !== null && (
+        <View style={[styles.timerBar, timerSecondsLeft < 60 && styles.timerBarUrgent]}>
+          <Ionicons
+            name="timer-outline"
+            size={16}
+            color={timerSecondsLeft < 60 ? "#DC2626" : Colors.light.primary}
+          />
+          <Text style={[styles.timerText, timerSecondsLeft < 60 && styles.timerTextUrgent]}>
+            {formatTime(timerSecondsLeft)}
+          </Text>
+          <Text style={[styles.timerLabel, timerSecondsLeft < 60 && styles.timerLabelUrgent]}>
+            remaining — test auto-submits at 0:00
+          </Text>
+        </View>
+      )}
+
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom + 20, 40) }]}
@@ -586,6 +630,12 @@ export default function CustomPracticeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.light.background },
+  timerBar: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 16, paddingVertical: 8, backgroundColor: Colors.light.primary + "10", borderBottomWidth: 1, borderBottomColor: Colors.light.primary + "20" },
+  timerBarUrgent: { backgroundColor: "#FEE2E2", borderBottomColor: "#FCA5A5" },
+  timerText: { fontSize: 15, fontFamily: "Inter_700Bold", color: Colors.light.primary },
+  timerTextUrgent: { color: "#DC2626" },
+  timerLabel: { flex: 1, fontSize: 11, fontFamily: "Inter_400Regular", color: Colors.light.textMuted },
+  timerLabelUrgent: { color: "#DC2626" },
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12, backgroundColor: Colors.light.background },
   loadingText: { fontSize: 14, fontFamily: "Inter_400Regular", color: Colors.light.textSecondary },
   emptyTitle: { fontSize: 20, fontFamily: "Inter_700Bold", color: Colors.light.text },

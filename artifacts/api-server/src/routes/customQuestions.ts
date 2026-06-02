@@ -111,6 +111,7 @@ router.get("/", async (req, res) => {
         questionType: questionsTable.questionType,
         difficulty: questionsTable.difficulty,
         marks: questionsTable.marks,
+        timeLimitMinutes: questionsTable.timeLimitMinutes,
       })
       .from(questionsTable)
       .innerJoin(topicsTable, eq(questionsTable.topicId, topicsTable.id))
