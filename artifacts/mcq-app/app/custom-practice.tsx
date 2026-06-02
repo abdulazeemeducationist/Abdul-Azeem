@@ -167,8 +167,8 @@ export default function CustomPracticeScreen() {
   useEffect(() => {
     if (questions && questions.length > 0 && !timerInitialized.current) {
       timerInitialized.current = true;
-      const totalSecs = questions.reduce((sum, q) => sum + Math.round((q.timeLimitMinutes ?? 0) * 60), 0);
-      if (totalSecs > 0) setTimerSecondsLeft(totalSecs);
+      const totalSecs = questions.reduce((sum, q) => sum + Math.round((q.timeLimitMinutes ?? 1.5) * 60), 0);
+      setTimerSecondsLeft(totalSecs);
     }
   }, [questions]);
 
